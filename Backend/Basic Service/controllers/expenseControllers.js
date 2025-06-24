@@ -1,7 +1,7 @@
 "use strict";
 
 const { pool } = require("../config/db");
-const expenseSchema = require("../services/ExpenseInputValidation"); //importing schema checking object for input validation
+const expenseSchema = require("../services/InputValidation"); //importing schema checking object for input validation
 
 // FOREIGN KEY (userId) REFERENCES users(userId) ON DELETE CASCADE (have to add to the table)
 pool.query(
