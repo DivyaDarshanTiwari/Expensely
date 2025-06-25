@@ -35,7 +35,7 @@ exports.addIncome = async (req, res) => {
 
   const { userId, amount, category, description } = req.body;
 
-  console.log(userId, amount, category, description);
+  // console.log(userId, amount, category, description);
 
   try {
     if (!userId || !amount || !category) {
@@ -75,7 +75,7 @@ exports.getAllIncome = async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT * FROM INCOME WHERE userId = $1 ORDER BY createdAt DESC`,
+      `SELECT incomeId, amount, category, description, createdAt FROM INCOME WHERE userId = $1 ORDER BY createdAt DESC`,
       [userId]
     );
 
