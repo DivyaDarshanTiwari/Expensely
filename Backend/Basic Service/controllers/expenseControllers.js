@@ -37,8 +37,6 @@ const addExpense = async (req, res) => {
 
   const { userId, amount, category, description } = req.body;
 
-  console.log(userId, amount, category, description);
-
   try {
     if (!userId || !amount || !category) {
       return res.status(400).json({ error: "Missing required fields" });
@@ -53,11 +51,12 @@ const addExpense = async (req, res) => {
     );
 
     const expense = result.rows[0];
+    console.log(expense);
 
     res.status(201).json({
       message: "Expense added",
       expense: {
-        expenseId: expense.expenseId,
+        expenseId: expense.expenseid,
         amount: expense.amount,
         category: expense.category,
         description: expense.description || null,
@@ -85,9 +84,17 @@ const getAllExpense = async (req, res) => {
       [userId]
     );
 
+    const expenses = result.rows.map((expense) => ({
+      expenseid: expense.expenseid,
+      amount: expense.amount,
+      category: expense.category,
+      createdat: expense.createdat,
+      description: expense.description,
+    }));
+
     res.status(200).json({
       message: "All expenses fetched successfully",
-      expenses: result.rows,
+      expenses: expenses,
     });
   } catch (err) {
     console.error("❌ Error fetching expenses:", err);
