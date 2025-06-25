@@ -52,7 +52,7 @@ exports.addIncome = async (req, res) => {
     res.status(201).json({
       message: "Income added",
       income: {
-        incomeId: income.incomeId,
+        incomeId: income.incomeid,
         amount: income.amount,
         category: income.category,
         description: income.description || null,
