@@ -22,7 +22,7 @@ export default function ExpenseList() {
   return (
     <View>
       {expenses.map((exp) => (
-        <View key={exp.expenseid} style={styles.card}>
+        <View key ={exp.expenseid} style={styles.card}>
           <Text>{exp.category}</Text>
           <Text>₹ {exp.amount}</Text>
         </View>
