@@ -3,6 +3,7 @@ require("dotenv").config();
 const Express = require("express");
 const { pool } = require("./config/db");
 const expenseRoutes = require("./routes/expenseRoutes");
+const incomeRoutes = require("./routes/incomeRoutes");
 const morgan = require("morgan");
 const cors = require("cors");
 
@@ -24,5 +25,7 @@ pool.query("SELECT NOW()", (err, res) => {
 
 //used to register the expense route(any route starting with this will enter the expneseRoutes)
 app.use("/api/v1/expense", expenseRoutes);
+
+app.use("/api/v1/income", incomeRoutes);
 
 module.exports = { app };

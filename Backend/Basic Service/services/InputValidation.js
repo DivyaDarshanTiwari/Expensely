@@ -1,4 +1,5 @@
 //USED ZOD for input validation for the addExpense
+// also used for addIncome
 const z = require("zod");
 
 const expenseSchema = z.object({
