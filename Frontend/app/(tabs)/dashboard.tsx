@@ -11,7 +11,7 @@ import RecentTransactions from "../../components/home/RecentTransactions";
 import FinancialOverviewChart from "../../components/Charts/FinancialOverviewChart";
 import ExpenseList from "../../components/Expense/ExpenseList";
 import ExpenseChart from "../../components/Charts/ExpenseChart";
-import IncomeChart from "../../components/Income/IncomeChart";
+import IncomeChart from "../../components/Charts/IncomeChart";
 import IncomeList from "../../components/Income/IncomeList";
 import { useRouter } from "expo-router";
 
