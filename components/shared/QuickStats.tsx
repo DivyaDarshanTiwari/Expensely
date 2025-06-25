@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from "react-native";
 
 export default function QuickStats() {
   return (
@@ -17,27 +17,27 @@ export default function QuickStats() {
 
 const styles = StyleSheet.create({
   row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 20,
   },
   card: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     paddingVertical: 24,
     paddingHorizontal: 16,
     borderRadius: 14,
     marginHorizontal: 6,
-    elevation: 3
+    elevation: 3,
   },
   label: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 8
+    color: "#666",
+    marginBottom: 8,
   },
   value: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#007AFF'
-  }
+    fontWeight: "700",
+    color: "#007AFF",
+  },
 });

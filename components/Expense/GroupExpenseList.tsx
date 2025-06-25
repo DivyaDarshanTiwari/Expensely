@@ -1,13 +1,13 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from "react-native";
 
 export default function GroupExpenseList() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Group Expenses</Text>
       {[
-        { name: 'Trip to Goa', amount: '₹4,500' },
-        { name: 'Roommates', amount: '₹3,200' },
-        { name: 'Office Lunch', amount: '₹2,100' }
+        { name: "Trip to Goa", amount: "₹4,500" },
+        { name: "Roommates", amount: "₹3,200" },
+        { name: "Office Lunch", amount: "₹2,100" },
       ].map((item, index) => (
         <View style={styles.item} key={index}>
           <Text style={styles.name}>{item.name}</Text>
@@ -20,29 +20,29 @@ export default function GroupExpenseList() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 16,
     borderRadius: 12,
-    marginBottom: 20
+    marginBottom: 20,
   },
   title: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 12
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 12,
   },
   item: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 8,
   },
   name: {
     fontSize: 14,
-    color: '#444'
+    color: "#444",
   },
   amount: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#007AFF'
-  }
+    fontWeight: "600",
+    color: "#007AFF",
+  },
 });

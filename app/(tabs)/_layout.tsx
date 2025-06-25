@@ -1,10 +1,10 @@
-import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from 'react-native';
-import { Colors } from '../../constants/Colors';
+import { Tabs } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useColorScheme } from "react-native";
+import { Colors } from "../../constants/Colors";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const colorScheme = useColorScheme() ?? "light";
 
   return (
     <Tabs
@@ -14,43 +14,53 @@ export default function TabLayout() {
         tabBarInactiveTintColor: Colors[colorScheme].tabIconDefault,
         tabBarStyle: {
           backgroundColor: Colors[colorScheme].background,
-          borderTopColor: Colors[colorScheme].icon,  // subtle border for tab bar
+          borderTopColor: Colors[colorScheme].icon, // subtle border for tab bar
         },
       }}
     >
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color }) => <Ionicons name="home-outline" size={22} color={color} />,
+          title: "Dashboard",
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="home-outline" size={22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <Ionicons name="search-outline" size={22} color={color} />,
+          title: "Explore",
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="search-outline" size={22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="recent-expenses"
         options={{
-          title: 'Recent',
-          tabBarIcon: ({ color }) => <Ionicons name="list-outline" size={22} color={color} />,
+          title: "Recent",
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="list-outline" size={22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="reports"
         options={{
-          title: 'Reports',
-          tabBarIcon: ({ color }) => <Ionicons name="bar-chart-outline" size={22} color={color} />,
+          title: "Reports",
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="bar-chart-outline" size={22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => <Ionicons name="person-outline" size={22} color={color} />,
+          title: "Profile",
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="person-outline" size={22} color={color} />
+          ),
         }}
       />
     </Tabs>

@@ -1,12 +1,12 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { PieChart } from 'react-native-gifted-charts';
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { PieChart } from "react-native-gifted-charts";
 
 const IncomeChart = () => {
   const data = [
-    { value: 50000, color: '#4caf50', text: 'Salary' },
-    { value: 10000, color: '#2196f3', text: 'Freelance' },
-    { value: 5000, color: '#ff9800', text: 'Investments' },
+    { value: 50000, color: "#4caf50", text: "Salary" },
+    { value: 10000, color: "#2196f3", text: "Freelance" },
+    { value: 5000, color: "#ff9800", text: "Investments" },
   ];
 
   return (
@@ -28,20 +28,20 @@ export default IncomeChart;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 12,
     borderRadius: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 3,
     elevation: 2,
     marginBottom: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   header: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 8,
   },
 });

@@ -1,30 +1,50 @@
-import { View, Text, StyleSheet, Image, ScrollView, useColorScheme } from 'react-native';
-import { Colors } from '../../constants/Colors';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  ScrollView,
+  useColorScheme,
+} from "react-native";
+import { Colors } from "../../constants/Colors";
 
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
-  const themeColors = Colors[colorScheme ?? 'light'];
+  const themeColors = Colors[colorScheme ?? "light"];
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: themeColors.background }]}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: themeColors.background }]}
+    >
       <View style={styles.header}>
         <Image
-          source={{ uri: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSjHNf3WkJp7E5H7BR86f5RYuPQ50iBl9_b6A&s' }}
+          source={{
+            uri: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSjHNf3WkJp7E5H7BR86f5RYuPQ50iBl9_b6A&s",
+          }}
           style={styles.avatar}
         />
-        <Text style={[styles.name, { color: themeColors.text }]}>Rakshita Garg</Text>
-        <Text style={[styles.email, { color: themeColors.icon }]}>Rakshitagarg08@gmail.com</Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>About</Text>
-        <Text style={[styles.sectionContent, { color: themeColors.icon }]}>
-          A passionate software developer building awesome apps with React Native and Expo.
+        <Text style={[styles.name, { color: themeColors.text }]}>
+          Rakshita Garg
+        </Text>
+        <Text style={[styles.email, { color: themeColors.icon }]}>
+          Rakshitagarg08@gmail.com
         </Text>
       </View>
 
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Settings</Text>
+        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+          About
+        </Text>
+        <Text style={[styles.sectionContent, { color: themeColors.icon }]}>
+          A passionate software developer building awesome apps with React
+          Native and Expo.
+        </Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+          Settings
+        </Text>
         <Text style={[styles.sectionContent, { color: themeColors.icon }]}>
           - Dark mode: {colorScheme}
           {"\n"}- Notifications: Enabled
@@ -39,7 +59,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 32,
     marginBottom: 24,
   },
@@ -51,11 +71,11 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   email: {
     fontSize: 14,
-    color: '#777',
+    color: "#777",
   },
   section: {
     paddingHorizontal: 24,
@@ -63,7 +83,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 6,
   },
   sectionContent: {

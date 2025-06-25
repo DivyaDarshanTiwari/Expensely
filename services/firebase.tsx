@@ -1,5 +1,5 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "YOUR-API-KEY",
@@ -7,7 +7,7 @@ const firebaseConfig = {
   projectId: "YOUR-PROJECT-ID",
   storageBucket: "YOUR-PROJECT.appspot.com",
   messagingSenderId: "YOUR-SENDER-ID",
-  appId: "YOUR-APP-ID"
+  appId: "YOUR-APP-ID",
 };
 
 const app = initializeApp(firebaseConfig);

@@ -1,17 +1,24 @@
 // app/(tabs)/recent-expenses.tsx
-import { View, Text, TextInput, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+} from "react-native";
 
 const dummyExpenses = [
-  { id: '1', category: 'Food', amount: 25.99, date: '2025-06-20' },
-  { id: '2', category: 'Travel', amount: 120.00, date: '2025-06-19' },
-  { id: '3', category: 'Shopping', amount: 75.50, date: '2025-06-18' },
+  { id: "1", category: "Food", amount: 25.99, date: "2025-06-20" },
+  { id: "2", category: "Travel", amount: 120.0, date: "2025-06-19" },
+  { id: "3", category: "Shopping", amount: 75.5, date: "2025-06-18" },
 ];
 
 export default function RecentExpensesScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Recent Expenses</Text>
-      
+
       <TextInput
         placeholder="Search..."
         style={styles.searchInput}
@@ -41,34 +48,38 @@ export default function RecentExpensesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f9f9f9', padding: 16 },
-  title: { fontSize: 26, fontWeight: '600', color: '#333', marginBottom: 12 },
+  container: { flex: 1, backgroundColor: "#f9f9f9", padding: 16 },
+  title: { fontSize: 26, fontWeight: "600", color: "#333", marginBottom: 12 },
   searchInput: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   item: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 8,
     padding: 14,
     marginBottom: 12,
     elevation: 3, // shadow for Android / Expo Go
   },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  itemCategory: { fontSize: 16, fontWeight: '500', color: '#333' },
-  itemAmount: { fontSize: 16, fontWeight: '600', color: '#007AFF' },
-  itemDate: { fontSize: 12, color: '#888', marginTop: 4 },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  itemCategory: { fontSize: 16, fontWeight: "500", color: "#333" },
+  itemAmount: { fontSize: 16, fontWeight: "600", color: "#007AFF" },
+  itemDate: { fontSize: 12, color: "#888", marginTop: 4 },
   filterButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: "#007AFF",
     paddingVertical: 14,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 16,
   },
-  filterText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  filterText: { color: "#fff", fontWeight: "600", fontSize: 16 },
 });
