@@ -51,11 +51,12 @@ const addExpense = async (req, res) => {
     );
 
     const expense = result.rows[0];
+    console.log(expense);
 
     res.status(201).json({
       message: "Expense added",
       expense: {
-        expenseId: expense.expenseId,
+        expenseId: expense.expenseid,
         amount: expense.amount,
         category: expense.category,
         description: expense.description || null,
