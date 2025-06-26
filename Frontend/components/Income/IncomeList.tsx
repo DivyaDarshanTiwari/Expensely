@@ -1,18 +1,31 @@
-import React from "react";
+import axios from "axios";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 
 export default function IncomeList() {
-  const incomes = [
-    { id: 1, title: "Salary", amount: "₹20,000" },
-    { id: 2, title: "Freelance", amount: "₹5,000" },
-  ];
+  const [incomes, setIncomes] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetcheIncome = async () => {
+      try {
+        const response = await axios.get(
+          "http://localhost:8080/api/v1/income/getAll/1"
+        );
+        setIncomes(response.data.expenses);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetcheIncome();
+  }, []);
+  
 
   return (
     <View>
       {incomes.map((inc) => (
         <View key={inc.id} style={styles.card}>
-          <Text>{inc.title}</Text>
-          <Text>{inc.amount}</Text>
+          <Text>{inc.category}</Text>
+          <Text>₹ {inc.amount}</Text>
         </View>
       ))}
     </View>
