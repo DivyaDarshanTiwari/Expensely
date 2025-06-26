@@ -3,27 +3,6 @@
 const { pool } = require("../config/db");
 const expenseSchema = require("../services/InputValidation"); //importing schema checking object for input validation
 
-// FOREIGN KEY (userId) REFERENCES users(userId) ON DELETE CASCADE (have to add to the table)
-pool.query(
-  `
-  CREATE TABLE IF NOT EXISTS EXPENSE (
-    expenseId SERIAL PRIMARY KEY,
-    userId INTEGER NOT NULL,
-    amount NUMERIC(10, 2) NOT NULL,
-    category VARCHAR(100) NOT NULL,
-    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    description VARCHAR(100)
-  );
-`,
-  (err, res) => {
-    if (err) {
-      console.error("❌ Error creating expense table:", err);
-    } else {
-      console.log("✅ Expense table created or already exists");
-    }
-  }
-);
-
 //Add expense
 const addExpense = async (req, res) => {
   const validatedData = expenseSchema.safeParse(req.body);
@@ -48,6 +27,15 @@ const addExpense = async (req, res) => {
        VALUES ($1, $2, $3,$4) RETURNING *
         `,
       [userId, amount, category, description]
+    );
+
+    await pool.query(
+      `
+        UPDATE account
+        SET totalExpense = totalExpense + $1
+        WHERE userId = $2
+      `,
+      [amount, userId]
     );
 
     const expense = result.rows[0];
@@ -112,9 +100,21 @@ const deleteExpense = async (req, res) => {
       [id]
     );
 
+    
     if (result.rowCount === 0) {
       return res.status(404).json({ message: "Expense not found" });
     }
+    
+    const amount = result.rows[0].amount;
+    // console.log(result.rows[0]);
+    await pool.query(
+      `
+        UPDATE account
+        SET totalExpense = totalExpense - $1
+        WHERE userId = $2
+      `,
+      [amount, result.rows[0].userid]
+    );
 
     res.status(200).json({
       message: "Expense deleted successfully",

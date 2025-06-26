@@ -1,19 +1,7 @@
 "use strict";
+
 require("dotenv").config();
-const Express = require("express");
 const { pool } = require("./config/db");
-const expenseRoutes = require("./routes/expenseRoutes");
-const incomeRoutes = require("./routes/incomeRoutes");
-const morgan = require("morgan");
-const cors = require("cors");
-
-const app = Express();
-
-// Middleware
-app.use(Express.json()); // To parse JSON
-app.use(morgan("dev")); // Log HTTP requests
-app.use(cors());
-
 // check everytime if there is a connetion establised with the database
 pool.query("SELECT NOW()", (err, res) => {
   if (err) {
@@ -22,6 +10,31 @@ pool.query("SELECT NOW()", (err, res) => {
     console.log("✅ Connected to the database at:", res.rows[0].now);
   }
 });
+
+const Express = require("express");
+const morgan = require("morgan");
+const cors = require("cors");
+
+const app = Express();
+
+const incomeRoutes = require("./routes/incomeRoutes");
+const expenseRoutes = require("./routes/expenseRoutes");
+const {
+  accountTable,
+  expenseTable,
+  incomeTable,
+} = require("./services/TableCreation");
+
+// Middleware
+app.use(Express.json()); // To parse JSON
+app.use(morgan("dev")); // Log HTTP requests
+app.use(cors());
+
+// Will be shifted to UserController once Authentication part is done
+accountTable();
+
+expenseTable();
+incomeTable();
 
 //used to register the expense route(any route starting with this will enter the expneseRoutes)
 app.use("/api/v1/expense", expenseRoutes);
