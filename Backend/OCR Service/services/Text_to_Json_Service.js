@@ -19,7 +19,6 @@ ${text}
 """
 `,
   });
-  console.log(response.text);
   const cleanText = response.text.replace(/```json|```/g, "").trim();
   const jsonData = JSON.parse(cleanText);
   return jsonData;
