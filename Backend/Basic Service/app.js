@@ -19,6 +19,7 @@ const app = Express();
 
 const incomeRoutes = require("./routes/incomeRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
 const {
   accountTable,
   expenseTable,
@@ -40,5 +41,7 @@ incomeTable();
 app.use("/api/v1/expense", expenseRoutes);
 
 app.use("/api/v1/income", incomeRoutes);
+
+app.use("/api/v1/account", dashboardRoutes);
 
 module.exports = { app };
