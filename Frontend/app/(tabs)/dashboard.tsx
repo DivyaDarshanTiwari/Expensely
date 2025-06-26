@@ -14,9 +14,31 @@ import ExpenseChart from "../../components/Charts/ExpenseChart";
 import IncomeChart from "../../components/Charts/IncomeChart";
 import IncomeList from "../../components/Income/IncomeList";
 import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import axios from "axios";
 
 export default function DashboardScreen() {
+  const [totalExpense, setTotalExpense] = useState(0.0);
+  const [totalIncome, setTotalIncome] = useState(0.0);
   const router = useRouter();
+
+  useEffect(() => {
+    const fetchAmounts = async () => {
+      try {
+        const response = await axios.get(
+          "http://localhost:8080/api/v1/account/getDashboard/1"
+        );
+        if (response) {
+          console.log(response);
+          setTotalExpense(response.data.data.totalExpense);
+          setTotalIncome(response.data.data.totalIncome);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchAmounts();
+  }, [totalExpense, totalIncome]);
 
   return (
     <ScrollView
@@ -36,9 +58,12 @@ export default function DashboardScreen() {
 
       {/* Summary */}
       <View style={styles.summaryRow}>
-        <SummaryCard title="Total Income" amount="₹25,000" />
-        <SummaryCard title="Balance" amount="₹10,000" />
-        <SummaryCard title="Total Expense" amount="₹15,000" />
+        <SummaryCard title="Total Income" amount={`₹ ${totalIncome}`} />
+        <SummaryCard
+          title="Balance"
+          amount={`₹ ${totalIncome - totalExpense}`}
+        />
+        <SummaryCard title="Total Expense" amount={`₹ ${totalExpense}`} />
       </View>
 
       {/* Grid 1 */}
