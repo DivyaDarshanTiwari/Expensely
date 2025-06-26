@@ -1,5 +1,6 @@
 "use strict";
 const Tesseract = require("tesseract.js");
+const { googleAPI } = require("../services/testing");
 
 const ocrFunction = (req, res) => {
   if (!req.file) {
@@ -7,13 +8,15 @@ const ocrFunction = (req, res) => {
   }
   Tesseract.recognize(
     req.file.buffer,
-    "eng", // language
-    { logger: (m) => console.log(m) }
+    "eng" // language
   )
     .then((result) => {
       console.log(result.data.text);
-      res.status(200).json({
-        message: result.data.text,
+      const formated_data = googleAPI(result.data.text);
+      formated_data.then((data) => {
+        res.status(200).json({
+          message: data,
+        });
       });
     })
     .catch((err) => {
