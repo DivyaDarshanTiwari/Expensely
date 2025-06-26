@@ -81,7 +81,7 @@ exports.getAllIncome = async (req, res) => {
 
     res.status(200).json({
       message: "All incomes fetched successfully",
-      expenses: result.rows,
+      incomes: result.rows,
     });
   } catch (err) {
     console.error("Error getting all income : ", err);

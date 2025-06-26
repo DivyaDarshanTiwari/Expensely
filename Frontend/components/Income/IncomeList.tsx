@@ -11,7 +11,7 @@ export default function IncomeList() {
         const response = await axios.get(
           "http://localhost:8080/api/v1/income/getAll/1"
         );
-        setIncomes(response.data.expenses);
+        setIncomes(response.data.incomes);
       } catch (err) {
         console.error(err);
       }
