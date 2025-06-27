@@ -11,7 +11,7 @@ exports.expenseTable = () => {
     amount NUMERIC(10, 2) NOT NULL,
     category VARCHAR(100) NOT NULL,
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    description VARCHAR(100)
+    description VARCHAR(1000)
   );
 `,
     (err, res) => {
@@ -33,7 +33,7 @@ exports.incomeTable = () => {
         amount NUMERIC(10, 2) NOT NULL,
         category VARCHAR(100) NOT NULL,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        description VARCHAR(100)
+        description VARCHAR(1000)
     );
     `,
     (err, res) => {
