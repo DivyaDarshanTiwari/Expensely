@@ -20,6 +20,6 @@ const upload = multer({
 
 const router = express.Router();
 
-router.post("/get/json", upload.single("bill"), ocrFunction);
+router.post("/get/json/:userId", upload.single("bill"), ocrFunction);
 
 module.exports = router;

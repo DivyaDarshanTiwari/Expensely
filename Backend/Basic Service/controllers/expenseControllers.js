@@ -8,19 +8,18 @@ const addExpense = async (req, res) => {
   const validatedData = expenseSchema.safeParse(req.body);
 
   if (!validatedData.success) {
+    console.log(validatedData.error.issues);
     return res.status(400).json({
       error: "Validation failed",
       details: validatedData.error.issues,
     });
   }
-
   const { userId, amount, category, description } = req.body;
 
   try {
     if (!userId || !amount || !category) {
       return res.status(400).json({ error: "Missing required fields" });
     }
-
     const result = await pool.query(
       `
         INSERT INTO expense (userId, amount, category,description) 
@@ -39,7 +38,6 @@ const addExpense = async (req, res) => {
     );
 
     const expense = result.rows[0];
-    console.log(expense);
 
     res.status(201).json({
       message: "Expense added",
@@ -100,13 +98,11 @@ const deleteExpense = async (req, res) => {
       [id]
     );
 
-    
     if (result.rowCount === 0) {
       return res.status(404).json({ message: "Expense not found" });
     }
-    
+
     const amount = result.rows[0].amount;
-    // console.log(result.rows[0]);
     await pool.query(
       `
         UPDATE account
