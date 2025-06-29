@@ -84,7 +84,7 @@ export default function DashboardScreen() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Expenses</Text>
             <TouchableOpacity
-              onPress={() => router.push("/(tabs)/recent-expenses")}
+              onPress={() => router.push("../screens/recent-expenses.tsx")}
             >
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
