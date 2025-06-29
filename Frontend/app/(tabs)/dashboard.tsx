@@ -26,7 +26,7 @@ export default function DashboardScreen() {
     const fetchAmounts = async () => {
       try {
         const response = await axios.get(
-          "http://localhost:8080/api/v1/account/getDashboard/1"
+          "https://zp5k3bcx-8080.inc1.devtunnels.ms//api/v1/account/getDashboard/1"
         );
         if (response) {
           console.log(response);
@@ -84,7 +84,7 @@ export default function DashboardScreen() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Expenses</Text>
             <TouchableOpacity
-              onPress={() => router.push("/(tabs)/recent-expenses")}
+              onPress={() => router.push("../screens/recent-expenses.tsx")}
             >
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>

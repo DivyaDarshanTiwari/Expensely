@@ -14,7 +14,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: Colors[colorScheme].tabIconDefault,
         tabBarStyle: {
           backgroundColor: Colors[colorScheme].background,
-          borderTopColor: Colors[colorScheme].icon, // subtle border for tab bar
+          borderTopColor: Colors[colorScheme].icon,
         },
       }}
     >
@@ -36,12 +36,21 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
+      {/* <Tabs.Screen
         name="recent-expenses"
         options={{
           title: "Recent",
           tabBarIcon: ({ color }) => (
             <Ionicons name="list-outline" size={22} color={color} />
+          ),
+        }}
+      /> */}
+      <Tabs.Screen
+        name="ocr"
+        options={{
+          title: "OCR",
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="camera-outline" size={22} color={color} />
           ),
         }}
       />
