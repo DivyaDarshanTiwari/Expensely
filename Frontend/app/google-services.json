@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "595378920015",
+    "project_id": "expensely-95538",
+    "storage_bucket": "expensely-95538.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:595378920015:android:df0d54d2c71c36cc5d683a",
+        "android_client_info": {
+          "package_name": "com.application.expensely"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyApIzI2cMvwYqiCIIMjwZBWTdEqe_OfpqQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
