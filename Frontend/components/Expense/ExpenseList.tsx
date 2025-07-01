@@ -9,7 +9,7 @@ export default function ExpenseList() {
     const fetcheExpense = async () => {
       try {
         const response = await axios.get(
-          "http://localhost:8080/api/v1/expense/getAll/1"
+          "https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/expense/getAll/1"
         );
         setExpenses(response.data.expenses);
       } catch (err) {
@@ -22,7 +22,7 @@ export default function ExpenseList() {
   return (
     <View>
       {expenses.map((exp) => (
-        <View key ={exp.expenseid} style={styles.card}>
+        <View key={exp.expenseid} style={styles.card}>
           <Text>{exp.category}</Text>
           <Text>₹ {exp.amount}</Text>
         </View>
