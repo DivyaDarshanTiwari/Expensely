@@ -232,7 +232,7 @@ export default function CameraUploadScreen() {
       } as any);
 
       const response = await axios.post(
-        "https://zp5k3bcx-8082.inc1.devtunnels.ms/api/v1/ocr/get/json/13",
+        "https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/ocr/get/json/13",
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },

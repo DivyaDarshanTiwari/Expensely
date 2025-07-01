@@ -26,7 +26,7 @@ export default function DashboardScreen() {
     const fetchAmounts = async () => {
       try {
         const response = await axios.get(
-          "https://zp5k3bcx-8080.inc1.devtunnels.ms//api/v1/account/getDashboard/1"
+          "https://07ttqbzs-8080.inc1.devtunnels.ms/api/v1/account/getDashboard/1"
         );
         if (response) {
           console.log(response);
