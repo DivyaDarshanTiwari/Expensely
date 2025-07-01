@@ -13,11 +13,11 @@ const ocrFunction = async (req, res) => {
         .status(400)
         .json({ error: "userId is required and it should be number" });
     }
-
     if (!req.file) {
       return res.status(400).json({ error: "File is required" });
     }
 
+    console.log(userId);
     // Perform OCR on the uploaded image
     const ocrResult = await Tesseract.recognize(req.file.buffer, "eng");
     const extractedText = ocrResult.data.text;
@@ -25,17 +25,20 @@ const ocrFunction = async (req, res) => {
     // Convert extracted text to structured JSON using your Google API service
     const formattedData = await googleAPI(extractedText);
 
+    console.log(formattedData);
     // Post the formatted data to your expense service
-    const response = await axios.post(process.env.EXPENSE_API_URL, {
-      userId: parseInt(userId),
-      amount: formattedData.total_amount,
-      category: formattedData.category,
-      description: formattedData.description,
-    });
+    // const response = await axios.post(process.env.EXPENSE_API_URL, {
+    //   userId: parseInt(userId),
+    //   amount: formattedData.total_amount,
+    //   category: formattedData.category,m
+    //   description: formattedData.description,
+    // });
+
+    // console.log(formattedData);
 
     res.status(200).json({
       message: "Data processed and expense entry created successfully.",
-      expense: response.data.expense,
+      expense: formattedData,
     });
   } catch (error) {
     if (error.response) {
