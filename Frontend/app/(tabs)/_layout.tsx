@@ -1,20 +1,29 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useColorScheme } from "react-native";
-import { Colors } from "../../constants/Colors";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme() ?? "light";
-
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors[colorScheme].tabIconSelected,
-        tabBarInactiveTintColor: Colors[colorScheme].tabIconDefault,
+        tabBarActiveTintColor: "#7C3AED", // purple
+        tabBarInactiveTintColor: "#9CA3AF", // gray
         tabBarStyle: {
-          backgroundColor: Colors[colorScheme].background,
-          borderTopColor: Colors[colorScheme].icon,
+          backgroundColor: "#000",
+          borderTopLeftRadius: 18,
+          borderTopRightRadius: 18,
+          height: 60,
+          borderTopColor: "transparent",
+          elevation: 10,
+          shadowColor: "#A78BFA",
+          shadowOpacity: 0.2,
+          shadowOffset: { width: 0, height: -1 },
+          shadowRadius: 6,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: "500",
+          paddingBottom: 2,
         },
       }}
     >
@@ -36,15 +45,6 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* <Tabs.Screen
-        name="recent-expenses"
-        options={{
-          title: "Recent",
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="list-outline" size={22} color={color} />
-          ),
-        }}
-      /> */}
       <Tabs.Screen
         name="ocr"
         options={{
@@ -60,15 +60,6 @@ export default function TabLayout() {
           title: "Reports",
           tabBarIcon: ({ color }) => (
             <Ionicons name="bar-chart-outline" size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="person-outline" size={22} color={color} />
           ),
         }}
       />

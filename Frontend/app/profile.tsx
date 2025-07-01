@@ -1,3 +1,4 @@
+import { Colors } from "@/constants/Colors";
 import {
   View,
   Text,
@@ -6,7 +7,6 @@ import {
   ScrollView,
   useColorScheme,
 } from "react-native";
-import { Colors } from "../../constants/Colors";
 
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
