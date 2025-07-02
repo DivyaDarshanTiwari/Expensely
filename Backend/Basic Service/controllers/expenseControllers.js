@@ -57,6 +57,9 @@ const addExpense = async (req, res) => {
 //Getting all the expense/spenditure
 const getAllExpense = async (req, res) => {
   const { userId } = req.params;
+  const limit = req.query.limit || 5;
+  const page = req.query.page || 1;
+  const offset = (page - 1) * limit;
 
   if (!userId) {
     return res.status(404).json({
@@ -66,21 +69,32 @@ const getAllExpense = async (req, res) => {
 
   try {
     const result = await pool.query(
-      "SELECT * FROM expense where userid = $1 ORDER BY createdAt DESC",
-      [userId]
+      `SELECT expenseid , amount, category, createdat, description FROM expense where userid = $1 ORDER BY createdAt DESC
+      LIMIT $2
+      OFFSET $3
+      `,
+      [userId, limit, offset]
     );
 
-    const expenses = result.rows.map((expense) => ({
-      expenseid: expense.expenseid,
-      amount: expense.amount,
-      category: expense.category,
-      createdat: expense.createdat,
-      description: expense.description,
-    }));
+    let total_records = await pool.query(
+      `SELECT COUNT(*) FROM expense where userid = $1
+      `,
+      [userId]
+    );
+    total_records = parseInt(total_records.rows[0].count);
+    const total_pages =
+      total_records === 0 ? 1 : Math.ceil(total_records / limit);
 
     res.status(200).json({
       message: "All expenses fetched successfully",
-      expenses: expenses,
+      data: result.rows,
+      pagination: {
+        total_records: total_records,
+        total_pages: total_pages,
+        current_page: page,
+        next_page: page < total_pages ? page + 1 : null,
+        previous_page: page > 1 ? page - 1 : null,
+      },
     });
   } catch (err) {
     console.error("❌ Error fetching expenses:", err);
