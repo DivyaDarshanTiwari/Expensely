@@ -57,8 +57,8 @@ const addExpense = async (req, res) => {
 //Getting all the expense/spenditure
 const getAllExpense = async (req, res) => {
   const { userId } = req.params;
-  const limit = req.query.limit || 5;
-  const page = req.query.page || 1;
+  const limit = parseInt(req.query.limit) || 5;
+  const page = parseInt(req.query.page) || 1;
   const offset = (page - 1) * limit;
 
   if (!userId) {
