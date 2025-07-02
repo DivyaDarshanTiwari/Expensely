@@ -6,7 +6,8 @@ export default function Index() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      router.replace("/(tabs)/dashboard");
+      // router.replace("/(tabs)/dashboard");
+      router.replace("/auth");
     }, 0);
 
     return () => clearTimeout(timer);
