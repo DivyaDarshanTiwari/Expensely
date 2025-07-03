@@ -46,10 +46,10 @@ exports.getFinancialOverview = async (req, res) => {
     res.status(201).json({
       message: "Total Income and Total Expense Sent",
       data: [
-        { value: result.rows[0].totalincome, text: "Income" },
-        { value: result.rows[0].totalexpense, text: "Expense" },
+        { value: parseFloat(result.rows[0].totalincome), text: "Income" },
+        { value: parseFloat(result.rows[0].totalexpense), text: "Expense" },
         {
-          value: result.rows[0].totalIncome - result.rows[0].totalExpense,
+          value: parseFloat(result.rows[0].totalincome) - parseFloat(result.rows[0].totalexpense),
           text: "Balance",
         },
       ],

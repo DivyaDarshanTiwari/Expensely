@@ -1,0 +1,22 @@
+{
+  "name": "group-service",
+  "version": "1.0.0",
+  "description": "Group service for the expensely app",
+  "main": "server.js",
+  "scripts": {
+    "start": "nodemon server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Vyom Singhal",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "morgan": "^1.10.0",
+    "nodemon": "^3.1.10",
+    "pg": "^8.16.3",
+    "winston": "^3.17.0",
+    "zod": "^3.25.67"
+  }
+}
