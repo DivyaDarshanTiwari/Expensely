@@ -16,20 +16,29 @@ import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import FinancialOverviewChart from "@/components/Charts/FinancialOverviewChart";
 import { useRouter } from "expo-router";
-
-const router = useRouter();
+import { auth } from "../../auth/firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 const ExpenselyDashboard = () => {
+  const [user, setUser] = useState<User | null>(null);
   const [totalExpense, setTotalExpense] = useState(0.0);
   const [totalIncome, setTotalIncome] = useState(0.0);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
+  
+  const router = useRouter();
 
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
+      }
+    });
+
     const fetchAmounts = async () => {
       try {
         const res = await axios.get(
@@ -284,6 +293,13 @@ const ExpenselyDashboard = () => {
     );
   };
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 18) return "Good Afternoon";
+    return "Good Evening";
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
@@ -301,15 +317,20 @@ const ExpenselyDashboard = () => {
         <View style={styles.headerLeft}>
           <Image
             source={{
-              uri: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face",
+              uri:
+                user?.photoURL ||
+                "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y",
             }}
             style={styles.profileImage}
           />
           <View style={styles.userInfo}>
-            <Text style={styles.greeting}>Good Morning</Text>
-            <Text style={styles.userName}>Alex Johnson</Text>
+            <Text style={styles.greeting}>{getGreeting()}</Text>
+            <Text style={styles.userName}>
+              {user?.displayName || user?.email || "User"}
+            </Text>
           </View>
         </View>
+
         <TouchableOpacity
           style={styles.settingsButton}
           activeOpacity={0.7}

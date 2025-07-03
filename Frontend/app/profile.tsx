@@ -1,93 +1,140 @@
 import { Colors } from "@/constants/Colors";
+import { useRouter } from "expo-router";
+import { onAuthStateChanged, signOut, User } from "firebase/auth";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   Image,
-  ScrollView,
-  useColorScheme,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
+import { auth } from "../auth/firebase";
 
 export default function ProfileScreen() {
-  const colorScheme = useColorScheme();
-  const themeColors = Colors[colorScheme ?? "light"];
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (!firebaseUser) {
+        router.replace("/auth");
+      } else {
+        setUser(firebaseUser);
+        setLoading(false);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const handleLogout = async () => {
+    Alert.alert(
+      "Confirm Logout",
+      "Are you sure you want to logout?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setLoggingOut(true);
+              await signOut(auth);
+              setUser(null); // Optional
+              router.replace("/auth");
+            } catch (error) {
+              console.error("Logout error:", error);
+              Alert.alert("Error", "Something went wrong while logging out.");
+            } finally {
+              setLoggingOut(false);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6C47FF" />
+      </View>
+    );
+  }
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: themeColors.background }]}
-    >
-      <View style={styles.header}>
-        <Image
-          source={{
-            uri: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSjHNf3WkJp7E5H7BR86f5RYuPQ50iBl9_b6A&s",
-          }}
-          style={styles.avatar}
-        />
-        <Text style={[styles.name, { color: themeColors.text }]}>
-          Rakshita Garg
-        </Text>
-        <Text style={[styles.email, { color: themeColors.icon }]}>
-          Rakshitagarg08@gmail.com
-        </Text>
-      </View>
+    <View style={styles.container}>
+      <Image
+        source={{
+          uri:
+            user?.photoURL ||
+            "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y",
+        }}
+        style={styles.avatar}
+      />
+      <Text style={styles.name}>{user?.displayName || "Anonymous"}</Text>
+      <Text style={styles.email}>{user?.email}</Text>
 
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-          About
-        </Text>
-        <Text style={[styles.sectionContent, { color: themeColors.icon }]}>
-          A passionate software developer building awesome apps with React
-          Native and Expo.
-        </Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-          Settings
-        </Text>
-        <Text style={[styles.sectionContent, { color: themeColors.icon }]}>
-          - Dark mode: {colorScheme}
-          {"\n"}- Notifications: Enabled
-        </Text>
-      </View>
-    </ScrollView>
+      {loggingOut ? (
+        <ActivityIndicator size="large" color="#6C47FF" style={{ marginTop: 20 }} />
+      ) : (
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
+    paddingTop: 60,
+    paddingHorizontal: 24,
+    backgroundColor: "#fff",
     alignItems: "center",
-    marginTop: 32,
-    marginBottom: 24,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    marginBottom: 12,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 16,
+    backgroundColor: "#eee",
   },
   name: {
-    fontSize: 24,
-    fontWeight: "700",
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 4,
   },
   email: {
-    fontSize: 14,
-    color: "#777",
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 20,
   },
-  section: {
-    paddingHorizontal: 24,
+  logoutBtn: {
+    marginTop: 20,
+    backgroundColor: "#FF3B30",
     paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 8,
   },
-  sectionTitle: {
-    fontSize: 18,
+  logoutText: {
+    color: "#fff",
+    fontSize: 16,
     fontWeight: "600",
-    marginBottom: 6,
-  },
-  sectionContent: {
-    fontSize: 14,
-    lineHeight: 20,
   },
 });
