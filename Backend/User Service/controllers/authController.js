@@ -13,13 +13,24 @@ const authController = async (req, res) => {
 
   try {
     const decodeToken = await admin.auth().verifyIdToken(idToken);
-    console.log(decodeToken);
-    const userRecord = await admin.auth().getUser(decodeToken.uid);
-    console.log(userRecord);
+    const firebase_uid = decodeToken.uid;
+    const { rows } = await pool.query(
+      "SELECT * FROM users WHERE firebase_uid = $1",
+      [firebase_uid]
+    );
+
+    if (rows.length === 0) {
+      // UID not found in your DB, unauthorized
+      return res.status(401).json({
+        message: "Unauthorized: User not registered in the system",
+      });
+    }
+
+    // If found, respond with success and user info
     res.status(200).json({
-      message: "Token is valid",
+      message: "Token is valid, user found",
       user: {
-        firebase_uid: decodeToken.uid,
+        firebase_uid: firebase_uid,
       },
     });
   } catch (error) {
@@ -39,11 +50,20 @@ const signUpController = async (req, res) => {
 
   try {
     const decodeToken = await admin.auth().verifyIdToken(idToken);
-    console.log(decodeToken);
+
+    const { rows } = await pool.query(
+      "SELECT * FROM users WHERE firebase_uid = $1",
+      [decodeToken.uid]
+    );
+
+    if (rows.length > 0) {
+      // UID not found in your DB, unauthorized
+      return res.status(401).json({
+        message: "User is already registered",
+      });
+    }
 
     const userRecord = await admin.auth().getUser(decodeToken.uid);
-
-    console.log(userRecord);
 
     const result = await pool.query(
       `
