@@ -9,7 +9,7 @@ export default function ExpenseList() {
     const fetcheExpense = async () => {
       try {
         const response = await axios.get(
-          "https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/expense/getAll/1"
+          "http://localhost:8080/api/v1/expense/getAll/1"
         );
         setExpenses(response.data.expenses);
       } catch (err) {

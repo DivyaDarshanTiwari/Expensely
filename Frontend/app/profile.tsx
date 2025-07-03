@@ -1,4 +1,7 @@
-import React, { useEffect, useState } from "react";
+import { Colors } from "@/constants/Colors";
+import { useRouter } from "expo-router";
+import { onAuthStateChanged, signOut, User } from "firebase/auth";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,9 +11,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { onAuthStateChanged, signOut, User } from "firebase/auth";
-import { auth } from "../../auth/firebase";
-import { useRouter } from "expo-router";
+import auth from "./auth";
 
 export default function ProfileScreen() {
   const [user, setUser] = useState<User | null>(null);

@@ -20,7 +20,6 @@ import { FirebaseError } from "firebase/app";
 import { auth } from "../auth/firebase";
 import axios from "axios";
 import { createUserWithEmailAndPassword, updateProfile , getIdToken , signInWithEmailAndPassword} from "firebase/auth";
-import LoginScreen from "./login";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
