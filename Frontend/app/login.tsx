@@ -6,37 +6,103 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
+  ActivityIndicator,
+  ScrollView,
+  Platform,
 } from "react-native";
+import { useForm, Controller } from "react-hook-form";
+import * as yup from "yup";
+import { yupResolver } from "@hookform/resolvers/yup";
 import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+
+// Firebase
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../auth/firebase";// adjust if path differs
+
+type FormData = {
+  email: string;
+  password: string;
+};
+
+const schema = yup.object().shape({
+  email: yup.string().email("Invalid email").required("Email is required"),
+  password: yup
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .required("Password is required"),
+});
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [secure, setSecure] = useState(true);
+  const [loading, setLoading] = useState(false);
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<FormData>({ resolver: yupResolver(schema) });
+
+  const onSubmit = async (data: FormData) => {
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, data.email, data.password);
+      alert("Login successful");
+      router.replace("/(tabs)/dashboard");
+    } catch (error: any) {
+      alert(error.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <View style={styles.container}>
-      {/* Left Panel */}
+    <ScrollView contentContainerStyle={styles.container}>
+      <Image
+        source={require("../assets/images/login-visual.png")}
+        style={styles.image}
+        resizeMode="contain"
+      />
+
       <View style={styles.formContainer}>
         <Text style={styles.logo}>Expense Tracker</Text>
         <Text style={styles.heading}>Welcome Back</Text>
-        <Text style={styles.subheading}>Please enter your details to log in</Text>
+        <Text style={styles.subheading}>Login to continue</Text>
 
-        <TextInput
-          placeholder="john@example.com"
-          value={email}
-          onChangeText={setEmail}
-          style={styles.input}
-          keyboardType="email-address"
+        {/* Email input */}
+        <Controller
+          control={control}
+          name="email"
+          render={({ field: { onChange, value } }) => (
+            <TextInput
+              placeholder="john@example.com"
+              value={value}
+              onChangeText={onChange}
+              style={styles.input}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          )}
         />
+        {errors.email && (
+          <Text style={styles.error}>{errors.email.message}</Text>
+        )}
+
+        {/* Password input */}
         <View style={styles.passwordContainer}>
-          <TextInput
-            placeholder="Min 8 Characters"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={secure}
-            style={[styles.input, { flex: 1, borderRightWidth: 0 }]}
+          <Controller
+            control={control}
+            name="password"
+            render={({ field: { onChange, value } }) => (
+              <TextInput
+                placeholder="Min 8 Characters"
+                value={value}
+                onChangeText={onChange}
+                secureTextEntry={secure}
+                style={[styles.input, { flex: 1, borderRightWidth: 0 }]}
+              />
+            )}
           />
           <TouchableOpacity
             onPress={() => setSecure(!secure)}
@@ -45,54 +111,78 @@ export default function LoginScreen() {
             <Text style={{ fontSize: 16 }}>{secure ? "🙈" : "👁️"}</Text>
           </TouchableOpacity>
         </View>
+        {errors.password && (
+          <Text style={styles.error}>{errors.password.message}</Text>
+        )}
 
-        <TouchableOpacity style={styles.loginBtn}>
-          <Text style={styles.loginText}>LOGIN</Text>
+        {/* Forgot password */}
+        <TouchableOpacity onPress={() => router.push("/forgot-password")}>
+          <Text style={styles.forgot}>Forgot Password?</Text>
         </TouchableOpacity>
 
+        {/* Submit */}
+        <TouchableOpacity onPress={handleSubmit(onSubmit)}>
+          <LinearGradient
+            colors={["#6C47FF", "#8E2DE2"]}
+            style={styles.loginBtn}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.loginText}>LOGIN</Text>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Footer */}
         <Text style={styles.footerText}>
           Don’t have an account?{" "}
           <Text style={styles.signup} onPress={() => router.push("/signup")}>
-            SignUp
+            Sign Up
           </Text>
         </Text>
       </View>
-
-      {/* Right Visual (Optional for web preview only) */}
-      <View style={styles.graphPreview}>
-        <Image
-          source={require("../assets/images/login-visual.jpeg")}
-          style={styles.graphImage}
-          resizeMode="contain"
-        />
-      </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, flexDirection: "row", backgroundColor: "#f5f5f5" },
-  formContainer: {
-    flex: 1,
-    padding: 40,
-    justifyContent: "center",
+  container: {
+    padding: 24,
+    paddingBottom: 60,
     backgroundColor: "#fff",
+    flexGrow: 1,
+  },
+  image: {
+    width: "100%",
+    height: Platform.OS === "web" ? 280 : 200,
+    marginBottom: 24,
+    borderRadius: 16,
+  },
+  formContainer: {
+    justifyContent: "center",
   },
   logo: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "600",
-    marginBottom: 30,
-    color: "#111",
+    marginBottom: 20,
   },
-  heading: { fontSize: 24, fontWeight: "700", marginBottom: 8 },
-  subheading: { color: "#666", marginBottom: 30 },
+  heading: {
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  subheading: {
+    color: "#666",
+    marginBottom: 20,
+  },
   input: {
     borderWidth: 1,
     borderColor: "#ccc",
     padding: 14,
     borderRadius: 8,
-    backgroundColor: "#f5f6fa",
-    marginBottom: 16,
+    backgroundColor: "#f9f9f9",
+    marginBottom: 12,
   },
   passwordContainer: {
     flexDirection: "row",
@@ -100,8 +190,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ccc",
     borderRadius: 8,
-    backgroundColor: "#f5f6fa",
-    marginBottom: 16,
+    backgroundColor: "#f9f9f9",
   },
   eyeToggle: {
     paddingHorizontal: 12,
@@ -109,35 +198,37 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1,
     borderColor: "#ccc",
   },
+  error: {
+    color: "red",
+    fontSize: 13,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  forgot: {
+    alignSelf: "flex-end",
+    color: "#6C47FF",
+    marginBottom: 12,
+    fontSize: 13,
+  },
   loginBtn: {
-    backgroundColor: "#6C47FF",
-    padding: 14,
+    paddingVertical: 14,
     borderRadius: 8,
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 4,
   },
   loginText: {
     color: "#fff",
     fontWeight: "bold",
+    fontSize: 16,
   },
   footerText: {
     marginTop: 20,
     fontSize: 14,
     color: "#444",
+    textAlign: "center",
   },
   signup: {
     color: "#6C47FF",
     fontWeight: "600",
-  },
-  graphPreview: {
-    flex: 1.2,
-    backgroundColor: "#ede7f6",
-    alignItems: "center",
-    justifyContent: "center",
-    display: "none", // Mobile-first: disable for small screens
-  },
-  graphImage: {
-    width: "80%",
-    height: "80%",
   },
 });

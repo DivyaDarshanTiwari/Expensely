@@ -46,7 +46,7 @@ export default function DashboardScreen() {
       contentContainerStyle={styles.contentContainer}
     >
       {/* Profile */}
-      <View style={styles.profileContainer}>
+      {/* <View style={styles.profileContainer}>
         <Image
           source={{
             uri: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSjHNf3WkJp7E5H7BR86f5RYuPQ50iBl9_b6A&s",
@@ -54,7 +54,20 @@ export default function DashboardScreen() {
           style={styles.profileImage}
         />
         <Text style={styles.profileName}>Rakshita Garg</Text>
-      </View>
+      </View> */}
+      <TouchableOpacity
+        style={styles.profileContainer}
+        onPress={() => router.push("/profile")}
+      >
+        <Image
+          source={{
+            uri: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSjHNf3WkJp7E5H7BR86f5RYuPQ50iBl9_b6A&s",
+          }}
+          style={styles.profileImage}
+        />
+        <Text style={styles.profileName}>Rakshita Garg</Text>
+      </TouchableOpacity>
+
 
       {/* Summary */}
       <View style={styles.summaryRow}>

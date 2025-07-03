@@ -5,20 +5,66 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   Image,
+  ActivityIndicator,
+  ScrollView,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { useForm, Controller } from "react-hook-form";
 import * as ImagePicker from "expo-image-picker";
+import * as yup from "yup";
+import { yupResolver } from "@hookform/resolvers/yup";
 import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+
+// Firebase imports
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { auth } from "../auth/firebase"; // adjust if your path differs
+
+type FormData = {
+  fullName: string;
+  email: string;
+  password: string;
+};
+
+const schema = yup.object().shape({
+  fullName: yup.string().required("Full name is required"),
+  email: yup.string().email("Invalid email").required("Email is required"),
+  password: yup
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .required("Password is required"),
+});
 
 export default function SignUpScreen() {
   const router = useRouter();
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [secure, setSecure] = useState(true);
+  const [loading, setLoading] = useState(false);
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<FormData>({ resolver: yupResolver(schema) });
+
+  const onSubmit = async (data: FormData) => {
+    setLoading(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+
+      await updateProfile(userCredential.user, {
+        displayName: data.fullName,
+        photoURL: avatarUri || undefined,
+      });
+
+      alert("Account created!");
+      router.replace("/login");
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const pickAvatar = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -36,81 +82,87 @@ export default function SignUpScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.logo}>Expense Tracker</Text>
-
       <Text style={styles.heading}>Create an Account</Text>
-      <Text style={styles.subheading}>
-        Join us today by entering your details below.
-      </Text>
+      <Text style={styles.subheading}>Join us by filling the information below</Text>
 
-      <View style={styles.avatarContainer}>
-        <TouchableOpacity onPress={pickAvatar}>
-          <View style={styles.avatarCircle}>
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
-            ) : (
-              <Ionicons name="person-outline" size={36} color="#6C63FF" />
-            )}
+      {/* Avatar Picker */}
+      <TouchableOpacity onPress={pickAvatar} style={styles.avatarContainer}>
+        {avatarUri ? (
+          <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarText}>+</Text>
           </View>
-          <View style={styles.uploadIcon}>
-            <Ionicons name="cloud-upload-outline" size={16} color="#fff" />
-          </View>
-        </TouchableOpacity>
-      </View>
+        )}
+      </TouchableOpacity>
 
-      <View style={styles.row}>
-        <View style={styles.halfInputContainer}>
-          <Text style={styles.label}>Full Name</Text>
+      {/* Full Name */}
+      <Controller
+        control={control}
+        name="fullName"
+        render={({ field: { onChange, value } }) => (
           <TextInput
+            placeholder="Full Name"
+            value={value}
+            onChangeText={onChange}
             style={styles.input}
-            placeholder="John"
-            value={fullName}
-            onChangeText={setFullName}
-            placeholderTextColor="#999"
           />
-        </View>
-        <View style={styles.halfInputContainer}>
-          <Text style={styles.label}>Email Address</Text>
+        )}
+      />
+      {errors.fullName && <Text style={styles.error}>{errors.fullName.message}</Text>}
+
+      {/* Email */}
+      <Controller
+        control={control}
+        name="email"
+        render={({ field: { onChange, value } }) => (
           <TextInput
+            placeholder="Email"
+            value={value}
+            onChangeText={onChange}
             style={styles.input}
-            placeholder="john@example.com"
-            value={email}
-            onChangeText={setEmail}
-            placeholderTextColor="#999"
             keyboardType="email-address"
             autoCapitalize="none"
           />
-        </View>
-      </View>
+        )}
+      />
+      {errors.email && <Text style={styles.error}>{errors.email.message}</Text>}
 
-      <Text style={styles.label}>Password</Text>
+      {/* Password */}
       <View style={styles.passwordContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Min 8 Characters"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={!showPassword}
-          placeholderTextColor="#999"
+        <Controller
+          control={control}
+          name="password"
+          render={({ field: { onChange, value } }) => (
+            <TextInput
+              placeholder="Password"
+              value={value}
+              onChangeText={onChange}
+              secureTextEntry={secure}
+              style={[styles.input, { flex: 1, borderRightWidth: 0 }]}
+            />
+          )}
         />
-        <TouchableOpacity
-          style={styles.eyeIcon}
-          onPress={() => setShowPassword((prev) => !prev)}
-        >
-          <Ionicons
-            name={showPassword ? "eye-outline" : "eye-off-outline"}
-            size={20}
-            color="#666"
-          />
+        <TouchableOpacity onPress={() => setSecure(!secure)} style={styles.eyeToggle}>
+          <Text>{secure ? "🙈" : "👁️"}</Text>
         </TouchableOpacity>
       </View>
+      {errors.password && <Text style={styles.error}>{errors.password.message}</Text>}
 
-      <TouchableOpacity style={styles.signupBtn}>
-        <Text style={styles.signupText}>SIGN UP</Text>
+      {/* Sign Up Button */}
+      <TouchableOpacity onPress={handleSubmit(onSubmit)}>
+        <LinearGradient colors={["#6C47FF", "#8E2DE2"]} style={styles.signupBtn}>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.signupText}>SIGN UP</Text>
+          )}
+        </LinearGradient>
       </TouchableOpacity>
 
       <Text style={styles.footerText}>
         Already have an account?{" "}
-        <Text style={styles.link} onPress={() => router.replace("../login")}>
+        <Text style={styles.login} onPress={() => router.replace("/login")}>
           Login
         </Text>
       </Text>
@@ -125,97 +177,61 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
   },
-  logo: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 36,
-  },
-  heading: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 6,
-  },
-  subheading: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 24,
-  },
+  logo: { fontSize: 20, fontWeight: "600", marginBottom: 20 },
+  heading: { fontSize: 24, fontWeight: "700", marginBottom: 6 },
+  subheading: { color: "#666", marginBottom: 20 },
   avatarContainer: {
-    alignItems: "center",
+    alignSelf: "center",
     marginBottom: 24,
   },
-  avatarCircle: {
-    width: 70,
-    height: 70,
-    backgroundColor: "#EDE9FE",
-    borderRadius: 35,
+  avatarPlaceholder: {
+    width: 80,
+    height: 80,
+    backgroundColor: "#eee",
+    borderRadius: 40,
     justifyContent: "center",
     alignItems: "center",
-    position: "relative",
   },
-  uploadIcon: {
-    position: "absolute",
-    right: -2,
-    bottom: -2,
-    backgroundColor: "#6C63FF",
-    padding: 4,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: "#fff",
-  },
-  avatarImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 35,
-  },
-  row: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  halfInputContainer: {
-    flex: 1,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 6,
-  },
+  avatarText: { fontSize: 32, color: "#999" },
+  avatarImage: { width: 80, height: 80, borderRadius: 40 },
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
+    borderColor: "#ccc",
     padding: 14,
-    marginBottom: 18,
-    fontSize: 14,
-    color: "#000",
+    borderRadius: 8,
+    backgroundColor: "#f9f9f9",
+    marginBottom: 12,
   },
   passwordContainer: {
-    position: "relative",
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    backgroundColor: "#f9f9f9",
   },
-  eyeIcon: {
-    position: "absolute",
-    right: 12,
-    top: 16,
+  eyeToggle: {
+    paddingHorizontal: 12,
+    justifyContent: "center",
+    borderLeftWidth: 1,
+    borderColor: "#ccc",
   },
+  error: { color: "red", fontSize: 13, marginBottom: 8, marginLeft: 4 },
   signupBtn: {
-    backgroundColor: "#6C63FF",
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: "center",
-    marginTop: 6,
+    marginTop: 8,
   },
-  signupText: {
-    color: "#fff",
-    fontWeight: "bold",
-  },
+  signupText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
   footerText: {
     textAlign: "center",
     marginTop: 20,
-    fontSize: 13,
-    color: "#333",
+    fontSize: 14,
+    color: "#444",
   },
-  link: {
-    color: "#6C63FF",
-    fontWeight: "bold",
+  login: {
+    color: "#6C47FF",
+    fontWeight: "600",
   },
 });
