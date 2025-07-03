@@ -7,7 +7,10 @@ exports.groupsTable = () => {
         groupId SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
         createdBy INT NOT NULL,
-        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        groupBudget NUMERIC(10, 2) NOT NULL,
+        description VARCHAR(1000),
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );`,
     (err, res) => {
       if (err) {
@@ -23,9 +26,9 @@ exports.groupsTable = () => {
 exports.groupMembersTable = () => {
   pool.query(
     `CREATE TABLE IF NOT EXISTS GROUP_MEMBERS (
-        id SERIAL PRIMARY KEY,
         groupId INT REFERENCES GROUPS(groupId),
-        userId INT NOT NULL
+        userId INT NOT NULL,
+        PRIMARY KEY (groupId, userId)
     );`,
     (err, res) => {
       if (err) {
@@ -70,9 +73,9 @@ exports.expensesShareTable = () => {
     );`,
     (err, res) => {
       if (err) {
-        console.error("❌ Error creating expense table:", err);
+        console.error("❌ Error creating expenses_share table:", err);
       } else {
-        console.log("✅ Expense table created or already exists");
+        console.log("✅ Expenses_share table created or already exists");
       }
     }
   );

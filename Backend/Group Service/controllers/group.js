@@ -1,15 +1,15 @@
 const { pool } = require("../config/db");
 
 exports.createGroup = async (req, res) => {
-  const { name, createdBy, groupMembers } = req.body; //groupMembers = {userIds}
+  const { name, createdBy, groupBudget, description, groupMembers } = req.body; //groupMembers = [userIds] Array of userIds
   try {
-    if (!name || !createdBy || !groupMembers) {
+    if (!name || !createdBy || !groupBudget || !groupMembers) {
       return res.status(404).json({ message: "Incomplete Fields" });
     }
 
     const result = await pool.query(
-      `INSERT INTO GROUPS (name, createdBy) VALUES ($1, $2) RETURNING *`,
-      [name, createdBy]
+      `INSERT INTO GROUPS (name, createdBy, groupBudget, description) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [name, createdBy, groupBudget, description]
     );
     console.log(result.rows[0].groupid);
     const groupId = result.rows[0].groupid;
@@ -29,16 +29,6 @@ exports.createGroup = async (req, res) => {
   }
 };
 
-exports.getAllGroups = async (req, res) => {
-  try {
-    const result = await pool.query(`SELECT groupId, name FROM GROUPS`);
-    res.status(201).json(result.rows);
-  } catch (err) {
-    console.error("Error getting all the groups : ", err);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-};
-
 // Need to add to get the name from the USER table once USER table implemented
 exports.getGroupMembers = async (req, res) => {
   const { groupId } = req.params;
@@ -47,7 +37,7 @@ exports.getGroupMembers = async (req, res) => {
       `SELECT userId FROM GROUP_MEMBERS WHERE groupId = $1`,
       [groupId]
     );
-    res.status(201).json(result.rows);
+    res.status(200).json(result.rows);
   } catch (err) {
     console.error("Error getting group members : ", err);
     res.status(500).json({ message: "Internal Server Error" });
@@ -57,6 +47,14 @@ exports.getGroupMembers = async (req, res) => {
 exports.addMemberToGroup = async (req, res) => {
   const { groupId, userId } = req.body;
   try {
+    const checkUser = await pool.query(
+      `SELECT * FROM GROUP_MEMBERS WHERE groupId = $1 AND userId = $2`,
+      [groupId, userId]
+    );
+    if (checkUser.rowCount !== 0) {
+      return res.status(400).json({ message: "Member already in group!" });
+    }
+
     const result = await pool.query(
       `INSERT INTO GROUP_MEMBERS (groupId, userId) VALUES ($1, $2) RETURNING *`,
       [groupId, userId]
@@ -102,16 +100,30 @@ exports.getGroupsByUser = async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT g.groupid, g.name
-       FROM groups g
-       JOIN group_members gm ON g.groupid = gm.groupId
-       WHERE gm.userId = $1`,
+      `SELECT
+        g.groupid,
+        g.name,
+        g.description,
+        g.groupbudget,
+      (
+        SELECT COUNT(*)
+        FROM group_members gm2
+        WHERE gm2.groupid = g.groupid
+      ) AS member_count,
+      (
+          SELECT COALESCE(SUM(ge.amount), 0)
+          FROM group_expenses ge
+          WHERE ge.groupid = g.groupid
+      ) AS spent
+      FROM groups g
+      JOIN group_members gm ON g.groupid = gm.groupid
+      WHERE gm.userid = $1;`,
       [userId]
     );
 
-    res.status(201).json(result.rows);
+    res.status(200).json(result.rows);
   } catch (err) {
-    console.error("Error getting groups by user : ", err);
+    console.error("Error getting groups by user:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };

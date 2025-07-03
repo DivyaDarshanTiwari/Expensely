@@ -15,7 +15,7 @@ exports.addGroupExpense = async (req, res) => {
         [expenseId, share.userId, share.amountOwned]
       );
     }
-    res.json({ message: "Expense added", expenseId });
+    res.status(201).json({ message: "Expense added", expenseId });
   } catch (err) {
     console.error(err);
     res.status(500).send("Server error");
@@ -29,7 +29,7 @@ exports.getGroupExpenses = async (req, res) => {
       `SELECT paidBy, amount, category, description FROM GROUP_EXPENSES WHERE groupId = $1`,
       [groupId]
     );
-    res.status(201).json(result.rows);
+    res.status(200).json(result.rows);
   } catch (err) {
     console.error("Error getting group expenses : ", err);
     res.status(500).json({ message: "Internal Server Error" });
