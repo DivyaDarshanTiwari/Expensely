@@ -19,7 +19,7 @@ import { useRouter } from "expo-router";
 import { FirebaseError } from "firebase/app";
 import { auth } from "../auth/firebase";
 import axios from "axios";
-import { createUserWithEmailAndPassword, updateProfile , getIdToken , signInWithEmailAndPassword} from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile , getIdToken , signInWithEmailAndPassword , sendPasswordResetEmail} from "firebase/auth";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -156,6 +156,20 @@ const ExpenselyAuth = () => {
     }
   };
 
+  // forgot password
+  const handleForgotPassword = async () => {
+    if (!formData.email) {
+      Alert.alert("Error", "Please enter your email to reset password.");
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, formData.email);
+      Alert.alert("Password Reset", "Check your email for reset instructions.");
+    } catch (error: any) {
+      Alert.alert("Error", error.message);
+    }
+  };
 
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev) => ({
@@ -211,6 +225,7 @@ const ExpenselyAuth = () => {
         router.replace("/(tabs)/dashboard");
       } 
       catch (err: any) {
+        console.log(err.message);
         Alert.alert("Login Failed", err.message || "Invalid email or password");
       }
     }
@@ -221,6 +236,7 @@ const ExpenselyAuth = () => {
         setIsLogin(true);
       } 
       catch (err: any) {
+        console.log(err.message);
         Alert.alert("Signup Failed", err.message || "Error from backend");
       }
     }
@@ -460,6 +476,7 @@ const ExpenselyAuth = () => {
                 <TouchableOpacity
                   style={styles.forgotPassword}
                   activeOpacity={0.7}
+                  onPress={handleForgotPassword}
                 >
                   <Text style={styles.forgotPasswordText}>
                     Forgot Password?
@@ -530,18 +547,6 @@ const ExpenselyAuth = () => {
                     activeOpacity={0.8}
                   >
                     <Ionicons name="logo-google" size={24} color="#EA4335" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.socialButton}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="logo-apple" size={24} color="#000000" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.socialButton}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="logo-facebook" size={24} color="#1877F2" />
                   </TouchableOpacity>
                 </View>
               </View>

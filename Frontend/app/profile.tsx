@@ -11,11 +11,12 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import auth from "./auth";
+import { auth } from "../auth/firebase";
 
 export default function ProfileScreen() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -32,13 +33,34 @@ export default function ProfileScreen() {
   }, []);
 
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.replace("/auth");
-    } catch (error) {
-      console.error("Logout error:", error);
-      Alert.alert("Error", "Something went wrong while logging out.");
-    }
+    Alert.alert(
+      "Confirm Logout",
+      "Are you sure you want to logout?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setLoggingOut(true);
+              await signOut(auth);
+              setUser(null); // Optional
+              router.replace("/auth");
+            } catch (error) {
+              console.error("Logout error:", error);
+              Alert.alert("Error", "Something went wrong while logging out.");
+            } finally {
+              setLoggingOut(false);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   if (loading) {
@@ -62,9 +84,13 @@ export default function ProfileScreen() {
       <Text style={styles.name}>{user?.displayName || "Anonymous"}</Text>
       <Text style={styles.email}>{user?.email}</Text>
 
-      <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
+      {loggingOut ? (
+        <ActivityIndicator size="large" color="#6C47FF" style={{ marginTop: 20 }} />
+      ) : (
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
