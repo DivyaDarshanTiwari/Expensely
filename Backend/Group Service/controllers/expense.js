@@ -26,7 +26,7 @@ exports.getGroupExpenses = async (req, res) => {
   const { groupId } = req.params;
   try {
     const result = await pool.query(
-      `SELECT paidBy, amount, category, description FROM GROUP_EXPENSES WHERE groupId = $1`,
+      `SELECT paidBy, amount, category, description, createdat FROM GROUP_EXPENSES WHERE groupId = $1`,
       [groupId]
     );
     res.status(200).json(result.rows);

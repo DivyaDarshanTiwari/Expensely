@@ -150,6 +150,17 @@ const ExpenselyGroups = () => {
   };
 
   const handleGroupSelect = (group: any) => {
+    router.push({
+      pathname: "/groupDetails",
+
+      params: {
+        groupId: group.id,
+
+        groupName: group.name,
+
+        groupData: JSON.stringify(group), // for complex objects
+      },
+    });
   };
 
   const handleCreateGroup = async () => {
