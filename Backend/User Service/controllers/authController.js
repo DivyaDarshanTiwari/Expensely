@@ -30,7 +30,7 @@ const authController = async (req, res) => {
     res.status(200).json({
       message: "Token is valid, user found",
       user: {
-        firebase_uid: firebase_uid,
+        user_id: rows[0].user_id,
       },
     });
   } catch (error) {
@@ -44,7 +44,7 @@ const signUpController = async (req, res) => {
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "Unauthorized: No token provided" });
   }
-  const { phone_number } = req.body || null;
+  const { phone_number } = req.body ?? {}; // safer
 
   const idToken = authHeader.split("Bearer ")[1];
 
