@@ -14,20 +14,12 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-<<<<<<< HEAD
         "backgroundColor": "#ffffff",
         "googleServicesFile": "./google-services.json",
         "package": "com.application.expensely"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.rakshita0808.ExpenselyExpo"
-=======
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true,
-      "package": "com.application.expensely",
-      "googleServicesFile": "./google-services.json"
->>>>>>> user_testing
     },
     "web": {
       "bundler": "metro",
