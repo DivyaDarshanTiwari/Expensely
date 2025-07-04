@@ -16,6 +16,10 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { FirebaseError } from "firebase/app";
+import { auth } from "../auth/firebase";
+import axios from "axios";
+import { createUserWithEmailAndPassword, updateProfile , getIdToken , signInWithEmailAndPassword , sendPasswordResetEmail} from "firebase/auth";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -77,6 +81,96 @@ const ExpenselyAuth = () => {
     }).start();
   }, [isLogin]);
 
+  const login = async (email: string, password: string) => {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+
+      const idToken = await getIdToken(userCredential.user);
+
+      // Send token to backend 
+      try {
+        await axios.post(
+          "https://zp5k3bcx-8083.inc1.devtunnels.ms/api/v1/auth/validToken", 
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
+          }
+        );
+      } catch (apiError: any) {
+        console.error("API error:", apiError?.response?.data || apiError.message);
+        Alert.alert(
+          "Server Error",
+          apiError?.response?.data?.message || "Something went wrong while communicating with backend."
+        );
+        return;
+      }
+
+      Alert.alert("Login Successful", "Welcome back!");
+      return userCredential;
+    } catch (firebaseError: any) {
+        throw firebaseError;
+    }
+  };
+
+  const signUp = async () => {
+    setIsLoading(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+
+      await updateProfile(userCredential.user, {
+        displayName: formData.fullName,
+      });
+      
+      const idToken = await getIdToken(userCredential.user);
+
+      // Send UID + token + other user data to backend
+      try{
+        await axios.post("https://zp5k3bcx-8083.inc1.devtunnels.ms/api/v1/auth/signUp", 
+          {},{
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        });
+      }
+      catch (apiError: any) {
+      // Handle backend/API error separately
+      console.error("API error:", apiError?.response?.data || apiError.message);
+      Alert.alert("Server Error", apiError?.response?.data?.message || "Something went wrong while saving user data to backend.");
+      return; // Exit early — don’t proceed
+      };
+
+      Alert.alert("Success", "Account created successfully!");
+      return userCredential;
+    } 
+    catch (firebaseError: any) {
+      throw firebaseError;
+    }
+    finally {
+      setIsLoading(false); // Always clear loading state
+    }
+  };
+
+  // forgot password
+  const handleForgotPassword = async () => {
+    if (!formData.email) {
+      Alert.alert("Error", "Please enter your email to reset password.");
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, formData.email);
+      Alert.alert("Password Reset", "Check your email for reset instructions.");
+    } catch (error: any) {
+      Alert.alert("Error", error.message);
+    }
+  };
+
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev) => ({
       ...prev,
@@ -123,20 +217,29 @@ const ExpenselyAuth = () => {
   };
 
   const handleSubmit = async () => {
-    router.replace("/(tabs)/dashboard");
-    // if (!validateForm()) return;
-
-    // setIsLoading(true);
-
-    // // Simulate API call
-    // setTimeout(() => {
-    //   setIsLoading(false);
-    //   Alert.alert(
-    //     "Success",
-    //     isLogin ? "Login successful!" : "Account created successfully!",
-    //     [{ text: "OK", onPress: onAuthSuccess }]
-    //   );
-    // }, 2000);
+    if (!validateForm()) return;
+    if(isLogin){
+      try {
+        await login(formData.email, formData.password);
+        Alert.alert("Login Successful", "Welcome back!");
+        router.replace("/(tabs)/dashboard");
+      } 
+      catch (err: any) {
+        console.log(err.message);
+        Alert.alert("Login Failed", err.message || "Invalid email or password");
+      }
+    }
+    else{
+      try {
+        await signUp();
+        Alert.alert("Signup Successfully");
+        setIsLogin(true);
+      } 
+      catch (err: any) {
+        console.log(err.message);
+        Alert.alert("Signup Failed", err.message || "Error from backend");
+      }
+    }
   };
 
   const toggleAuthMode = () => {
@@ -373,6 +476,7 @@ const ExpenselyAuth = () => {
                 <TouchableOpacity
                   style={styles.forgotPassword}
                   activeOpacity={0.7}
+                  onPress={handleForgotPassword}
                 >
                   <Text style={styles.forgotPasswordText}>
                     Forgot Password?
@@ -443,18 +547,6 @@ const ExpenselyAuth = () => {
                     activeOpacity={0.8}
                   >
                     <Ionicons name="logo-google" size={24} color="#EA4335" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.socialButton}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="logo-apple" size={24} color="#000000" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.socialButton}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="logo-facebook" size={24} color="#1877F2" />
                   </TouchableOpacity>
                 </View>
               </View>

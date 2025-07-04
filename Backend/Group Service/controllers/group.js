@@ -96,7 +96,7 @@ exports.removeMemberFromGroup = async (req, res) => {
 };
 
 exports.getGroupsByUser = async (req, res) => {
-  const { userId } = req.params;
+  const { userId } = req.body;
 
   try {
     const result = await pool.query(

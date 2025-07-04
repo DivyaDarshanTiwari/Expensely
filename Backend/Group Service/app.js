@@ -26,10 +26,12 @@ const {
 
 const groupRoutes = require("./routes/group");
 const expenseRoutes = require("./routes/expense");
+const authProxyMiddleware = require("./middlewares/authProxyMiddleware");
 
 app.use(express.json());
 app.use(morgan("dev"));
 app.use(cors());
+app.use(authProxyMiddleware);
 
 groupsTable();
 groupMembersTable();

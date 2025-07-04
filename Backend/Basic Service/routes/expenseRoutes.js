@@ -13,7 +13,7 @@ const router = express.Router();
 router.post("/add", addExpense);
 
 //get all the expense that are there
-router.get("/getAll/:userId", getAllExpense);
+router.get("/getAll", getAllExpense);
 
 //delete a particular expense form the database
 router.delete("/delete/:id", deleteExpense);

@@ -1,0 +1,91 @@
+"use strict";
+
+const admin = require("../services/firebaseAdmin");
+const { pool } = require("../config/db");
+
+const authController = async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Unauthorized: No token provided" });
+  }
+
+  const idToken = authHeader.split("Bearer ")[1];
+
+  try {
+    const decodeToken = await admin.auth().verifyIdToken(idToken);
+    const firebase_uid = decodeToken.uid;
+    const { rows } = await pool.query(
+      "SELECT * FROM users WHERE firebase_uid = $1",
+      [firebase_uid]
+    );
+
+    if (rows.length === 0) {
+      // UID not found in your DB, unauthorized
+      return res.status(401).json({
+        message: "Unauthorized: User not registered in the system",
+      });
+    }
+
+    // If found, respond with success and user info
+    res.status(200).json({
+      message: "Token is valid, user found",
+      user: {
+        user_id: rows[0].user_id,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(401).json({ message: "Unauthorized", error: error.message });
+  }
+};
+
+const signUpController = async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Unauthorized: No token provided" });
+  }
+  const { phone_number } = req.body ?? {}; // safer
+
+  const idToken = authHeader.split("Bearer ")[1];
+
+  try {
+    const decodeToken = await admin.auth().verifyIdToken(idToken);
+
+    const { rows } = await pool.query(
+      "SELECT * FROM users WHERE firebase_uid = $1",
+      [decodeToken.uid]
+    );
+
+    if (rows.length > 0) {
+      // UID not found in your DB, unauthorized
+      return res.status(401).json({
+        message: "User is already registered",
+      });
+    }
+
+    const userRecord = await admin.auth().getUser(decodeToken.uid);
+
+    const result = await pool.query(
+      `
+        INSERT INTO USERs (firebase_uid , username ,email, phone_number , user_photo)
+        VALUES ($1,$2,$3,$4,$5) RETURNING *;
+        `,
+      [
+        decodeToken.uid,
+        userRecord.displayName,
+        decodeToken.email,
+        phone_number,
+        userRecord.photoURL,
+      ]
+    );
+
+    res.status(200).json({
+      message: "Token is valid and signup is successfull",
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(401).json({ message: "Unauthorized", error: error.message });
+  }
+};
+
+module.exports = { authController, signUpController };

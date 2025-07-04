@@ -10,7 +10,8 @@ exports.groupsTable = () => {
         groupBudget NUMERIC(10, 2) NOT NULL,
         description VARCHAR(1000),
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (createdBy) REFERENCES users(user_id)
     );`,
     (err, res) => {
       if (err) {
@@ -28,7 +29,8 @@ exports.groupMembersTable = () => {
     `CREATE TABLE IF NOT EXISTS GROUP_MEMBERS (
         groupId INT REFERENCES GROUPS(groupId),
         userId INT NOT NULL,
-        PRIMARY KEY (groupId, userId)
+        PRIMARY KEY (groupId, userId),
+        FOREIGN KEY (userId) REFERENCES users(user_id)
     );`,
     (err, res) => {
       if (err) {
@@ -50,7 +52,8 @@ exports.groupExpensesTable = () => {
         amount NUMERIC(10, 2) NOT NULL,
         category VARCHAR(100) NOT NULL,
         description VARCHAR(1000),
-        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (paidBy) REFERENCES users(user_id)
     );`,
     (err, res) => {
       if (err) {
@@ -69,7 +72,8 @@ exports.expensesShareTable = () => {
         id SERIAL PRIMARY KEY,
         expenseId INT REFERENCES GROUP_EXPENSES(id),
         userId INT NOT NULL,
-        amountOwned NUMERIC(10, 2) NOT NULL
+        amountOwned NUMERIC(10, 2) NOT NULL,
+        FOREIGN KEY (userId) REFERENCES users(user_id)
     );`,
     (err, res) => {
       if (err) {
