@@ -148,7 +148,7 @@ exports.getExpenseShares = async (req, res) => {
 };
 
 exports.getExpensesByUser = async (req, res) => {
-  const { userId } = req.params;
+  const { userId } = req.body;
 
   try {
     const result = await pool.query(
