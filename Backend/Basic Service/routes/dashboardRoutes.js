@@ -4,6 +4,7 @@ const dashboardControllers = require("../controllers/dashboardController");
 
 const Router = express.Router();
 
-Router.get("/getDashboard/:userId", dashboardControllers.getDashboardAmounts);
+Router.get("/getDashboard", dashboardControllers.getDashboardAmounts);
+Router.get("/getFinancialOverview", dashboardControllers.getFinancialOverview);
 
 module.exports = Router;

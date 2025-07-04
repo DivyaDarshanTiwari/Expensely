@@ -9,7 +9,11 @@ export default function IncomeList() {
     const fetcheIncome = async () => {
       try {
         const response = await axios.get(
+<<<<<<< HEAD
           "https://07ttqbzs-8080.inc1.devtunnels.ms/api/v1/income/getAll/1"
+=======
+          "http://localhost:8080/api/v1/income/getAll/1"
+>>>>>>> e55071f55e55eada3dadb01a59e01e92d77178bb
         );
         setIncomes(response.data.incomes);
       } catch (err) {

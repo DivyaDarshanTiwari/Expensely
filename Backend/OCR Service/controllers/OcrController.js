@@ -7,8 +7,8 @@ const { googleAPI } = require("../services/Text_to_Json_Service");
 
 const ocrFunction = async (req, res) => {
   try {
-    const { userId } = req.params;
-    if (!userId && isNaN(parseInt(userId))) {
+    const userId = req.userId;
+    if (!userId && !isNaN(parseInt(userId))) {
       return res
         .status(400)
         .json({ error: "userId is required and it should be number" });
@@ -16,8 +16,6 @@ const ocrFunction = async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: "File is required" });
     }
-
-    console.log(userId);
     // Perform OCR on the uploaded image
     const ocrResult = await Tesseract.recognize(req.file.buffer, "eng");
     const extractedText = ocrResult.data.text;
@@ -25,21 +23,43 @@ const ocrFunction = async (req, res) => {
     // Convert extracted text to structured JSON using your Google API service
     const formattedData = await googleAPI(extractedText);
 
-    console.log(formattedData);
+    if (
+      formattedData.category == "Unreadable/Indeterminate" ||
+      formattedData.total_amount == null
+    ) {
+      return res.status(400).json({
+        error:
+          "Uploaded image is unclear or text could not be extracted. Please upload a clearer image.",
+      });
+    }
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res
+        .status(401)
+        .json({ message: "Unauthorized: No token provided" });
+    }
     // Post the formatted data to your expense service
-    // const response = await axios.post(process.env.EXPENSE_API_URL, {
-    //   userId: parseInt(userId),
-    //   amount: formattedData.total_amount,
-    //   category: formattedData.category,m
-    //   description: formattedData.description,
+    const response = await axios.post(
+      process.env.EXPENSE_API_URL,
+      {
+        userId: parseInt(userId),
+        amount: formattedData.total_amount,
+        category: formattedData.category,
+        description: formattedData.description,
+      },
+      {
+        headers: {
+          Authorization: authHeader,
+        },
+      }
+    );
+
+    console.log(response);
+
+    // res.status(200).json({
+    //   message: "Data processed and expense entry created successfully.",
+    //   expense: formattedData,
     // });
-
-    // console.log(formattedData);
-
-    res.status(200).json({
-      message: "Data processed and expense entry created successfully.",
-      expense: formattedData,
-    });
   } catch (error) {
     if (error.response) {
       console.log(
