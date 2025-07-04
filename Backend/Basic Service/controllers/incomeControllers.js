@@ -53,7 +53,10 @@ exports.addIncome = async (req, res) => {
 };
 
 exports.getAllIncome = async (req, res) => {
-  const { userId } = req.params;
+  const { userId } = req.body;
+  const limit = parseInt(req.query.limit) || 5;
+  const page = parseInt(req.query.page) || 1;
+  const offset = (page - 1) * limit;
 
   console.log(userId);
 
@@ -63,13 +66,34 @@ exports.getAllIncome = async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT incomeId, amount, category, description, createdAt FROM INCOME WHERE userId = $1 ORDER BY createdAt DESC`,
+      `SELECT incomeId, amount, category, description, createdAt FROM INCOME WHERE userId = $1 ORDER BY createdAt DESC
+      LIMIT $2
+      OFFSET $3
+      `,
+      [userId, limit, offset]
+    );
+
+    let total_records = await pool.query(
+      `SELECT COUNT(*) FROM INCOME where userid = $1
+      `,
       [userId]
     );
 
+    total_records = parseInt(total_records.rows[0].count);
+
+    const total_pages =
+      total_records === 0 ? 1 : Math.ceil(total_records / limit);
+
     res.status(200).json({
-      message: "All incomes fetched successfully",
-      incomes: result.rows,
+      message: "All income fetched successfully",
+      data: result.rows,
+      pagination: {
+        total_records: total_records,
+        total_pages: total_pages,
+        current_page: page,
+        next_page: page < total_pages ? page + 1 : null,
+        previous_page: page > 1 ? page - 1 : null,
+      },
     });
   } catch (err) {
     console.error("Error getting all income : ", err);

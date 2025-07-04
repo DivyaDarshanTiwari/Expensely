@@ -11,7 +11,8 @@ exports.expenseTable = () => {
     amount NUMERIC(10, 2) NOT NULL,
     category VARCHAR(100) NOT NULL,
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    description VARCHAR(1000)
+    description VARCHAR(1000),
+    FOREIGN KEY (userId) REFERENCES users(user_id)
   );
 `,
     (err, res) => {
@@ -33,7 +34,8 @@ exports.incomeTable = () => {
         amount NUMERIC(10, 2) NOT NULL,
         category VARCHAR(100) NOT NULL,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        description VARCHAR(1000)
+        description VARCHAR(1000),
+        FOREIGN KEY (userId) REFERENCES users(user_id)
     );
     `,
     (err, res) => {
@@ -54,7 +56,8 @@ exports.accountTable = () => {
             userId INTEGER NOT NULL UNIQUE,
             totalExpense NUMERIC(10, 2) DEFAULT 0.00,
             totalIncome NUMERIC(10, 2) DEFAULT 0.00,
-            PRIMARY KEY (userId, accountId)
+            PRIMARY KEY (userId, accountId),
+            FOREIGN KEY (userId) REFERENCES users(user_id)
         );
     `,
     (err, res) => {

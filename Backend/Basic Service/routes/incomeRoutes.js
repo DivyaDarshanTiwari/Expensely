@@ -6,7 +6,7 @@ const Router = express.Router();
 
 Router.post("/add", incomeControllers.addIncome);
 
-Router.get("/getAll/:userId", incomeControllers.getAllIncome);
+Router.get("/getAll", incomeControllers.getAllIncome);
 
 Router.delete("/delete/:incomeId", incomeControllers.deleteIncome);
 

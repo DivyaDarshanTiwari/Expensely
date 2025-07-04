@@ -43,4 +43,7 @@ app-example
 .env
 
 android/
+<<<<<<< HEAD
 ios/
+=======
+>>>>>>> user_testing
