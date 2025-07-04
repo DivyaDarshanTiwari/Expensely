@@ -1,7 +1,7 @@
 const { pool } = require("../config/db");
 
 exports.getDashboardAmounts = async (req, res) => {
-  const { userId } = req.params;
+  const { userId } = req.body;
 
   if (!userId) {
     return res.status(404).json({ error: "User ID not found!" });
@@ -29,7 +29,7 @@ exports.getDashboardAmounts = async (req, res) => {
 };
 
 exports.getFinancialOverview = async (req, res) => {
-  const { userId } = req.params;
+  const { userId } = req.body;
 
   if (!userId) {
     return res.status(404).json({ error: "User ID not found!" });

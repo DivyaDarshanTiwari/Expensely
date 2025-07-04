@@ -20,6 +20,7 @@ const app = Express();
 const incomeRoutes = require("./routes/incomeRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
+const authProxyMiddleware = require("./middlewares/authProxyMiddleware");
 const {
   accountTable,
   expenseTable,
@@ -30,6 +31,7 @@ const {
 app.use(Express.json()); // To parse JSON
 app.use(morgan("dev")); // Log HTTP requests
 app.use(cors());
+app.use(authProxyMiddleware);
 
 // Will be shifted to UserController once Authentication part is done
 accountTable();
