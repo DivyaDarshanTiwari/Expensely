@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import FinancialOverviewChart from "@/components/Charts/FinancialOverviewChart";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { auth } from "../../auth/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 
@@ -30,8 +30,40 @@ const ExpenselyDashboard = () => {
   const scrollX = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
+  const [idToken, setIdToken] = useState("");
 
   const router = useRouter();
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true; // handle cleanup during fast tab switching
+
+      const fetchData = async () => {
+        try {
+          const res = await axios.get(
+            "https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/account/getDashboard",
+            {
+              headers: {
+                Authorization: `Bearer ${idToken}`,
+              },
+            }
+          );
+          if (res?.data?.data) {
+            setTotalExpense(res.data.data.totalExpense || 0);
+            setTotalIncome(res.data.data.totalIncome || 0);
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      };
+
+      fetchData();
+
+      return () => {
+        isActive = false; // cleanup flag
+      };
+    }, [idToken])
+  );
 
   useEffect(() => {
     const fetchAmounts = async (idToken: string) => {
@@ -58,6 +90,7 @@ const ExpenselyDashboard = () => {
         setUser(firebaseUser);
         try {
           const idToken = await firebaseUser?.getIdToken();
+          setIdToken(idToken);
           fetchAmounts(idToken);
         } catch (error) {
           console.error("Error getting ID token:", error);

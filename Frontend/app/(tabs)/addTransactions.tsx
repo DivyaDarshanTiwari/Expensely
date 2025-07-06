@@ -184,7 +184,7 @@ export default function AddTransactions() {
         [
           {
             text: "OK",
-            onPress: () => router.back(),
+            onPress: () => router.replace("/(tabs)/dashboard"),
           },
         ]
       );
