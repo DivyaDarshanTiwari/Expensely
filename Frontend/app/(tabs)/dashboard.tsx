@@ -144,6 +144,19 @@ const ExpenselyDashboard = () => {
         console.error("Error fetching dashboard data:", err);
       }
     };
+
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const idToken = await firebaseUser?.getIdToken();
+          setIdToken(idToken);
+          fetchAmounts(idToken);
+        } catch (error) {
+          console.error("Error getting ID token:", error);
+        }
+      }
+    });
+
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
