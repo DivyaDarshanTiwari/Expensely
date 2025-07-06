@@ -17,7 +17,7 @@ import axios from "axios";
 import FinancialOverviewChart from "@/components/Charts/FinancialOverviewChart";
 import { useRouter } from "expo-router";
 import { auth } from "../../auth/firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { getIdToken, onAuthStateChanged, User } from "firebase/auth";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -29,29 +29,43 @@ const ExpenselyDashboard = () => {
   const scrollX = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
-  
+
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-      }
-    });
-
-    const fetchAmounts = async () => {
+    const fetchAmounts = async (idToken: string) => {
       try {
         const res = await axios.get(
-          "http://localhost:8080/api/v1/account/getDashboard/1"
+          "https://07ttqbzs-8080.inc1.devtunnels.ms/api/v1/account/getDashboard",
+          {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
+          }
         );
         if (res?.data?.data) {
-          setTotalExpense(res.data.data.totalExpense);
-          setTotalIncome(res.data.data.totalIncome);
+          setTotalExpense(res.data.data.totalExpense || 0);
+          setTotalIncome(res.data.data.totalIncome || 0);
         }
       } catch (err) {
         console.error("Error fetching dashboard data:", err);
       }
     };
+
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
+        try {
+          const idToken = await firebaseUser?.getIdToken();
+          fetchAmounts(idToken);
+        } catch (error) {
+          console.error("Error getting ID token:", error);
+        }
+      } else {
+        setUser(null);
+      }
+    });
+
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -64,7 +78,8 @@ const ExpenselyDashboard = () => {
         useNativeDriver: true,
       }),
     ]).start();
-    fetchAmounts();
+
+    return () => unsubscribe();
   }, []);
 
   const summaryCards = [

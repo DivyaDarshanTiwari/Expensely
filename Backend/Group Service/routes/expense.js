@@ -14,6 +14,6 @@ Router.get("/getExpense/:expenseId", expenseControllers.getExpenseById);
 
 Router.get("/getExpenseShare/:expenseId", expenseControllers.getExpenseShares);
 
-Router.get("/getUserExpenses/:userId", expenseControllers.getExpensesByUser);
+Router.get("/getUserExpenses", expenseControllers.getExpensesByUser);
 
 module.exports = Router;

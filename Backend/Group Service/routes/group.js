@@ -10,7 +10,7 @@ Router.post("/addMember", groupControllers.addMemberToGroup);
 
 Router.get("/getMembers/:groupId", groupControllers.getGroupMembers);
 
-Router.get("/getGroups/:userId", groupControllers.getGroupsByUser);
+Router.get("/getGroups", groupControllers.getGroupsByUser);
 
 Router.delete("/removeMember", groupControllers.removeMemberFromGroup);
 

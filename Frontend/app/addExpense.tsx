@@ -1,4 +1,964 @@
-import React, { useState, useRef, useEffect } from "react";
+// import React, { useState, useRef, useEffect } from "react";
+// import {
+//   View,
+//   Text,
+//   TouchableOpacity,
+//   Dimensions,
+//   Animated,
+//   StyleSheet,
+//   StatusBar,
+//   ScrollView,
+//   TextInput,
+//   Alert,
+//   Modal,
+//   FlatList,
+// } from "react-native";
+// import { LinearGradient } from "expo-linear-gradient";
+// import { Ionicons } from "@expo/vector-icons";
+// import { useLocalSearchParams, useRouter } from "expo-router";
+// import axios from "axios";
+// import { auth } from "../auth/firebase";
+// import { onAuthStateChanged, User } from "firebase/auth";
+
+// const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+
+// const AddExpense = () => {
+//   const router = useRouter();
+//   const { groupId, groupName } = useLocalSearchParams();
+
+//   const [expenseData, setExpenseData] = useState({
+//     amount: "",
+//     description: "",
+//     category: "general",
+//     date: new Date().toISOString().split("T")[0],
+//     paidBy: "",
+//     splitType: "equal", // equal, manual, percentage
+//     shares: [],
+//   });
+
+//   const [members, setMembers] = useState([]);
+//   const [selectedMembers, setSelectedMembers] = useState([]);
+//   const [showCategoryModal, setShowCategoryModal] = useState(false);
+//   const [showMemberModal, setShowMemberModal] = useState(false);
+//   const [showSplitModal, setShowSplitModal] = useState(false);
+//   const [loading, setLoading] = useState(false);
+//   const [idToken, setIdToken] = useState("");
+//   const [refreshFlag, setRefreshFlag] = useState(false);
+
+//   // Animation refs
+//   const fadeAnim = useRef(new Animated.Value(0)).current;
+//   const slideAnim = useRef(new Animated.Value(50)).current;
+//   const headerSlide = useRef(new Animated.Value(-50)).current;
+//   const formScale = useRef(new Animated.Value(0.95)).current;
+
+//   const categories = [
+//     { id: "food", name: "Food & Dining", icon: "restaurant", color: "#F59E0B" },
+//     { id: "transport", name: "Transportation", icon: "car", color: "#3B82F6" },
+//     {
+//       id: "entertainment",
+//       name: "Entertainment",
+//       icon: "game-controller",
+//       color: "#8B5CF6",
+//     },
+//     { id: "shopping", name: "Shopping", icon: "bag", color: "#EC4899" },
+//     { id: "utilities", name: "Utilities", icon: "flash", color: "#10B981" },
+//     {
+//       id: "health",
+//       name: "Health & Medical",
+//       icon: "medical",
+//       color: "#EF4444",
+//     },
+//     { id: "general", name: "General", icon: "card", color: "#6B7280" },
+//   ];
+
+//   useEffect(() => {
+//     const fetchMembers = async (idToken: string) => {
+//       try {
+//         const res = await axios.get(
+//           `https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/group/getMembers/${groupId}`,
+//           {
+//             headers: {
+//               Authorization: `Bearer ${idToken}`,
+//             },
+//           }
+//         );
+//         setMembers(res.data || []);
+//         // Set current user as default payer (assuming user ID 1)
+//         const currentUser = res.data.find(
+//           (member: { id: number }) => member.id === 1
+//         );
+//         if (currentUser) {
+//           setExpenseData((prev) => ({ ...prev, paidBy: currentUser }));
+//         }
+//         // Select all members by default for equal split
+//         setSelectedMembers(res.data || []);
+//       } catch (error) {
+//         console.error("Failed to fetch members", error);
+//         Alert.alert("Error", "Could not fetch group members");
+//       }
+//     };
+
+//     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+//       if (firebaseUser) {
+//         try {
+//           const idToken = await firebaseUser?.getIdToken();
+//           setIdToken(idToken);
+//           fetchMembers(idToken);
+//         } catch (error) {
+//           console.error("Error getting ID token:", error);
+//         }
+//       }
+//     });
+
+//     // Start animations
+//     Animated.parallel([
+//       Animated.timing(fadeAnim, {
+//         toValue: 1,
+//         duration: 800,
+//         useNativeDriver: true,
+//       }),
+//       Animated.timing(slideAnim, {
+//         toValue: 0,
+//         duration: 600,
+//         useNativeDriver: true,
+//       }),
+//       Animated.timing(headerSlide, {
+//         toValue: 0,
+//         duration: 700,
+//         useNativeDriver: true,
+//       }),
+//       Animated.spring(formScale, {
+//         toValue: 1,
+//         tension: 50,
+//         friction: 7,
+//         delay: 200,
+//         useNativeDriver: true,
+//       }),
+//     ]).start();
+
+//     return () => unsubscribe();
+//   }, []);
+
+//   const selectedCategory = categories.find(
+//     (cat) => cat.id === expenseData.category
+//   );
+
+//   const handleSubmit = async () => {
+//     if (!expenseData.amount.trim()) {
+//       Alert.alert("Error", "Please enter an amount");
+//       return;
+//     }
+
+//     if (!expenseData.description.trim()) {
+//       Alert.alert("Error", "Please enter a description");
+//       return;
+//     }
+
+//     if (!expenseData.paidBy) {
+//       Alert.alert("Error", "Please select who paid");
+//       return;
+//     }
+
+//     if (selectedMembers.length === 0) {
+//       Alert.alert("Error", "Please select at least one member to split with");
+//       return;
+//     }
+
+//     if (
+//       (expenseData.splitType === "manual" ||
+//         expenseData.splitType === "percentage") &&
+//       expenseData.shares.reduce((sum, s) => sum + s.amountOwned, 0) !==
+//         parseFloat(expenseData.amount)
+//     ) {
+//       Alert.alert("Mismatch", "Total of shares must match total amount.");
+//       return;
+//     }
+
+//     setLoading(true);
+//     try {
+//       const payload = {
+//         groupId: parseInt(groupId),
+//         paidBy: expenseData.paidBy.id || expenseData.paidBy,
+//         amount: parseFloat(expenseData.amount),
+//         category: expenseData.category,
+//         description: expenseData.description,
+//         date: expenseData.date,
+//         shares:
+//           expenseData.splitType === "equal"
+//             ? selectedMembers.map((member) => ({
+//                 username: member.username,
+//                 amountOwned:
+//                   parseFloat(expenseData.amount) / selectedMembers.length,
+//               }))
+//             : expenseData.shares,
+//       };
+
+//       const res = await axios.post(
+//         "http://localhost:8082/api/v1/expenses/create",
+//         payload
+//       );
+
+//       Alert.alert("Success", "Expense added successfully!", [
+//         {
+//           text: "OK",
+//           onPress: () => router.back(),
+//         },
+//       ]);
+//     } catch (err) {
+//       console.error(err);
+//       Alert.alert("Error", "Something went wrong.");
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+// const renderCategoryModal = () => (
+//   <Modal
+//     visible={showCategoryModal}
+//     transparent
+//     animationType="fade"
+//     onRequestClose={() => setShowCategoryModal(false)}
+//   >
+//     <View style={styles.modalOverlay}>
+//       <Animated.View
+//         style={[styles.modalContent, { transform: [{ scale: formScale }] }]}
+//       >
+//         <View style={styles.modalHeader}>
+//           <Text style={styles.modalTitle}>Select Category</Text>
+//           <TouchableOpacity
+//             onPress={() => setShowCategoryModal(false)}
+//             style={styles.modalCloseButton}
+//           >
+//             <Ionicons name="close" size={24} color="#6B7280" />
+//           </TouchableOpacity>
+//         </View>
+//         <FlatList
+//           data={categories}
+//           keyExtractor={(item) => item.id}
+//           renderItem={({ item }) => (
+//             <TouchableOpacity
+//               style={[
+//                 styles.categoryItem,
+//                 expenseData.category === item.id &&
+//                   styles.categoryItemSelected,
+//               ]}
+//               onPress={() => {
+//                 setExpenseData((prev) => ({ ...prev, category: item.id }));
+//                 setShowCategoryModal(false);
+//               }}
+//             >
+//               <View
+//                 style={[
+//                   styles.categoryIcon,
+//                   { backgroundColor: `${item.color}20` },
+//                 ]}
+//               >
+//                 <Ionicons name={item.icon} size={24} color={item.color} />
+//               </View>
+//               <Text style={styles.categoryName}>{item.name}</Text>
+//               {expenseData.category === item.id && (
+//                 <Ionicons name="checkmark" size={24} color="#10B981" />
+//               )}
+//             </TouchableOpacity>
+//           )}
+//         />
+//       </Animated.View>
+//     </View>
+//   </Modal>
+// );
+
+// const renderMemberModal = () => (
+//   <Modal
+//     visible={showMemberModal}
+//     transparent
+//     animationType="fade"
+//     onRequestClose={() => setShowMemberModal(false)}
+//   >
+//     <View style={styles.modalOverlay}>
+//       <Animated.View
+//         style={[styles.modalContent, { transform: [{ scale: formScale }] }]}
+//       >
+//         <View style={styles.modalHeader}>
+//           <Text style={styles.modalTitle}>Who Paid?</Text>
+//           <TouchableOpacity
+//             onPress={() => setShowMemberModal(false)}
+//             style={styles.modalCloseButton}
+//           >
+//             <Ionicons name="close" size={24} color="#6B7280" />
+//           </TouchableOpacity>
+//         </View>
+//         <FlatList
+//           data={members}
+//           keyExtractor={(item) => item.username}
+//           renderItem={({ item }) => (
+//             <TouchableOpacity
+//               style={[
+//                 styles.memberItem,
+//                 expenseData.paidBy === item.username &&
+//                   styles.memberItemSelected,
+//               ]}
+//               onPress={() => {
+//                 setExpenseData((prev) => ({
+//                   ...prev,
+//                   paidBy: item.username,
+//                 }));
+//                 setShowMemberModal(false);
+//               }}
+//             >
+//               <View style={styles.memberAvatar}>
+//                 <Text style={styles.memberInitial}>
+//                   {(item.username.charAt(0) || "?").toUpperCase()}
+//                 </Text>
+//               </View>
+//               <Text style={styles.memberName}>{item.username}</Text>
+//               {expenseData.paidBy === item.username && (
+//                 <Ionicons name="checkmark" size={24} color="#10B981" />
+//               )}
+//             </TouchableOpacity>
+//           )}
+//         />
+//       </Animated.View>
+//     </View>
+//   </Modal>
+// );
+
+//   const renderSplitModal = () => (
+//     <Modal
+//       visible={showSplitModal}
+//       transparent
+//       animationType="fade"
+//       onRequestClose={() => setShowSplitModal(false)}
+//     >
+//       <View style={styles.modalOverlay}>
+//         <Animated.View
+//           style={[styles.modalContent, { transform: [{ scale: formScale }] }]}
+//         >
+//           <View style={styles.modalHeader}>
+//             <Text style={styles.modalTitle}>Choose Split Type</Text>
+//             <TouchableOpacity
+//               onPress={() => setShowSplitModal(false)}
+//               style={styles.modalCloseButton}
+//             >
+//               <Ionicons name="close" size={24} color="#6B7280" />
+//             </TouchableOpacity>
+//           </View>
+//           {["equal", "manual", "percentage"].map((type) => (
+//             <TouchableOpacity
+//               key={type}
+//               style={[
+//                 styles.memberItem,
+//                 expenseData.splitType === type && styles.memberItemSelected,
+//               ]}
+//               onPress={() => {
+//                 setExpenseData((prev) => ({ ...prev, splitType: type }));
+//                 setShowSplitModal(false);
+//               }}
+//             >
+//               <Text style={styles.memberName}>
+//                 {type === "equal"
+//                   ? "Equal Split"
+//                   : type === "manual"
+//                     ? "Manual Split"
+//                     : "Percentage Split"}
+//               </Text>
+//               {expenseData.splitType === type && (
+//                 <Ionicons name="checkmark" size={24} color="#10B981" />
+//               )}
+//             </TouchableOpacity>
+//           ))}
+//         </Animated.View>
+//       </View>
+//     </Modal>
+//   );
+
+//   const renderCustomSplitModal = () => (
+//     <Modal
+//       visible={expenseData.splitType !== "equal" && showSplitModal}
+//       transparent
+//       animationType="fade"
+//       onRequestClose={() => setShowSplitModal(false)}
+//     >
+//       <View style={styles.modalOverlay}>
+//         <ScrollView style={styles.modalContent}>
+//           <View style={styles.modalHeader}>
+//             <Text style={styles.modalTitle}>
+//               {expenseData.splitType === "manual"
+//                 ? "Manual Split"
+//                 : "Percentage Split"}
+//             </Text>
+//             <TouchableOpacity
+//               onPress={() => setShowSplitModal(false)}
+//               style={styles.modalCloseButton}
+//             >
+//               <Ionicons name="close" size={24} color="#6B7280" />
+//             </TouchableOpacity>
+//           </View>
+
+//           {selectedMembers.map((member, index) => {
+//             const existingShare = expenseData.shares.find(
+//               (s) => s.username === member.username
+//             ) || { amountOwned: "" };
+
+//             return (
+//               <View
+//                 key={member.username}
+//                 style={{
+//                   flexDirection: "row",
+//                   alignItems: "center",
+//                   marginBottom: 10,
+//                 }}
+//               >
+//                 <Text style={{ flex: 1 }}>{member.username}</Text>
+//                 <TextInput
+//                   style={{
+//                     flex: 1,
+//                     borderWidth: 1,
+//                     padding: 8,
+//                     borderRadius: 5,
+//                     borderColor: "#DDD",
+//                   }}
+//                   placeholder={
+//                     expenseData.splitType === "percentage"
+//                       ? "Enter %"
+//                       : "Enter amount"
+//                   }
+//                   keyboardType="numeric"
+//                   value={existingShare.amountOwned.toString()}
+//                   onChangeText={(value) => {
+//                     const updatedShares = [...expenseData.shares];
+//                     const index = updatedShares.findIndex(
+//                       (s) => s.username === member.username
+//                     );
+//                     const amountValue =
+//                       expenseData.splitType === "percentage"
+//                         ? (parseFloat(value) *
+//                             parseFloat(expenseData.amount || "0")) /
+//                           100
+//                         : parseFloat(value);
+
+//                     if (index > -1) {
+//                       updatedShares[index].amountOwned = amountValue;
+//                     } else {
+//                       updatedShares.push({
+//                         username: member.username,
+//                         amountOwned: amountValue,
+//                       });
+//                     }
+
+//                     setExpenseData((prev) => ({
+//                       ...prev,
+//                       shares: updatedShares,
+//                     }));
+//                   }}
+//                 />
+//               </View>
+//             );
+//           })}
+//         </ScrollView>
+//       </View>
+//     </Modal>
+//   );
+
+//   return (
+//     <View style={styles.container}>
+//       <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
+
+//       {/* Header */}
+//       <Animated.View
+//         style={[
+//           styles.header,
+//           {
+//             opacity: fadeAnim,
+//             transform: [{ translateY: headerSlide }],
+//           },
+//         ]}
+//       >
+//         <TouchableOpacity
+//           style={styles.backButton}
+//           onPress={() => router.back()}
+//         >
+//           <Ionicons name="arrow-back" size={24} color="#111827" />
+//         </TouchableOpacity>
+//         <View style={styles.headerCenter}>
+//           <Text style={styles.headerTitle}>Add Expense</Text>
+//           <Text style={styles.headerSubtitle}>{groupName}</Text>
+//         </View>
+//         <View style={styles.headerRight} />
+//       </Animated.View>
+
+//       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+//         {/* Amount Input */}
+//         <Animated.View
+//           style={[
+//             styles.amountCard,
+//             {
+//               opacity: fadeAnim,
+//               transform: [{ scale: formScale }],
+//             },
+//           ]}
+//         >
+//           <LinearGradient
+//             colors={["#8B5CF615", "#7C3AED10"]}
+//             style={styles.amountGradient}
+//           >
+//             <Text style={styles.amountLabel}>Amount</Text>
+//             <View style={styles.amountInputContainer}>
+//               <Text style={styles.currencySymbol}>$</Text>
+//               <TextInput
+//                 style={styles.amountInput}
+//                 placeholder="0.00"
+//                 placeholderTextColor="#9CA3AF"
+//                 value={expenseData.amount}
+//                 onChangeText={(text) =>
+//                   setExpenseData((prev) => ({ ...prev, amount: text }))
+//                 }
+//                 keyboardType="numeric"
+//                 autoFocus
+//               />
+//             </View>
+//           </LinearGradient>
+//         </Animated.View>
+
+//         {/* Form Fields */}
+//         <Animated.View
+//           style={[
+//             styles.formCard,
+//             {
+//               opacity: fadeAnim,
+//               transform: [{ translateY: slideAnim }],
+//             },
+//           ]}
+//         >
+//           {/* Description */}
+//           <View style={styles.inputContainer}>
+//             <Text style={styles.inputLabel}>Description</Text>
+//             <TextInput
+//               style={styles.textInput}
+//               placeholder="What was this expense for?"
+//               placeholderTextColor="#9CA3AF"
+//               value={expenseData.description}
+//               onChangeText={(text) =>
+//                 setExpenseData((prev) => ({ ...prev, description: text }))
+//               }
+//             />
+//           </View>
+
+//           {/* Category */}
+//           <View style={styles.inputContainer}>
+//             <Text style={styles.inputLabel}>Category</Text>
+//             <TouchableOpacity
+//               style={styles.selectButton}
+//               onPress={() => setShowCategoryModal(true)}
+//             >
+//               <View style={styles.selectContent}>
+//                 <View
+//                   style={[
+//                     styles.categoryIcon,
+//                     { backgroundColor: `${selectedCategory.color}20` },
+//                   ]}
+//                 >
+//                   <Ionicons
+//                     name={selectedCategory.icon}
+//                     size={20}
+//                     color={selectedCategory.color}
+//                   />
+//                 </View>
+//                 <Text style={styles.selectText}>{selectedCategory.name}</Text>
+//               </View>
+//               <Ionicons name="chevron-down" size={20} color="#6B7280" />
+//             </TouchableOpacity>
+//           </View>
+
+//           {/* Date */}
+//           <View style={styles.inputContainer}>
+//             <Text style={styles.inputLabel}>Date</Text>
+//             <TextInput
+//               style={styles.textInput}
+//               placeholder="YYYY-MM-DD"
+//               placeholderTextColor="#9CA3AF"
+//               value={expenseData.date}
+//               onChangeText={(text) =>
+//                 setExpenseData((prev) => ({ ...prev, date: text }))
+//               }
+//             />
+//           </View>
+
+//           {/* Who Paid */}
+//           <View style={styles.inputContainer}>
+//             <Text style={styles.inputLabel}>Who Paid?</Text>
+//             <TouchableOpacity
+//               style={styles.selectButton}
+//               onPress={() => setShowMemberModal(true)}
+//             >
+//               <View style={styles.selectContent}>
+//                 {expenseData.paidBy ? (
+//                   <>
+//                     <View style={styles.memberAvatar}>
+//                       <Text style={styles.memberInitial}>
+//                         {(expenseData.paidBy.charAt(0) || "?").toUpperCase()}
+//                       </Text>
+//                     </View>
+//                     <Text style={styles.selectText}>{expenseData.paidBy}</Text>
+//                   </>
+//                 ) : (
+//                   <Text style={[styles.selectText, { color: "#9CA3AF" }]}>
+//                     Select who paid
+//                   </Text>
+//                 )}
+//               </View>
+//               <Ionicons name="chevron-down" size={20} color="#6B7280" />
+//             </TouchableOpacity>
+//           </View>
+
+//           {/* Split Info */}
+//           <View style={styles.inputContainer}>
+//             <Text style={styles.inputLabel}>Split Between</Text>
+//             <View style={styles.splitInfo}>
+//               <Text style={styles.splitText}>
+//                 {selectedMembers.length} member
+//                 {selectedMembers.length !== 1 ? "s" : ""} • $
+//                 {expenseData.amount
+//                   ? (
+//                       parseFloat(expenseData.amount) / selectedMembers.length
+//                     ).toFixed(2)
+//                   : "0.00"}{" "}
+//                 each
+//               </Text>
+//               {/* <TouchableOpacity style={styles.splitButton}>
+//                 <Text style={styles.splitButtonText}>Equal Split</Text>
+//               </TouchableOpacity> */}
+//               <TouchableOpacity
+//                 style={styles.splitButton}
+//                 onPress={() => setShowSplitModal(true)}
+//               >
+//                 <Text style={styles.splitButtonText}>
+//                   {expenseData.splitType === "equal"
+//                     ? "Equal Split"
+//                     : expenseData.splitType === "manual"
+//                       ? "Manual Split"
+//                       : "Percentage Split"}
+//                 </Text>
+//               </TouchableOpacity>
+//             </View>
+//           </View>
+//         </Animated.View>
+
+//         {/* Submit Button */}
+//         <Animated.View
+//           style={[
+//             styles.submitContainer,
+//             {
+//               opacity: fadeAnim,
+//               transform: [{ translateY: slideAnim }],
+//             },
+//           ]}
+//         >
+//           <TouchableOpacity
+//             style={styles.submitButton}
+//             onPress={handleSubmit}
+//             disabled={loading}
+//           >
+//             <LinearGradient
+//               colors={["#8B5CF6", "#7C3AED"]}
+//               style={styles.submitGradient}
+//             >
+//               {loading ? (
+//                 <Text style={styles.submitText}>Adding Expense...</Text>
+//               ) : (
+//                 <>
+//                   <Ionicons name="add" size={24} color="white" />
+//                   <Text style={styles.submitText}>Add Expense</Text>
+//                 </>
+//               )}
+//             </LinearGradient>
+//           </TouchableOpacity>
+//         </Animated.View>
+//       </ScrollView>
+
+//       {renderCategoryModal()}
+//       {renderMemberModal()}
+//       {renderSplitModal()}
+//       {renderCustomSplitModal()}
+//     </View>
+//   );
+// };
+
+// const styles = StyleSheet.create({
+//   container: {
+//     flex: 1,
+//     backgroundColor: "#FAFAFA",
+//   },
+//   header: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//     paddingHorizontal: 20,
+//     paddingTop: 50,
+//     paddingBottom: 20,
+//     backgroundColor: "#FFFFFF",
+//     borderBottomWidth: 1,
+//     borderBottomColor: "#F3F4F6",
+//   },
+//   backButton: {
+//     width: 40,
+//     height: 40,
+//     borderRadius: 20,
+//     backgroundColor: "#F9FAFB",
+//     justifyContent: "center",
+//     alignItems: "center",
+//   },
+//   headerCenter: {
+//     flex: 1,
+//     alignItems: "center",
+//   },
+//   headerTitle: {
+//     fontSize: 20,
+//     fontWeight: "700",
+//     color: "#111827",
+//   },
+//   headerSubtitle: {
+//     fontSize: 14,
+//     color: "#6B7280",
+//     marginTop: 2,
+//   },
+//   headerRight: {
+//     width: 40,
+//   },
+//   content: {
+//     flex: 1,
+//   },
+//   amountCard: {
+//     margin: 20,
+//     borderRadius: 20,
+//     overflow: "hidden",
+//     elevation: 4,
+//     shadowColor: "#000",
+//     shadowOffset: { width: 0, height: 2 },
+//     shadowOpacity: 0.1,
+//     shadowRadius: 8,
+//   },
+//   amountGradient: {
+//     padding: 32,
+//     backgroundColor: "#FFFFFF",
+//     alignItems: "center",
+//   },
+//   amountLabel: {
+//     fontSize: 16,
+//     color: "#6B7280",
+//     marginBottom: 16,
+//   },
+//   amountInputContainer: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//   },
+//   currencySymbol: {
+//     fontSize: 48,
+//     fontWeight: "300",
+//     color: "#8B5CF6",
+//     marginRight: 8,
+//   },
+//   amountInput: {
+//     fontSize: 48,
+//     fontWeight: "300",
+//     color: "#111827",
+//     minWidth: 120,
+//     textAlign: "left",
+//   },
+//   formCard: {
+//     margin: 20,
+//     marginTop: 0,
+//     backgroundColor: "#FFFFFF",
+//     borderRadius: 20,
+//     padding: 24,
+//     elevation: 4,
+//     shadowColor: "#000",
+//     shadowOffset: { width: 0, height: 2 },
+//     shadowOpacity: 0.1,
+//     shadowRadius: 8,
+//   },
+//   inputContainer: {
+//     marginBottom: 24,
+//   },
+//   inputLabel: {
+//     fontSize: 16,
+//     fontWeight: "600",
+//     color: "#374151",
+//     marginBottom: 8,
+//   },
+//   textInput: {
+//     borderWidth: 1,
+//     borderColor: "#E5E7EB",
+//     borderRadius: 12,
+//     paddingHorizontal: 16,
+//     paddingVertical: 12,
+//     fontSize: 16,
+//     color: "#111827",
+//     backgroundColor: "#F9FAFB",
+//   },
+//   selectButton: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//     justifyContent: "space-between",
+//     borderWidth: 1,
+//     borderColor: "#E5E7EB",
+//     borderRadius: 12,
+//     paddingHorizontal: 16,
+//     paddingVertical: 12,
+//     backgroundColor: "#F9FAFB",
+//   },
+//   selectContent: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//   },
+//   selectText: {
+//     fontSize: 16,
+//     color: "#111827",
+//     marginLeft: 12,
+//   },
+//   categoryIcon: {
+//     width: 32,
+//     height: 32,
+//     borderRadius: 16,
+//     justifyContent: "center",
+//     alignItems: "center",
+//   },
+//   splitInfo: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//     justifyContent: "space-between",
+//     backgroundColor: "#F9FAFB",
+//     padding: 16,
+//     borderRadius: 12,
+//     borderWidth: 1,
+//     borderColor: "#E5E7EB",
+//   },
+//   splitText: {
+//     fontSize: 14,
+//     color: "#6B7280",
+//   },
+//   splitButton: {
+//     backgroundColor: "#8B5CF6",
+//     paddingHorizontal: 12,
+//     paddingVertical: 6,
+//     borderRadius: 8,
+//   },
+//   splitButtonText: {
+//     fontSize: 12,
+//     fontWeight: "600",
+//     color: "white",
+//   },
+//   submitContainer: {
+//     padding: 20,
+//     paddingBottom: 40,
+//   },
+//   submitButton: {
+//     borderRadius: 16,
+//     overflow: "hidden",
+//   },
+//   submitGradient: {
+//     paddingVertical: 16,
+//     paddingHorizontal: 24,
+//     alignItems: "center",
+//     flexDirection: "row",
+//     justifyContent: "center",
+//   },
+//   submitText: {
+//     fontSize: 18,
+//     fontWeight: "600",
+//     color: "white",
+//     marginLeft: 8,
+//   },
+//   modalOverlay: {
+//     flex: 1,
+//     backgroundColor: "rgba(0, 0, 0, 0.5)",
+//     justifyContent: "center",
+//     alignItems: "center",
+//     paddingHorizontal: 20,
+//   },
+//   modalContent: {
+//     backgroundColor: "white",
+//     borderRadius: 20,
+//     width: "100%",
+//     maxWidth: 400,
+//     maxHeight: "80%",
+//     elevation: 20,
+//     shadowColor: "#000",
+//     shadowOffset: { width: 0, height: 10 },
+//     shadowOpacity: 0.3,
+//     shadowRadius: 20,
+//   },
+//   modalHeader: {
+//     flexDirection: "row",
+//     justifyContent: "space-between",
+//     alignItems: "center",
+//     padding: 20,
+//     borderBottomWidth: 1,
+//     borderBottomColor: "#F3F4F6",
+//   },
+//   modalTitle: {
+//     fontSize: 20,
+//     fontWeight: "700",
+//     color: "#111827",
+//   },
+//   modalCloseButton: {
+//     width: 32,
+//     height: 32,
+//     borderRadius: 16,
+//     backgroundColor: "#F9FAFB",
+//     justifyContent: "center",
+//     alignItems: "center",
+//   },
+//   categoryItem: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//     padding: 16,
+//     borderBottomWidth: 1,
+//     borderBottomColor: "#F3F4F6",
+//   },
+//   categoryItemSelected: {
+//     backgroundColor: "#F0FDF4",
+//   },
+//   categoryName: {
+//     fontSize: 16,
+//     color: "#111827",
+//     marginLeft: 12,
+//     flex: 1,
+//   },
+//   memberItem: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//     padding: 16,
+//     borderBottomWidth: 1,
+//     borderBottomColor: "#F3F4F6",
+//   },
+//   memberItemSelected: {
+//     backgroundColor: "#F0FDF4",
+//   },
+//   memberAvatar: {
+//     width: 32,
+//     height: 32,
+//     borderRadius: 16,
+//     backgroundColor: "#8B5CF6",
+//     justifyContent: "center",
+//     alignItems: "center",
+//     marginRight: 12,
+//   },
+//   memberInitial: {
+//     fontSize: 14,
+//     fontWeight: "700",
+//     color: "white",
+//   },
+//   memberName: {
+//     fontSize: 16,
+//     color: "#111827",
+//     flex: 1,
+//   },
+// });
+
+// export default AddExpense;
+
+"use client";
+
+import { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -17,29 +977,45 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import axios from "axios";
+import { auth } from "../auth/firebase";
+import { onAuthStateChanged, type User } from "firebase/auth";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+
+interface Member {
+  id: number;
+  username: string;
+}
+
+interface ExpenseData {
+  amount: string;
+  description: string;
+  category: string;
+  date: string;
+  paidBy: Member | string;
+  splitAmong: Member[]; // Changed from splitType and shares
+}
 
 const AddExpense = () => {
   const router = useRouter();
   const { groupId, groupName } = useLocalSearchParams();
 
-  const [expenseData, setExpenseData] = useState({
+  const [expenseData, setExpenseData] = useState<ExpenseData>({
     amount: "",
     description: "",
     category: "general",
-    date: new Date().toISOString().split('T')[0],
-    paidBy: null,
-    splitType: "equal", // equal, manual, percentage
-    splitDetails: {},
+    date: new Date().toISOString().split("T")[0],
+    paidBy: "",
+    splitAmong: [], // Initialize as empty array
   });
 
-  const [members, setMembers] = useState([]);
-  const [selectedMembers, setSelectedMembers] = useState([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showMemberModal, setShowMemberModal] = useState(false);
-  const [showSplitModal, setShowSplitModal] = useState(false);
+  const [showSplitMemberModal, setShowSplitMemberModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [idToken, setIdToken] = useState("");
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -50,32 +1026,67 @@ const AddExpense = () => {
   const categories = [
     { id: "food", name: "Food & Dining", icon: "restaurant", color: "#F59E0B" },
     { id: "transport", name: "Transportation", icon: "car", color: "#3B82F6" },
-    { id: "entertainment", name: "Entertainment", icon: "game-controller", color: "#8B5CF6" },
+    {
+      id: "entertainment",
+      name: "Entertainment",
+      icon: "game-controller",
+      color: "#8B5CF6",
+    },
     { id: "shopping", name: "Shopping", icon: "bag", color: "#EC4899" },
     { id: "utilities", name: "Utilities", icon: "flash", color: "#10B981" },
-    { id: "health", name: "Health & Medical", icon: "medical", color: "#EF4444" },
+    {
+      id: "health",
+      name: "Health & Medical",
+      icon: "medical",
+      color: "#EF4444",
+    },
     { id: "general", name: "General", icon: "card", color: "#6B7280" },
   ];
 
   useEffect(() => {
-    const fetchMembers = async () => {
+    const fetchMembers = async (token: string) => {
       try {
         const res = await axios.get(
-          `http://localhost:8082/api/v1/group/members/${groupId}`
+          `https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/group/getMembers/${groupId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
-        setMembers(res.data || []);
-        // Set current user as default payer (assuming user ID 1)
-        const currentUser = res.data.find(member => member.id === 1);
-        if (currentUser) {
-          setExpenseData(prev => ({ ...prev, paidBy: currentUser }));
+
+        const membersData = res.data || [];
+        setMembers(membersData);
+
+        // Set current user as default payer if available
+        if (membersData.length > 0) {
+          setExpenseData((prev) => ({
+            ...prev,
+            paidBy: membersData[0],
+          }));
         }
-        // Select all members by default for equal split
-        setSelectedMembers(res.data || []);
       } catch (error) {
         console.error("Failed to fetch members", error);
         Alert.alert("Error", "Could not fetch group members");
       }
     };
+
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setCurrentUser(firebaseUser);
+        try {
+          const token = await firebaseUser.getIdToken();
+          setIdToken(token);
+          fetchMembers(token);
+        } catch (error) {
+          console.error("Error getting ID token:", error);
+          Alert.alert("Error", "Authentication failed");
+        }
+      } else {
+        Alert.alert("Error", "Please log in to continue");
+        router.back();
+      }
+    });
 
     // Start animations
     Animated.parallel([
@@ -103,66 +1114,196 @@ const AddExpense = () => {
       }),
     ]).start();
 
-    fetchMembers();
-  }, []);
+    return () => unsubscribe();
+  }, [groupId]);
 
-  const selectedCategory = categories.find(cat => cat.id === expenseData.category);
+  const selectedCategory =
+    categories.find((cat) => cat.id === expenseData.category) ||
+    categories[categories.length - 1];
 
-  const handleSubmit = async () => {
-    // Validation
-    if (!expenseData.amount.trim()) {
-      Alert.alert("Error", "Please enter an amount");
-      return;
+  const validateForm = (): boolean => {
+    if (
+      !expenseData.amount.trim() ||
+      Number.parseFloat(expenseData.amount) <= 0
+    ) {
+      Alert.alert("Error", "Please enter a valid amount");
+      return false;
     }
+
     if (!expenseData.description.trim()) {
       Alert.alert("Error", "Please enter a description");
-      return;
+      return false;
     }
+
     if (!expenseData.paidBy) {
       Alert.alert("Error", "Please select who paid");
-      return;
+      return false;
     }
-    if (selectedMembers.length === 0) {
-      Alert.alert("Error", "Please select at least one member to split with");
-      return;
+
+    if (expenseData.splitAmong.length === 0) {
+      Alert.alert("Error", "Please select members to split the expense among");
+      return false;
     }
+
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
 
     setLoading(true);
+
     try {
-      const expensePayload = {
-        groupId: parseInt(groupId),
-        amount: parseFloat(expenseData.amount),
-        description: expenseData.description,
+      const paidById =
+        typeof expenseData.paidBy === "object"
+          ? expenseData.paidBy.username
+          : expenseData.paidBy;
+
+      const payload = {
+        groupId: Number.parseInt(groupId as string),
+        paidBy: paidById,
+        amount: Number.parseFloat(expenseData.amount),
         category: expenseData.category,
+        description: expenseData.description,
         date: expenseData.date,
-        paidBy: expenseData.paidBy.id,
-        splitWith: selectedMembers.map(member => member.id),
-        splitType: expenseData.splitType,
-        splitDetails: expenseData.splitDetails,
+        shares: expenseData.splitAmong.map((member) => ({
+          username: member.username,
+          amountOwned:
+            Number.parseFloat(expenseData.amount) /
+            expenseData.splitAmong.length,
+        })),
       };
 
-      const res = await axios.post(
-        "http://localhost:8082/api/v1/expenses/create",
-        expensePayload
+      console.log(payload);
+
+      await axios.post(
+        "https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/groupExpense/add",
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        }
       );
 
-      Alert.alert(
-        "Success", 
-        "Expense added successfully!",
-        [
-          {
-            text: "OK",
-            onPress: () => router.back()
-          }
-        ]
-      );
-    } catch (error) {
-      console.error("Error creating expense:", error);
-      Alert.alert("Error", "Failed to add expense. Please try again.");
+      Alert.alert("Success", "Expense added successfully!", [
+        {
+          text: "OK",
+          onPress: () => router.back(),
+        },
+      ]);
+    } catch (err) {
+      console.error("Error creating expense:", err);
+      Alert.alert("Error", "Failed to create expense. Please try again.");
     } finally {
       setLoading(false);
     }
   };
+
+  const getPaidByDisplayName = () => {
+    if (typeof expenseData.paidBy === "object") {
+      return expenseData.paidBy.username;
+    }
+    return expenseData.paidBy || "Select who paid";
+  };
+
+  const getPaidByInitial = () => {
+    const name = getPaidByDisplayName();
+    return name.charAt(0).toUpperCase();
+  };
+
+  const renderSplitMemberModal = () => (
+    <Modal
+      visible={showSplitMemberModal}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setShowSplitMemberModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <Animated.View
+          style={[styles.modalContent, { transform: [{ scale: formScale }] }]}
+        >
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Split Among</Text>
+            <TouchableOpacity
+              onPress={() => setShowSplitMemberModal(false)}
+              style={styles.modalCloseButton}
+            >
+              <Ionicons name="close" size={24} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
+
+          {/* All Members Option */}
+          <TouchableOpacity
+            style={[
+              styles.memberItem,
+              expenseData.splitAmong.length === members.length &&
+                styles.memberItemSelected,
+            ]}
+            onPress={() => {
+              setExpenseData((prev) => ({ ...prev, splitAmong: members }));
+            }}
+          >
+            <View style={[styles.memberAvatar, { backgroundColor: "#10B981" }]}>
+              <Ionicons name="people" size={16} color="white" />
+            </View>
+            <Text style={styles.memberName}>All Members</Text>
+            {expenseData.splitAmong.length === members.length && (
+              <Ionicons name="checkmark" size={24} color="#10B981" />
+            )}
+          </TouchableOpacity>
+
+          <FlatList
+            data={members}
+            keyExtractor={(item) => item.username}
+            renderItem={({ item }) => {
+              const isSelected = expenseData.splitAmong.some(
+                (member) => member.username === item.username
+              );
+
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.memberItem,
+                    isSelected && styles.memberItemSelected,
+                  ]}
+                  onPress={() => {
+                    setExpenseData((prev) => ({
+                      ...prev,
+                      splitAmong: isSelected
+                        ? prev.splitAmong.filter(
+                            (member) => member.id !== item.id
+                          )
+                        : [...prev.splitAmong, item],
+                    }));
+                  }}
+                >
+                  <View style={styles.memberAvatar}>
+                    <Text style={styles.memberInitial}>
+                      {(item.username.charAt(0) || "?").toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={styles.memberName}>{item.username}</Text>
+                  {isSelected && (
+                    <Ionicons name="checkmark" size={24} color="#10B981" />
+                  )}
+                </TouchableOpacity>
+              );
+            }}
+          />
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={styles.modalDoneButton}
+              onPress={() => setShowSplitMemberModal(false)}
+            >
+              <Text style={styles.modalDoneText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
 
   const renderCategoryModal = () => (
     <Modal
@@ -172,7 +1313,9 @@ const AddExpense = () => {
       onRequestClose={() => setShowCategoryModal(false)}
     >
       <View style={styles.modalOverlay}>
-        <Animated.View style={[styles.modalContent, { transform: [{ scale: formScale }] }]}>
+        <Animated.View
+          style={[styles.modalContent, { transform: [{ scale: formScale }] }]}
+        >
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select Category</Text>
             <TouchableOpacity
@@ -189,14 +1332,20 @@ const AddExpense = () => {
               <TouchableOpacity
                 style={[
                   styles.categoryItem,
-                  expenseData.category === item.id && styles.categoryItemSelected
+                  expenseData.category === item.id &&
+                    styles.categoryItemSelected,
                 ]}
                 onPress={() => {
-                  setExpenseData(prev => ({ ...prev, category: item.id }));
+                  setExpenseData((prev) => ({ ...prev, category: item.id }));
                   setShowCategoryModal(false);
                 }}
               >
-                <View style={[styles.categoryIcon, { backgroundColor: `${item.color}20` }]}>
+                <View
+                  style={[
+                    styles.categoryIcon,
+                    { backgroundColor: `${item.color}20` },
+                  ]}
+                >
                   <Ionicons name={item.icon} size={24} color={item.color} />
                 </View>
                 <Text style={styles.categoryName}>{item.name}</Text>
@@ -219,7 +1368,9 @@ const AddExpense = () => {
       onRequestClose={() => setShowMemberModal(false)}
     >
       <View style={styles.modalOverlay}>
-        <Animated.View style={[styles.modalContent, { transform: [{ scale: formScale }] }]}>
+        <Animated.View
+          style={[styles.modalContent, { transform: [{ scale: formScale }] }]}
+        >
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Who Paid?</Text>
             <TouchableOpacity
@@ -231,25 +1382,29 @@ const AddExpense = () => {
           </View>
           <FlatList
             data={members}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item) => item.username}
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={[
                   styles.memberItem,
-                  expenseData.paidBy?.id === item.id && styles.memberItemSelected
+                  expenseData.paidBy === item.username &&
+                    styles.memberItemSelected,
                 ]}
                 onPress={() => {
-                  setExpenseData(prev => ({ ...prev, paidBy: item }));
+                  setExpenseData((prev) => ({
+                    ...prev,
+                    paidBy: item.username,
+                  }));
                   setShowMemberModal(false);
                 }}
               >
                 <View style={styles.memberAvatar}>
                   <Text style={styles.memberInitial}>
-                    {item.name.charAt(0).toUpperCase()}
+                    {(item.username.charAt(0) || "?").toUpperCase()}
                   </Text>
                 </View>
-                <Text style={styles.memberName}>{item.name}</Text>
-                {expenseData.paidBy?.id === item.id && (
+                <Text style={styles.memberName}>{item.username}</Text>
+                {expenseData.paidBy === item.username && (
                   <Ionicons name="checkmark" size={24} color="#10B981" />
                 )}
               </TouchableOpacity>
@@ -263,7 +1418,7 @@ const AddExpense = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
-      
+
       {/* Header */}
       <Animated.View
         style={[
@@ -274,7 +1429,7 @@ const AddExpense = () => {
           },
         ]}
       >
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
@@ -310,8 +1465,8 @@ const AddExpense = () => {
                 placeholder="0.00"
                 placeholderTextColor="#9CA3AF"
                 value={expenseData.amount}
-                onChangeText={(text) => 
-                  setExpenseData(prev => ({ ...prev, amount: text }))
+                onChangeText={(text) =>
+                  setExpenseData((prev) => ({ ...prev, amount: text }))
                 }
                 keyboardType="numeric"
                 autoFocus
@@ -338,8 +1493,8 @@ const AddExpense = () => {
               placeholder="What was this expense for?"
               placeholderTextColor="#9CA3AF"
               value={expenseData.description}
-              onChangeText={(text) => 
-                setExpenseData(prev => ({ ...prev, description: text }))
+              onChangeText={(text) =>
+                setExpenseData((prev) => ({ ...prev, description: text }))
               }
             />
           </View>
@@ -352,8 +1507,17 @@ const AddExpense = () => {
               onPress={() => setShowCategoryModal(true)}
             >
               <View style={styles.selectContent}>
-                <View style={[styles.categoryIcon, { backgroundColor: `${selectedCategory.color}20` }]}>
-                  <Ionicons name={selectedCategory.icon} size={20} color={selectedCategory.color} />
+                <View
+                  style={[
+                    styles.categoryIcon,
+                    { backgroundColor: `${selectedCategory.color}20` },
+                  ]}
+                >
+                  <Ionicons
+                    name={selectedCategory.icon as any}
+                    size={20}
+                    color={selectedCategory.color}
+                  />
                 </View>
                 <Text style={styles.selectText}>{selectedCategory.name}</Text>
               </View>
@@ -369,8 +1533,8 @@ const AddExpense = () => {
               placeholder="YYYY-MM-DD"
               placeholderTextColor="#9CA3AF"
               value={expenseData.date}
-              onChangeText={(text) => 
-                setExpenseData(prev => ({ ...prev, date: text }))
+              onChangeText={(text) =>
+                setExpenseData((prev) => ({ ...prev, date: text }))
               }
             />
           </View>
@@ -387,10 +1551,12 @@ const AddExpense = () => {
                   <>
                     <View style={styles.memberAvatar}>
                       <Text style={styles.memberInitial}>
-                        {expenseData.paidBy.name.charAt(0).toUpperCase()}
+                        {getPaidByInitial()}
                       </Text>
                     </View>
-                    <Text style={styles.selectText}>{expenseData.paidBy.name}</Text>
+                    <Text style={styles.selectText}>
+                      {getPaidByDisplayName()}
+                    </Text>
                   </>
                 ) : (
                   <Text style={[styles.selectText, { color: "#9CA3AF" }]}>
@@ -402,18 +1568,34 @@ const AddExpense = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Split Info */}
+          {/* Split Among */}
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Split Between</Text>
-            <View style={styles.splitInfo}>
-              <Text style={styles.splitText}>
-                {selectedMembers.length} member{selectedMembers.length !== 1 ? 's' : ''} • 
-                ${expenseData.amount ? (parseFloat(expenseData.amount) / selectedMembers.length).toFixed(2) : '0.00'} each
-              </Text>
-              <TouchableOpacity style={styles.splitButton}>
-                <Text style={styles.splitButtonText}>Equal Split</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.inputLabel}>Split Among</Text>
+            <TouchableOpacity
+              style={styles.selectButton}
+              onPress={() => setShowSplitMemberModal(true)}
+            >
+              <View style={styles.selectContent}>
+                {expenseData.splitAmong.length > 0 ? (
+                  <Text style={styles.selectText}>
+                    {expenseData.splitAmong.length} member
+                    {expenseData.splitAmong.length !== 1 ? "s" : ""} • $
+                    {expenseData.amount
+                      ? (
+                          Number.parseFloat(expenseData.amount) /
+                          expenseData.splitAmong.length
+                        ).toFixed(2)
+                      : "0.00"}{" "}
+                    each
+                  </Text>
+                ) : (
+                  <Text style={[styles.selectText, { color: "#9CA3AF" }]}>
+                    Select members to split among
+                  </Text>
+                )}
+              </View>
+              <Ionicons name="chevron-down" size={20} color="#6B7280" />
+            </TouchableOpacity>
           </View>
         </Animated.View>
 
@@ -428,12 +1610,15 @@ const AddExpense = () => {
           ]}
         >
           <TouchableOpacity
-            style={styles.submitButton}
+            style={[
+              styles.submitButton,
+              loading && styles.submitButtonDisabled,
+            ]}
             onPress={handleSubmit}
             disabled={loading}
           >
             <LinearGradient
-              colors={["#8B5CF6", "#7C3AED"]}
+              colors={loading ? ["#9CA3AF", "#6B7280"] : ["#8B5CF6", "#7C3AED"]}
               style={styles.submitGradient}
             >
               {loading ? (
@@ -451,6 +1636,7 @@ const AddExpense = () => {
 
       {renderCategoryModal()}
       {renderMemberModal()}
+      {renderSplitMemberModal()}
     </View>
   );
 };
@@ -593,31 +1779,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  splitInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#F9FAFB",
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  splitText: {
-    fontSize: 14,
-    color: "#6B7280",
-  },
-  splitButton: {
-    backgroundColor: "#8B5CF6",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  splitButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "white",
-  },
   submitContainer: {
     padding: 20,
     paddingBottom: 40,
@@ -625,6 +1786,9 @@ const styles = StyleSheet.create({
   submitButton: {
     borderRadius: 16,
     overflow: "hidden",
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
   },
   submitGradient: {
     paddingVertical: 16,
@@ -723,6 +1887,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#111827",
     flex: 1,
+  },
+  modalFooter: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+  },
+  modalDoneButton: {
+    backgroundColor: "#8B5CF6",
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  modalDoneText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "white",
   },
 });
 

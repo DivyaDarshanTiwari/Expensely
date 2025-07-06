@@ -15,6 +15,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import axios from "axios";
+import { auth } from "../auth/firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -28,6 +30,8 @@ const GroupDetails = () => {
   const [expenses, setExpenses] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [idToken, setIdToken] = useState("");
+  const [showMembers, setShowMembers] = useState(false);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -36,17 +40,27 @@ const GroupDetails = () => {
   const cardScale = useRef(new Animated.Value(0.9)).current;
 
   useEffect(() => {
-    const fetchGroupDetails = async () => {
+    const fetchGroupDetails = async (idToken: string) => {
       try {
         // Fetch recent expenses
         const expensesRes = await axios.get(
-          `http://localhost:8082/api/v1/groupExpense/getAll/${groupId}`
+          `https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/groupExpense/getAll/${groupId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
+          }
         );
         setExpenses(expensesRes.data || []);
 
         // Fetch group members
         const membersRes = await axios.get(
-          `http://localhost:8082/api/v1/group/getMembers/${groupId}`
+          `https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/group/getMembers/${groupId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
+          }
         );
         setMembers(membersRes.data || []);
       } catch (error) {
@@ -55,6 +69,18 @@ const GroupDetails = () => {
         setLoading(false);
       }
     };
+
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const idToken = await firebaseUser?.getIdToken();
+          setIdToken(idToken);
+          fetchGroupDetails(idToken);
+        } catch (error) {
+          console.error("Error getting ID token:", error);
+        }
+      }
+    });
 
     // Start animations
     Animated.parallel([
@@ -82,7 +108,7 @@ const GroupDetails = () => {
       }),
     ]).start();
 
-    fetchGroupDetails();
+    return () => unsubscribe();
   }, []);
 
   const calculateProgress = (spent: any, total: any) => {
@@ -172,11 +198,11 @@ const GroupDetails = () => {
     >
       <View style={styles.memberAvatar}>
         <Text style={styles.memberInitial}>
-          {item.name.charAt(0).toUpperCase()}
+          {item.username.charAt(0).toUpperCase()}
         </Text>
       </View>
       <View style={styles.memberInfo}>
-        <Text style={styles.memberName}>{item.name}</Text>
+        <Text style={styles.memberName}>{item.username}</Text>
         <Text style={styles.memberBalance}>
           {item.balance >= 0
             ? `+$${item.balance}`
@@ -211,7 +237,7 @@ const GroupDetails = () => {
       >
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.replace("/(tabs)/group")}
+          onPress={() => router.back()}
         >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
@@ -350,22 +376,22 @@ const GroupDetails = () => {
         >
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Members ({group.members})</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowMembers((prev) => !prev)}>
               <Text style={[styles.sectionAction, { color: group.color[0] }]}>
-                View All
+                {showMembers ? "Hide" : "View All"}
               </Text>
             </TouchableOpacity>
           </View>
 
-          {/* <FlatList
-            data={members.slice(0, 3)} // Show first 3 members
+          <FlatList
+            data={showMembers ? members : []} // Show first 3 members
             renderItem={renderMemberItem}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item) => item.username.toString()}
             scrollEnabled={false}
             ItemSeparatorComponent={() => (
               <View style={styles.memberSeparator} />
             )}
-          /> */}
+          />
         </Animated.View>
 
         {/* Recent Expenses */}

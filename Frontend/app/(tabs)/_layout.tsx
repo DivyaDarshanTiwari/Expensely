@@ -37,11 +37,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="group"
+        name="groups"
         options={{
-          title: "Group",
+          title: "Groups",
           tabBarIcon: ({ color }) => (
             <Ionicons name="people-outline" size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="addTransaction"
+        options={{
+          title: "Add",
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="add" size={22} color={color} />
           ),
         }}
       />

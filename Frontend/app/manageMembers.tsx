@@ -18,6 +18,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import axios from "axios";
+import { auth } from "../auth/firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -35,6 +37,7 @@ const ManageMembers = () => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUserId] = useState(1); // Replace with actual logged-in user ID
+  const [idToken, setIdToken] = useState("");
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -43,8 +46,18 @@ const ManageMembers = () => {
   const cardScale = useRef(new Animated.Value(0.95)).current;
 
   useEffect(() => {
-    fetchMembers();
-    
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const idToken = await firebaseUser?.getIdToken();
+          setIdToken(idToken);
+          fetchMembers(idToken);
+        } catch (error) {
+          console.error("Error getting ID token:", error);
+        }
+      }
+    });
+
     // Start animations
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -70,12 +83,19 @@ const ManageMembers = () => {
         useNativeDriver: true,
       }),
     ]).start();
+
+    return () => unsubscribe();
   }, []);
 
-  const fetchMembers = async () => {
+  const fetchMembers = async (idToken: string) => {
     try {
       const res = await axios.get(
-        `http://localhost:8082/api/v1/group/members/${groupId}`
+        `https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/group/getMembers/${groupId}`,
+        {
+          headers : {
+            Authorization : `Bearer ${idToken}`
+          }
+        }
       );
       setMembers(res.data || []);
     } catch (error) {
@@ -95,9 +115,9 @@ const ManageMembers = () => {
         `http://localhost:8082/api/v1/users/search?q=${query}`
       );
       // Filter out users who are already members
-      const existingMemberIds = members.map(member => member.id);
+      const existingMemberIds = members.map((member) => member.id);
       const filteredResults = res.data.filter(
-        user => !existingMemberIds.includes(user.id)
+        (user) => !existingMemberIds.includes(user.id)
       );
       setSearchResults(filteredResults || []);
     } catch (error) {
@@ -122,7 +142,7 @@ const ManageMembers = () => {
       setShowAddModal(false);
       setAddMemberQuery("");
       setSearchResults([]);
-      fetchMembers(); // Refresh the members list
+      fetchMembers(idToken); // Refresh the members list
     } catch (error) {
       console.error("Error adding member:", error);
       Alert.alert("Error", "Failed to add member. Please try again.");
@@ -143,14 +163,17 @@ const ManageMembers = () => {
             groupId: parseInt(groupId),
             userId: selectedMember.id,
             removedBy: currentUserId,
-          }
+          },
         }
       );
 
-      Alert.alert("Success", `${selectedMember.name} has been removed from the group.`);
+      Alert.alert(
+        "Success",
+        `${selectedMember.name} has been removed from the group.`
+      );
       setShowRemoveModal(false);
       setSelectedMember(null);
-      fetchMembers(); // Refresh the members list
+      fetchMembers(idToken); // Refresh the members list
     } catch (error) {
       console.error("Error removing member:", error);
       Alert.alert("Error", "Failed to remove member. Please try again.");
@@ -161,17 +184,18 @@ const ManageMembers = () => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchMembers();
+    await fetchMembers(idToken);
     setRefreshing(false);
   };
 
-  const filteredMembers = members.filter(member =>
-    member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    member.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredMembers = members.filter(
+    (member) =>
+      member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      member.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const currentUser = members.find(member => member.id === currentUserId);
-  const isOwner = currentUser?.role === 'owner' || currentUser?.isOwner;
+  const currentUser = members.find((member) => member.id === currentUserId);
+  const isOwner = currentUser?.role === "owner" || currentUser?.isOwner;
 
   const getBalanceColor = (balance: any) => {
     if (balance > 0) return "#10B981"; // Green for positive
@@ -185,7 +209,7 @@ const ManageMembers = () => {
     return "$0.00";
   };
 
-  const renderMemberCard = ({ item, index } : { item: any, index: any }) => (
+  const renderMemberCard = ({ item, index }: { item: any; index: any }) => (
     <Animated.View
       style={[
         styles.memberCard,
@@ -205,26 +229,35 @@ const ManageMembers = () => {
       <View style={styles.memberHeader}>
         <View style={styles.memberAvatar}>
           <Text style={styles.memberInitial}>
-            {item.name.charAt(0).toUpperCase()}
+            {item.username.charAt(0).toUpperCase()}
           </Text>
         </View>
         <View style={styles.memberInfo}>
           <View style={styles.memberNameRow}>
-            <Text style={styles.memberName}>{item.name}</Text>
-            {item.role === 'owner' && (
+            <Text style={styles.memberName}>{item.username}</Text>
+            {/* {item.role === "owner" && (
               <View style={styles.ownerBadge}>
                 <Ionicons size={12} color="#F59E0B" />
                 <Text style={styles.ownerText}>Owner</Text>
               </View>
-            )}
+            )} */}
           </View>
           <Text style={styles.memberEmail}>{item.email}</Text>
           <View style={styles.memberStats}>
-            <Text style={[styles.memberBalance, { color: getBalanceColor(item.balance || 0) }]}>
+            <Text
+              style={[
+                styles.memberBalance,
+                { color: getBalanceColor(item.balance || 0) },
+              ]}
+            >
               {getBalanceText(item.balance || 0)}
             </Text>
             <Text style={styles.memberStatus}>
-              {item.balance > 0 ? "Owed" : item.balance < 0 ? "Owes" : "Settled"}
+              {item.balance > 0
+                ? "Owed"
+                : item.balance < 0
+                  ? "Owes"
+                  : "Settled"}
             </Text>
           </View>
         </View>
@@ -243,7 +276,7 @@ const ManageMembers = () => {
     </Animated.View>
   );
 
-  const renderSearchResult = ({ item }: {item:any}) => (
+  const renderSearchResult = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={styles.searchResultItem}
       onPress={() => handleAddMember(item)}
@@ -271,10 +304,7 @@ const ManageMembers = () => {
     >
       <View style={styles.modalOverlay}>
         <Animated.View
-          style={[
-            styles.modalContent,
-            { transform: [{ scale: cardScale }] }
-          ]}
+          style={[styles.modalContent, { transform: [{ scale: cardScale }] }]}
         >
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Add Member</Text>
@@ -289,11 +319,16 @@ const ManageMembers = () => {
               <Ionicons name="close" size={24} color="#6B7280" />
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.modalBody}>
             <View style={styles.searchContainer}>
               <View style={styles.searchBar}>
-                <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIcon} />
+                <Ionicons
+                  name="search"
+                  size={20}
+                  color="#6B7280"
+                  style={styles.searchIcon}
+                />
                 <TextInput
                   style={styles.searchInput}
                   placeholder="Search by name or email..."
@@ -344,10 +379,7 @@ const ManageMembers = () => {
     >
       <View style={styles.modalOverlay}>
         <Animated.View
-          style={[
-            styles.modalContent,
-            { transform: [{ scale: cardScale }] }
-          ]}
+          style={[styles.modalContent, { transform: [{ scale: cardScale }] }]}
         >
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Remove Member</Text>
@@ -361,7 +393,7 @@ const ManageMembers = () => {
               <Ionicons name="close" size={24} color="#6B7280" />
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.modalBody}>
             <View style={styles.confirmationContent}>
               <Ionicons name="warning" size={48} color="#F59E0B" />
@@ -369,10 +401,11 @@ const ManageMembers = () => {
                 Remove {selectedMember?.name}?
               </Text>
               <Text style={styles.confirmationText}>
-                This member will be removed from the group and will no longer have access to group expenses. This action cannot be undone.
+                This member will be removed from the group and will no longer
+                have access to group expenses. This action cannot be undone.
               </Text>
             </View>
-            
+
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={styles.modalCancelButton}
@@ -402,7 +435,7 @@ const ManageMembers = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
-      
+
       {/* Header */}
       <Animated.View
         style={[
@@ -413,7 +446,7 @@ const ManageMembers = () => {
           },
         ]}
       >
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
@@ -444,7 +477,12 @@ const ManageMembers = () => {
         ]}
       >
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIcon} />
+          <Ionicons
+            name="search"
+            size={20}
+            color="#6B7280"
+            style={styles.searchIcon}
+          />
           <TextInput
             style={styles.searchInput}
             placeholder="Search members..."
@@ -481,13 +519,13 @@ const ManageMembers = () => {
             </View>
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: "#10B981" }]}>
-                {members.filter(m => (m.balance || 0) === 0).length}
+                {members.filter((m) => (m.balance || 0) === 0).length}
               </Text>
               <Text style={styles.statLabel}>Settled</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: "#EF4444" }]}>
-                {members.filter(m => (m.balance || 0) !== 0).length}
+                {members.filter((m) => (m.balance || 0) !== 0).length}
               </Text>
               <Text style={styles.statLabel}>Pending</Text>
             </View>
@@ -511,7 +549,9 @@ const ManageMembers = () => {
             <Ionicons name="people" size={48} color="#9CA3AF" />
             <Text style={styles.emptyStateText}>No members found</Text>
             <Text style={styles.emptyStateSubtext}>
-              {searchQuery ? "Try a different search term" : "Add members to get started"}
+              {searchQuery
+                ? "Try a different search term"
+                : "Add members to get started"}
             </Text>
           </View>
         )}
