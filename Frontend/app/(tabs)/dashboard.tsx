@@ -71,7 +71,7 @@ const ExpenselyDashboard = () => {
       const fetchData = async () => {
         try {
           const res = await axios.get(
-            "https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/account/getDashboard",
+            "https://07ttqbzs-8080.inc1.devtunnels.ms/api/v1/account/getDashboard",
             {
               headers: {
                 Authorization: `Bearer ${idToken}`,
@@ -96,7 +96,7 @@ const ExpenselyDashboard = () => {
       ): Promise<Transaction[]> => {
         try {
           const res = await axios.get(
-            `https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/account/getMergedTransactions?page=${page}&limit=${limit}`,
+            `https://07ttqbzs-8080.inc1.devtunnels.ms/api/v1/account/getMergedTransactions?page=${page}&limit=${limit}`,
             {
               headers: {
                 Authorization: `Bearer ${idToken}`,
@@ -133,7 +133,7 @@ const ExpenselyDashboard = () => {
     ): Promise<Transaction[]> => {
       try {
         const res = await axios.get(
-          `https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/account/getMergedTransactions?page=${page}&limit=${limit}`,
+          `https://07ttqbzs-8080.inc1.devtunnels.ms/api/v1/account/getMergedTransactions?page=${page}&limit=${limit}`,
           {
             headers: {
               Authorization: `Bearer ${idToken}`,
@@ -155,7 +155,7 @@ const ExpenselyDashboard = () => {
     const fetchAmounts = async (idToken: string) => {
       try {
         const res = await axios.get(
-          "https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/account/getDashboard",
+          "https://07ttqbzs-8080.inc1.devtunnels.ms/api/v1/account/getDashboard",
           {
             headers: {
               Authorization: `Bearer ${idToken}`,

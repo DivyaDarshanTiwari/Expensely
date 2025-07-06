@@ -99,7 +99,7 @@ const ExpenselyAuth = () => {
       // Send token to backend
       try {
         await axios.post(
-          "https://zp5k3bcx-8083.inc1.devtunnels.ms/api/v1/auth/validToken",
+          "https://07ttqbzs-8083.inc1.devtunnels.ms/api/v1/auth/validToken",
           {},
           {
             headers: {
@@ -145,7 +145,7 @@ const ExpenselyAuth = () => {
       // Send UID + token + other user data to backend
       try {
         await axios.post(
-          "https://zp5k3bcx-8083.inc1.devtunnels.ms/api/v1/auth/signUp",
+          "https://07ttqbzs-8083.inc1.devtunnels.ms/api/v1/auth/signUp",
           {},
           {
             headers: {
