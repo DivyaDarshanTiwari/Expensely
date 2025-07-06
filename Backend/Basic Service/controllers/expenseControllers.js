@@ -5,6 +5,8 @@ const expenseSchema = require("../services/InputValidation"); //importing schema
 
 //Add expense
 const addExpense = async (req, res) => {
+  const { userId, amount, category, description } = req.body;
+  console.log(userId, amount, category, description);
   const validatedData = expenseSchema.safeParse(req.body);
 
   if (!validatedData.success) {
@@ -14,7 +16,6 @@ const addExpense = async (req, res) => {
       details: validatedData.error.issues,
     });
   }
-  const { userId, amount, category, description } = req.body;
 
   try {
     if (!userId || !amount || !category) {

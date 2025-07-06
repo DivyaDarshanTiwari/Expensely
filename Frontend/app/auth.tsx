@@ -19,7 +19,13 @@ import { useRouter } from "expo-router";
 import { FirebaseError } from "firebase/app";
 import { auth } from "../auth/firebase";
 import axios from "axios";
-import { createUserWithEmailAndPassword, updateProfile , getIdToken , signInWithEmailAndPassword , sendPasswordResetEmail} from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  updateProfile,
+  getIdToken,
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+} from "firebase/auth";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -83,14 +89,17 @@ const ExpenselyAuth = () => {
 
   const login = async (email: string, password: string) => {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
 
       const idToken = await getIdToken(userCredential.user);
-
-      // Send token to backend 
+      // Send token to backend
       try {
         await axios.post(
-          "https://zp5k3bcx-8083.inc1.devtunnels.ms/api/v1/auth/validToken", 
+          "https://zp5k3bcx-8083.inc1.devtunnels.ms/api/v1/auth/validToken",
           {},
           {
             headers: {
@@ -99,18 +108,22 @@ const ExpenselyAuth = () => {
           }
         );
       } catch (apiError: any) {
-        console.error("API error:", apiError?.response?.data || apiError.message);
+        console.error(
+          "API error:",
+          apiError?.response?.data || apiError.message
+        );
         Alert.alert(
           "Server Error",
-          apiError?.response?.data?.message || "Something went wrong while communicating with backend."
+          apiError?.response?.data?.message ||
+            "Something went wrong while communicating with backend."
         );
-        return;
+        return null;
       }
 
       Alert.alert("Login Successful", "Welcome back!");
       return userCredential;
     } catch (firebaseError: any) {
-        throw firebaseError;
+      throw firebaseError;
     }
   };
 
@@ -126,32 +139,39 @@ const ExpenselyAuth = () => {
       await updateProfile(userCredential.user, {
         displayName: formData.fullName,
       });
-      
+
       const idToken = await getIdToken(userCredential.user);
 
       // Send UID + token + other user data to backend
-      try{
-        await axios.post("https://zp5k3bcx-8083.inc1.devtunnels.ms/api/v1/auth/signUp", 
-          {},{
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-          },
-        });
+      try {
+        await axios.post(
+          "https://zp5k3bcx-8083.inc1.devtunnels.ms/api/v1/auth/signUp",
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
+          }
+        );
+      } catch (apiError: any) {
+        // Handle backend/API error separately
+        console.error(
+          "API error:",
+          apiError?.response?.data || apiError.message
+        );
+        Alert.alert(
+          "Server Error",
+          apiError?.response?.data?.message ||
+            "Something went wrong while saving user data to backend."
+        );
+        return; // Exit early — don’t proceed
       }
-      catch (apiError: any) {
-      // Handle backend/API error separately
-      console.error("API error:", apiError?.response?.data || apiError.message);
-      Alert.alert("Server Error", apiError?.response?.data?.message || "Something went wrong while saving user data to backend.");
-      return; // Exit early — don’t proceed
-      };
 
       Alert.alert("Success", "Account created successfully!");
       return userCredential;
-    } 
-    catch (firebaseError: any) {
+    } catch (firebaseError: any) {
       throw firebaseError;
-    }
-    finally {
+    } finally {
       setIsLoading(false); // Always clear loading state
     }
   };
@@ -218,24 +238,25 @@ const ExpenselyAuth = () => {
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
-    if(isLogin){
+    if (isLogin) {
       try {
-        await login(formData.email, formData.password);
-        Alert.alert("Login Successful", "Welcome back!");
-        router.replace("/(tabs)/dashboard");
-      } 
-      catch (err: any) {
+        const userCredential = await login(formData.email, formData.password);
+        if (userCredential?.user) {
+          Alert.alert("Login Successful", "Welcome back!");
+          router.replace("/(tabs)/dashboard");
+        } else {
+          Alert.alert("Login Failed", "No user found after login.");
+        }
+      } catch (err: any) {
         console.log(err.message);
         Alert.alert("Login Failed", err.message || "Invalid email or password");
       }
-    }
-    else{
+    } else {
       try {
         await signUp();
         Alert.alert("Signup Successfully");
         setIsLogin(true);
-      } 
-      catch (err: any) {
+      } catch (err: any) {
         console.log(err.message);
         Alert.alert("Signup Failed", err.message || "Error from backend");
       }

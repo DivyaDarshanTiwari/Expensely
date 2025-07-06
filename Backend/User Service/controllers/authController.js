@@ -79,6 +79,11 @@ const signUpController = async (req, res) => {
       ]
     );
 
+    await pool.query(
+      `INSERT INTO ACCOUNT (userId) VALUES ($1) ON CONFLICT (userId) DO NOTHING`,
+      [result.rows[0].user_id]
+    );
+
     res.status(200).json({
       message: "Token is valid and signup is successfull",
     });

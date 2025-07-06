@@ -10,6 +10,7 @@ import {
   StyleSheet,
   StatusBar,
   FlatList,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -29,29 +30,43 @@ const ExpenselyDashboard = () => {
   const scrollX = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
-  
+
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-      }
-    });
-
-    const fetchAmounts = async () => {
+    const fetchAmounts = async (idToken: string) => {
       try {
         const res = await axios.get(
-          "http://localhost:8080/api/v1/account/getDashboard/1"
+          "https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/account/getDashboard",
+          {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
+          }
         );
         if (res?.data?.data) {
-          setTotalExpense(res.data.data.totalExpense);
-          setTotalIncome(res.data.data.totalIncome);
+          setTotalExpense(res.data.data.totalExpense || 0);
+          setTotalIncome(res.data.data.totalIncome || 0);
         }
       } catch (err) {
         console.error("Error fetching dashboard data:", err);
       }
     };
+
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
+        try {
+          const idToken = await firebaseUser?.getIdToken();
+          fetchAmounts(idToken);
+        } catch (error) {
+          console.error("Error getting ID token:", error);
+        }
+      } else {
+        setUser(null);
+      }
+    });
+
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -64,7 +79,8 @@ const ExpenselyDashboard = () => {
         useNativeDriver: true,
       }),
     ]).start();
-    fetchAmounts();
+
+    return () => unsubscribe();
   }, []);
 
   const summaryCards = [

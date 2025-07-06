@@ -46,6 +46,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="addTransaction"
+        options={{
+          title: "Add",
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="add" size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="ocr"
         options={{
           title: "OCR",

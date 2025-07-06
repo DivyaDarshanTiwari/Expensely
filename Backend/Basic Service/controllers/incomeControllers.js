@@ -3,6 +3,9 @@ const { pool } = require("../config/db");
 const inputValidation = require("../services/InputValidation");
 
 exports.addIncome = async (req, res) => {
+  const { userId, amount, category, description } = req.body;
+  console.log(userId, amount, category, description);
+
   const validatedData = inputValidation.safeParse(req.body);
 
   if (!validatedData.success) {
@@ -11,10 +14,6 @@ exports.addIncome = async (req, res) => {
       details: validatedData.error.issues,
     });
   }
-
-  const { userId, amount, category, description } = req.body;
-
-  // console.log(userId, amount, category, description);
 
   try {
     if (!userId || !amount || !category) {
