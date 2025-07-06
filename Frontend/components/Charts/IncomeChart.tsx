@@ -1,47 +1,106 @@
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
-import { PieChart } from "react-native-gifted-charts";
+import React, { useState, useCallback } from "react";
+import {
+  View,
+  ActivityIndicator,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Dimensions,
+} from "react-native";
+import axios from "axios";
+import { BarChart } from "react-native-gifted-charts";
+import { auth } from "../../auth/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { useFocusEffect } from "expo-router";
 
-const IncomeChart = () => {
-  const data = [
-    { value: 50000, color: "#4caf50", text: "Salary" },
-    { value: 10000, color: "#2196f3", text: "Freelance" },
-    { value: 5000, color: "#ff9800", text: "Investments" },
-  ];
+const screenWidth = Dimensions.get("window").width - 32;
+
+export default function IncomeChart() {
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true; // to prevent state updates if unmounted
+
+      const fetchData = async (idToken: string) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const res = await axios.get(
+            `https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/income/getAll/?limit=100&page=1`,
+            { headers: { Authorization: `Bearer ${idToken}` } }
+          );
+
+          const categoryTotals: Record<string, number> = {};
+          res.data.data.forEach((item: any) => {
+            const category = item.category;
+            const amount = parseFloat(item.amount);
+            categoryTotals[category] = (categoryTotals[category] || 0) + amount;
+          });
+
+          const sortedCategories = Object.entries(categoryTotals).sort(
+            (a, b) => b[1] - a[1]
+          );
+
+          const transformedData = sortedCategories.map(([category, total]) => ({
+            label: category,
+            value: total,
+            frontColor: "#10B981",
+          }));
+
+          if (isMounted) {
+            setChartData(transformedData);
+          }
+        } catch (err: any) {
+          if (isMounted) {
+            setError(err.message || "Error fetching income data.");
+          }
+        } finally {
+          if (isMounted) {
+            setLoading(false);
+          }
+        }
+      };
+
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          const idToken = await user.getIdToken();
+          fetchData(idToken);
+        } else {
+          if (isMounted) {
+            setError("User not logged in.");
+            setLoading(false);
+          }
+        }
+      });
+
+      return () => {
+        isMounted = false;
+        unsubscribe();
+      };
+    }, [])
+  );
+
+  if (loading) return <ActivityIndicator size="large" color="#10B981" />;
+  if (error) return <Text style={styles.error}>{error}</Text>;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Income Sources (Last 60 Days)</Text>
-      <PieChart
-        data={data}
-        showText
-        textColor="white"
-        radius={80}
-        innerRadius={40}
-        focusOnPress
+    <ScrollView horizontal>
+      <BarChart
+        barWidth={32}
+        data={chartData}
+        height={200}
+        yAxisTextStyle={{ color: "#555", fontSize: 12 }}
+        yAxisLabelWidth={30}
+        isAnimated
+        width={Math.max(screenWidth, chartData.length * 60)}
       />
-    </View>
+    </ScrollView>
   );
-};
-
-export default IncomeChart;
+}
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 3,
-    elevation: 2,
-    marginBottom: 12,
-    alignItems: "center",
-  },
-  header: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
+  error: { color: "red", fontSize: 16 },
 });

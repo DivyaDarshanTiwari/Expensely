@@ -9,18 +9,26 @@ import {
   Animated,
   StyleSheet,
   StatusBar,
-  FlatList,
-  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import FinancialOverviewChart from "@/components/Charts/FinancialOverviewChart";
+import IncomeChart from "@/components/Charts/IncomeChart";
+import ExpenseChart from "@/components/Charts/ExpenseChart";
 import { useFocusEffect, useRouter } from "expo-router";
 import { auth } from "../../auth/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+interface Transaction {
+  id: number;
+  amount: string;
+  category: string;
+  dayAgo: string;
+  type: "income" | "expense";
+  description: string;
+}
 
 const ExpenselyDashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -31,13 +39,35 @@ const ExpenselyDashboard = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const [idToken, setIdToken] = useState("");
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>(
+    []
+  );
 
   const router = useRouter();
+
+  const categoryIconMap: Record<
+    string,
+    { icon: keyof typeof Ionicons.glyphMap; color: string }
+  > = {
+    food: { icon: "restaurant", color: "#F59E0B" },
+    transport: { icon: "car", color: "#3B82F6" },
+    entertainment: { icon: "game-controller", color: "#8B5CF6" },
+    shopping: { icon: "bag", color: "#EC4899" },
+    utilities: { icon: "flash", color: "#10B981" },
+    health: { icon: "medical", color: "#EF4444" },
+    general: { icon: "card", color: "#6B7280" },
+    salary: { icon: "briefcase", color: "#10B981" },
+    freelance: { icon: "laptop", color: "#3B82F6" },
+    investment: { icon: "trending-up", color: "#8B5CF6" },
+    gift: { icon: "gift", color: "#EC4899" },
+    refund: { icon: "refresh", color: "#F59E0B" },
+    bonus: { icon: "star", color: "#EF4444" },
+    other: { icon: "cash", color: "#6B7280" },
+  };
 
   useFocusEffect(
     useCallback(() => {
       let isActive = true; // handle cleanup during fast tab switching
-
       const fetchData = async () => {
         try {
           const res = await axios.get(
@@ -59,6 +89,36 @@ const ExpenselyDashboard = () => {
 
       fetchData();
 
+      const fetchMergedTransactions = async (
+        idToken: string,
+        page: number = 1,
+        limit: number = 5
+      ): Promise<Transaction[]> => {
+        try {
+          const res = await axios.get(
+            `https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/account/getMergedTransactions?page=${page}&limit=${limit}`,
+            {
+              headers: {
+                Authorization: `Bearer ${idToken}`,
+              },
+            }
+          );
+
+          if (res?.data?.data) {
+            return res.data.data as Transaction[];
+          } else {
+            console.error("No data returned from merged transactions API.");
+            return [];
+          }
+        } catch (err) {
+          console.error("Error fetching merged transactions:", err);
+          return [];
+        }
+      };
+      fetchMergedTransactions(idToken).then((result) => {
+        setRecentTransactions(result);
+      });
+
       return () => {
         isActive = false; // cleanup flag
       };
@@ -66,6 +126,32 @@ const ExpenselyDashboard = () => {
   );
 
   useEffect(() => {
+    const fetchMergedTransactions = async (
+      idToken: string,
+      page: number = 1,
+      limit: number = 5
+    ): Promise<Transaction[]> => {
+      try {
+        const res = await axios.get(
+          `https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/account/getMergedTransactions?page=${page}&limit=${limit}`,
+          {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
+          }
+        );
+
+        if (res?.data?.data) {
+          return res.data.data as Transaction[];
+        } else {
+          console.error("No data returned from merged transactions API.");
+          return [];
+        }
+      } catch (err) {
+        console.error("Error fetching merged transactions:", err);
+        return [];
+      }
+    };
     const fetchAmounts = async (idToken: string) => {
       try {
         const res = await axios.get(
@@ -92,6 +178,9 @@ const ExpenselyDashboard = () => {
           const idToken = await firebaseUser?.getIdToken();
           setIdToken(idToken);
           fetchAmounts(idToken);
+          fetchMergedTransactions(idToken).then((result) => {
+            setRecentTransactions(result);
+          });
         } catch (error) {
           console.error("Error getting ID token:", error);
         }
@@ -140,45 +229,6 @@ const ExpenselyDashboard = () => {
       icon: "wallet",
       gradient: ["#8B5CF6", "#7C3AED"],
       bgGradient: ["#F3E8FF", "#DDD6FE"],
-    },
-  ];
-
-  const recentTransactions = [
-    {
-      id: 1,
-      title: "Grocery Shopping",
-      category: "Food & Dining",
-      amount: "-$85.20",
-      date: "Today",
-      icon: "basket",
-      color: "#EF4444",
-    },
-    {
-      id: 2,
-      title: "Salary Deposit",
-      category: "Income",
-      amount: "+$3,200.00",
-      date: "Yesterday",
-      icon: "card",
-      color: "#10B981",
-    },
-    {
-      id: 3,
-      title: "Netflix Subscription",
-      category: "Entertainment",
-      amount: "-$15.99",
-      date: "2 days ago",
-      icon: "play-circle",
-      color: "#EF4444",
-    },
-    {
-      id: 4,
-      title: "Freelance Payment",
-      category: "Income",
-      amount: "+$850.00",
-      date: "3 days ago",
-      icon: "briefcase",
-      color: "#10B981",
     },
   ];
 
@@ -265,34 +315,58 @@ const ExpenselyDashboard = () => {
   const renderTransaction = ({ item }: { item: any }) => (
     <Animated.View style={styles.transactionItem}>
       <View
-        style={[styles.transactionIcon, { backgroundColor: `${item.color}15` }]}
+        style={[
+          styles.transactionIcon,
+          {
+            backgroundColor:
+              item.type === "expense"
+                ? "rgba(239, 68, 68, 0.15)"
+                : "rgba(34, 197, 94, 0.15)",
+          },
+        ]}
       >
-        <Ionicons name={item.icon} size={20} color={item.color} />
+        <Ionicons
+          name={categoryIconMap[item.category]?.icon ?? "help-circle"}
+          size={20}
+          color={categoryIconMap[item.category]?.color ?? "#6B7280"}
+        />
       </View>
       <View style={styles.transactionDetails}>
-        <Text style={styles.transactionTitle}>{item.title}</Text>
-        <Text style={styles.transactionCategory}>{item.category}</Text>
+        <Text style={styles.transactionTitle}>{item.category}</Text>
+        <Text style={styles.transactionCategory}>{item.description}</Text>
       </View>
       <View style={styles.transactionRight}>
-        <Text style={[styles.transactionAmount, { color: item.color }]}>
+        <Text
+          style={[
+            styles.transactionAmount,
+            { color: item.type === "expense" ? "red" : "green" },
+          ]}
+        >
           {item.amount}
         </Text>
-        <Text style={styles.transactionDate}>{item.date}</Text>
+        <Text style={styles.transactionDate}>{item.dayAgo}</Text>
       </View>
     </Animated.View>
   );
 
   const renderChartCard = ({ item }: { item: any }) => {
-    const getChartType = (title: string): "balance" | "income" | null => {
-      if (title === "Financial Overview") return "balance";
-      if (title === "Income Chart") return "income";
-      return null; // Expense chart not supported in chart component yet
+    const getChartComponent = (title: string) => {
+      switch (title) {
+        case "Financial Overview":
+          return <FinancialOverviewChart />;
+        case "Expense Chart":
+          return <ExpenseChart />;
+        case "Income Chart":
+          return <IncomeChart />;
+        default:
+          return null;
+      }
     };
 
-    const chartType = getChartType(item.title);
+    const chartComponent = getChartComponent(item.title);
 
     return (
-      <TouchableOpacity style={styles.chartCard} activeOpacity={0.8}>
+      <TouchableOpacity style={styles.chartCard} activeOpacity={0.5}>
         <LinearGradient
           colors={[`${item.gradient[0]}10`, `${item.gradient[1]}05`]}
           style={styles.chartCardGradient}
@@ -314,17 +388,18 @@ const ExpenselyDashboard = () => {
             </View>
           </View>
 
-          {/* ✅ Show actual chart */}
+          {/* ✅ Show the actual chart component */}
           <View style={{ alignItems: "center" }}>
-            {chartType ? (
+            {chartComponent ? (
               <View
                 style={{
-                  height: 169,
+                  height: 250,
                   justifyContent: "center",
                   alignItems: "center",
+                  width: "90%",
                 }}
               >
-                <FinancialOverviewChart type={chartType} />
+                {chartComponent}
               </View>
             ) : (
               <View style={styles.chartPlaceholder}>
@@ -439,13 +514,10 @@ const ExpenselyDashboard = () => {
         >
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Transactions</Text>
-            <TouchableOpacity activeOpacity={0.7}>
-              <Text style={styles.seeAllButton}>See All</Text>
-            </TouchableOpacity>
           </View>
           <View style={styles.transactionsList}>
-            {recentTransactions.map((transaction) => (
-              <View key={transaction.id}>
+            {recentTransactions.map((transaction, index) => (
+              <View key={index}>
                 {renderTransaction({ item: transaction })}
               </View>
             ))}
@@ -668,8 +740,8 @@ const styles = StyleSheet.create({
     paddingRight: 10,
   },
   chartCard: {
-    width: screenWidth * 0.95,
-    height: 250,
+    width: screenWidth * 0.92,
+    height: 320,
     marginRight: 16,
     borderRadius: 16,
     overflow: "hidden",
