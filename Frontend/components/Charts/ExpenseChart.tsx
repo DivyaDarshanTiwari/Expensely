@@ -1,22 +1,113 @@
-import React from "react";
-import { View, StyleSheet } from "react-native";
-import { BarChart } from "react-native-gifted-charts";
+import React, { useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  Dimensions,
+  ActivityIndicator,
+  StyleSheet,
+  ScrollView,
+} from "react-native";
+import { BarChart } from "react-native-chart-kit";
+import { onAuthStateChanged } from "firebase/auth";
+import axios from "axios";
+import { auth } from "../../auth/firebase";
+import { useFocusEffect } from "expo-router";
+
+const screenWidth = Dimensions.get("window").width - 32;
 
 export default function ExpenseChart() {
-  const data = [
-    { value: 300, label: "Day 1", frontColor: "#FF3B30" },
-    { value: 450, label: "Day 5", frontColor: "#FF3B30" },
-    { value: 200, label: "Day 10", frontColor: "#FF3B30" },
-    { value: 500, label: "Day 15", frontColor: "#FF3B30" },
-  ];
+  const [chartLabels, setChartLabels] = useState<string[]>([]);
+  const [chartData, setChartData] = useState<number[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true; // guard flag
+
+      const fetchData = async (idToken: string) => {
+        setLoading(true);
+        try {
+          const res = await axios.get(
+            `https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/expense/getAll/?limit=100&page=1`,
+            { headers: { Authorization: `Bearer ${idToken}` } }
+          );
+
+          const categoryTotals: Record<string, number> = {};
+          res.data.data.forEach((item: any) => {
+            const category = item.category;
+            const amount = parseFloat(item.amount);
+            categoryTotals[category] = (categoryTotals[category] || 0) + amount;
+          });
+
+          const sortedCategories = Object.entries(categoryTotals).sort(
+            (a, b) => b[1] - a[1]
+          );
+
+          if (isMounted) {
+            setChartLabels(sortedCategories.map(([category]) => category));
+            setChartData(sortedCategories.map(([_, total]) => total));
+          }
+        } catch (err: any) {
+          if (isMounted) setError(err.message || "Error fetching data");
+        } finally {
+          if (isMounted) setLoading(false);
+        }
+      };
+
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          const idToken = await user.getIdToken();
+          fetchData(idToken);
+        }
+      });
+
+      return () => {
+        isMounted = false;
+        unsubscribe();
+      };
+    }, [])
+  );
+
+  if (loading) {
+    return <ActivityIndicator size="large" color="#EF4444" />;
+  }
+
+  if (error) {
+    return <Text style={styles.error}>{error}</Text>;
+  }
 
   return (
-    <View style={styles.container}>
-      <BarChart data={data} barWidth={22} spacing={16} />
-    </View>
+    <ScrollView horizontal>
+      <BarChart
+        data={{
+          labels: chartLabels,
+          datasets: [{ data: chartData }],
+        }}
+        width={Math.max(screenWidth, chartLabels.length * 60)}
+        height={240}
+        fromZero
+        yAxisLabel="$"
+        showValuesOnTopOfBars
+        withInnerLines={false}
+        chartConfig={{
+          backgroundGradientFrom: "#fff",
+          backgroundGradientTo: "#fff",
+          fillShadowGradient: "#EF4444",
+          fillShadowGradientOpacity: 1,
+          decimalPlaces: 0,
+          color: (opacity = 1) => `rgba(239, 68, 68, ${opacity})`,
+          labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+          propsForBackgroundLines: { stroke: "#e3e3e3" },
+          barPercentage: 0.5,
+        }}
+        style={{ borderRadius: 12 }}
+        yAxisSuffix={""}
+      />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { alignItems: "center" },
+  error: { color: "red", fontSize: 16 },
 });

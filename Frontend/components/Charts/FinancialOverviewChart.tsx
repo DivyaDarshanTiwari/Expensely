@@ -1,7 +1,10 @@
 import axios from "axios";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { View, StyleSheet, ActivityIndicator, Text } from "react-native";
 import { PieChart } from "react-native-gifted-charts";
+import { auth } from "../../auth/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { useFocusEffect } from "expo-router";
 
 // Default color map based on known labels
 const colorMap: Record<string, string> = {
@@ -10,11 +13,7 @@ const colorMap: Record<string, string> = {
   Income: "#13d99a",
 };
 
-export default function FinancialOverviewChart({
-  type,
-}: {
-  type: "balance" | "income";
-}) {
+export default function FinancialOverviewChart() {
   type ChartItem = {
     value: number;
     text: string;
@@ -25,36 +24,70 @@ export default function FinancialOverviewChart({
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [idToken, setIdToken] = useState("");
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await axios.get(
-          `http://localhost:8080/api/v1/account/getFinancialOverview/1`
-        );
-        console.log(response);
-        const rawData = response.data.data;
+  // ...
 
-        // Assign color if not present using the label
-        const coloredData = rawData.map((item: any) => ({
-          ...item,
-          color: item.color || colorMap[item.text] || "#ccc", // fallback color
-        }));
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
 
-        console.log(rawData);
+      const fetchData = async (token: string) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await axios.get(
+            `https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/account/getFinancialOverview`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
 
-        setChartData(coloredData);
-      } catch (err: any) {
-        setError(err.message || "Error fetching chart data");
-      } finally {
-        setLoading(false);
-      }
-    };
+          const rawData = response.data.data;
 
-    fetchData();
-  }, []);
+          const coloredData = rawData.map((item: any) => ({
+            ...item,
+            color: item.color || colorMap[item.text] || "#ccc",
+          }));
+
+          if (isActive) {
+            setChartData(coloredData);
+          }
+        } catch (err: any) {
+          if (isActive) {
+            setError(err.message || "Error fetching chart data");
+          }
+        } finally {
+          if (isActive) {
+            setLoading(false);
+          }
+        }
+      };
+
+      const checkAndFetch = async () => {
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+          if (firebaseUser) {
+            try {
+              const token = await firebaseUser.getIdToken();
+              setIdToken(token);
+              fetchData(token);
+            } catch (error) {
+              console.error("Error getting ID token:", error);
+            }
+          }
+        });
+
+        return unsubscribe;
+      };
+
+      const unsubscribePromise = checkAndFetch();
+
+      return () => {
+        isActive = false;
+        unsubscribePromise.then((unsubscribe) => unsubscribe());
+      };
+    }, [])
+  );
 
   return (
     <View style={styles.chartRow}>

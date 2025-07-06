@@ -6,5 +6,9 @@ const Router = express.Router();
 
 Router.get("/getDashboard", dashboardControllers.getDashboardAmounts);
 Router.get("/getFinancialOverview", dashboardControllers.getFinancialOverview);
+Router.get(
+  "/getMergedTransactions",
+  dashboardControllers.getMergedTransactions
+);
 
 module.exports = Router;
