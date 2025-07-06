@@ -6,7 +6,14 @@ exports.createGroup = async (req, res) => {
     if (!name || !createdBy || !groupBudget || !groupMembers) {
       return res.status(404).json({ message: "Incomplete Fields" });
     }
-
+    console.log(
+      name,
+      createdBy,
+      groupBudget,
+      description,
+      groupMembers,
+      req.body.userId
+    );
     const result = await pool.query(
       `INSERT INTO GROUPS (name, createdBy, groupBudget, description) VALUES ($1, $2, $3, $4) RETURNING *`,
       [name, createdBy, groupBudget, description]
@@ -32,14 +39,47 @@ exports.createGroup = async (req, res) => {
 // Need to add to get the name from the USER table once USER table implemented
 exports.getGroupMembers = async (req, res) => {
   const { groupId } = req.params;
+
   try {
-    const result = await pool.query(
+    // Step 1: Get all userIds in this group
+    const userIdResult = await pool.query(
       `SELECT userId FROM GROUP_MEMBERS WHERE groupId = $1`,
       [groupId]
     );
-    res.status(200).json(result.rows);
+    const userIds = userIdResult.rows.map((row) => row.userid);
+
+    const memberData = [];
+
+    for (let userId of userIds) {
+      // Step 2: Get username
+      const userResult = await pool.query(
+        `SELECT username FROM USERS WHERE user_id = $1`,
+        [userId]
+      );
+      const username = userResult.rows[0]?.username;
+
+      // Step 3: Get total amountOwned from all expenses in this group
+      const amountResult = await pool.query(
+        `
+        SELECT COALESCE(SUM(es.amountOwned), 0) AS totalAmount
+        FROM EXPENSES_SHARE es
+        JOIN GROUP_EXPENSES ge ON es.expenseId = ge.id
+        WHERE es.userId = $1 AND ge.groupId = $2
+        `,
+        [userId, groupId]
+      );
+      const amountOwned = parseFloat(amountResult.rows[0]?.totalamount || 0);
+
+      memberData.push({
+        userId,
+        username,
+        balance: amountOwned,
+      });
+    }
+
+    res.status(200).json(memberData);
   } catch (err) {
-    console.error("Error getting group members : ", err);
+    console.error("Error getting group members:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };

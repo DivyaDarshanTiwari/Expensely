@@ -4,15 +4,37 @@ exports.addGroupExpense = async (req, res) => {
   const { groupId, paidBy, amount, description, shares, category } = req.body;
   // shares = [{ userId: 1, amountOwed: 400 }, { userId: 2, amountOwed: 400 }, ...]
   try {
+    const payerResult = await pool.query(
+      "SELECT user_id FROM USERS WHERE username = $1",
+      [paidBy]
+    );
+    if (payerResult.rows.length === 0) {
+      return res.status(400).json({ message: `Payer ${paidBy} not found` });
+    }
+    const paidById = payerResult.rows[0].user_id;
+
     const expenseResult = await pool.query(
       "INSERT INTO GROUP_EXPENSES (groupId, paidBy, amount, description, category) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-      [groupId, paidBy, amount, description, category]
+      [groupId, paidById, amount, description, category]
     );
     const expenseId = expenseResult.rows[0].id;
     for (let share of shares) {
+      // Get userId from username
+      const userResult = await pool.query(
+        "SELECT user_id FROM USERS WHERE username = $1",
+        [share.username]
+      );
+
+      if (userResult.rows.length === 0) {
+        return res
+          .status(400)
+          .json({ message: `User ${share.username} not found` });
+      }
+
+      const userId = userResult.rows[0].user_id;
       await pool.query(
         "INSERT INTO EXPENSES_SHARE (expenseId, userId, amountOwned) VALUES ($1, $2, $3)",
-        [expenseId, share.userId, share.amountOwned]
+        [expenseId, userId, share.amountOwned]
       );
     }
     res.status(201).json({ message: "Expense added", expenseId });
@@ -26,12 +48,24 @@ exports.getGroupExpenses = async (req, res) => {
   const { groupId } = req.params;
   try {
     const result = await pool.query(
-      `SELECT paidBy, amount, category, description FROM GROUP_EXPENSES WHERE groupId = $1`,
+      `
+      SELECT 
+        USERS.username AS paidBy,
+        GROUP_EXPENSES.id,
+        GROUP_EXPENSES.amount,
+        GROUP_EXPENSES.category,
+        GROUP_EXPENSES.description,
+        GROUP_EXPENSES.createdat
+      FROM GROUP_EXPENSES
+      JOIN USERS ON GROUP_EXPENSES.paidBy = USERS.user_id
+      WHERE GROUP_EXPENSES.groupId = $1
+      ORDER BY GROUP_EXPENSES.createdat DESC
+      `,
       [groupId]
     );
     res.status(200).json(result.rows);
   } catch (err) {
-    console.error("Error getting group expenses : ", err);
+    console.error("Error getting group expenses: ", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };

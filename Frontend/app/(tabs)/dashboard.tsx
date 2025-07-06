@@ -18,7 +18,7 @@ import IncomeChart from "@/components/Charts/IncomeChart";
 import ExpenseChart from "@/components/Charts/ExpenseChart";
 import { useFocusEffect, useRouter } from "expo-router";
 import { auth } from "../../auth/firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { getIdToken, onAuthStateChanged, User } from "firebase/auth";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 interface Transaction {
@@ -126,32 +126,6 @@ const ExpenselyDashboard = () => {
   );
 
   useEffect(() => {
-    const fetchMergedTransactions = async (
-      idToken: string,
-      page: number = 1,
-      limit: number = 5
-    ): Promise<Transaction[]> => {
-      try {
-        const res = await axios.get(
-          `https://07ttqbzs-8080.inc1.devtunnels.ms/api/v1/account/getMergedTransactions?page=${page}&limit=${limit}`,
-          {
-            headers: {
-              Authorization: `Bearer ${idToken}`,
-            },
-          }
-        );
-
-        if (res?.data?.data) {
-          return res.data.data as Transaction[];
-        } else {
-          console.error("No data returned from merged transactions API.");
-          return [];
-        }
-      } catch (err) {
-        console.error("Error fetching merged transactions:", err);
-        return [];
-      }
-    };
     const fetchAmounts = async (idToken: string) => {
       try {
         const res = await axios.get(
@@ -170,25 +144,6 @@ const ExpenselyDashboard = () => {
         console.error("Error fetching dashboard data:", err);
       }
     };
-
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-        try {
-          const idToken = await firebaseUser?.getIdToken();
-          setIdToken(idToken);
-          fetchAmounts(idToken);
-          fetchMergedTransactions(idToken).then((result) => {
-            setRecentTransactions(result);
-          });
-        } catch (error) {
-          console.error("Error getting ID token:", error);
-        }
-      } else {
-        setUser(null);
-      }
-    });
-
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
