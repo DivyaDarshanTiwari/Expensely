@@ -18,9 +18,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import axios from "axios";
 import { auth } from "../../auth/firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+const { width: screenWidth } = Dimensions.get("window");
 
 export default function AddTransactions() {
   const router = useRouter();
@@ -33,7 +33,6 @@ export default function AddTransactions() {
     category: "general",
   });
 
-  const [selectedMembers, setSelectedMembers] = useState([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -139,8 +138,6 @@ export default function AddTransactions() {
     setTransactionData((prev) => ({
       ...prev,
       category: newType === "expense" ? "general" : "salary",
-      paidBy: newType === "expense" ? prev.paidBy : null,
-      receivedBy: newType === "income" ? prev.receivedBy : null,
     }));
   };
 
@@ -454,13 +451,13 @@ export default function AddTransactions() {
                 <View
                   style={[
                     styles.categoryIcon,
-                    { backgroundColor: selectedCategory.color + "20" }, // ✅ corrected string concat
+                    { backgroundColor: selectedCategory?.color + "20" }, // ✅ corrected string concat
                   ]}
                 >
                   <Ionicons
-                    name={selectedCategory.icon}
+                    name={selectedCategory?.icon}
                     size={20}
-                    color={selectedCategory.color}
+                    color={selectedCategory?.color}
                   />
                 </View>
                 <Text style={styles.selectText}>{selectedCategory.name}</Text>
