@@ -5,6 +5,7 @@ import { PieChart } from "react-native-gifted-charts";
 import { auth } from "../../auth/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { useFocusEffect } from "expo-router";
+import Constants from "expo-constants";
 
 // Default color map based on known labels
 const colorMap: Record<string, string> = {
@@ -37,7 +38,7 @@ export default function FinancialOverviewChart() {
         setError(null);
         try {
           const response = await axios.get(
-            `https://07ttqbzs-8080.inc1.devtunnels.ms/api/v1/account/getFinancialOverview`,
+            `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getFinancialOverview`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }

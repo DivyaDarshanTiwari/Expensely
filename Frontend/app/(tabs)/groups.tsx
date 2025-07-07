@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -18,14 +18,14 @@ import {
   View,
 } from "react-native";
 import { auth } from "../../auth/firebase";
+import Constants from "expo-constants";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
-const router = useRouter();
-
 const ExpenselyGroups = () => {
-  const [idToken,setIdToken] = useState("");
-    const [groups, setGroups] = useState([
+  const router = useRouter();
+  const [idToken, setIdToken] = useState("");
+  const [groups, setGroups] = useState([
     {
       id: 0,
       name: "",
@@ -40,79 +40,78 @@ const ExpenselyGroups = () => {
   ]);
   const [refreshFlag, setRefreshFlag] = useState(false);
 
-  useEffect(() => {
-    const fetchGroups = async (idToken: string) => {
-      try {
-        const res = await axios.get(
-          `https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/group/getGroups`,
-          {
-            headers: {
-              Authorization: `Bearer ${idToken}`,
-            },
-          }
-        );
-
-        const mappedGroups = res.data.map((group: any, index: number) => ({
-          id: group.groupid,
-          name: group.name,
-          description: group.description,
-          members: parseInt(group.member_count),
-          totalBudget: parseFloat(group.groupbudget),
-          spent: parseFloat(group.spent), // placeholder
-          color: ["#8B5CF6", "#7C3AED"],
-          icon: "people",
-          isOwner: true, // default or based on login logic
-        }));
-
-        setGroups(mappedGroups);
-      } catch (err) {
-        console.error("Failed to fetch groups", err);
-        Alert.alert("Error", "Could not fetch groups from server");
-      }
-    };
-
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchGroups = async (idToken: string) => {
         try {
-          const idToken = await firebaseUser?.getIdToken();
-          setIdToken(idToken);
-          fetchGroups(idToken);
-        } catch (error) {
-          console.error("Error getting ID token:", error);
+          const res = await axios.get(
+            `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/getGroups`,
+            {
+              headers: {
+                Authorization: `Bearer ${idToken}`,
+              },
+            }
+          );
+
+          const mappedGroups = res.data.map((group: any, index: number) => ({
+            id: group.groupid,
+            name: group.name,
+            description: group.description,
+            members: parseInt(group.member_count),
+            totalBudget: parseFloat(group.groupbudget),
+            spent: parseFloat(group.spent),
+            color: ["#8B5CF6", "#7C3AED"],
+            icon: "people",
+            isOwner: true,
+          }));
+
+          setGroups(mappedGroups);
+        } catch (err) {
+          console.error("Failed to fetch groups", err);
+          Alert.alert("Error", "Could not fetch groups from server");
         }
-      }
-    });
+      };
 
-    // run both fetch and animation together
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(headerSlide, {
-        toValue: 0,
-        duration: 700,
-        useNativeDriver: true,
-      }),
-      Animated.spring(fabScale, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        delay: 400,
-        useNativeDriver: true,
-      }),
-    ]).start();
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser) {
+          try {
+            const idToken = await firebaseUser.getIdToken();
+            setIdToken(idToken);
+            fetchGroups(idToken);
+          } catch (error) {
+            console.error("Error getting ID token:", error);
+          }
+        }
+      });
 
-    return () => unsubscribe();
-  }, [refreshFlag]);
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(headerSlide, {
+          toValue: 0,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.spring(fabScale, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          delay: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
 
-
+      return () => unsubscribe();
+    }, [refreshFlag])
+  );
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -201,35 +200,32 @@ const ExpenselyGroups = () => {
     }
 
     try {
-      const userId = 1; // Replace with actual logged-in user ID
-
       const membersArray = newGroupData.members
         .split(",")
         .map((id) => parseInt(id.trim()))
         .filter((id) => !isNaN(id));
-
-      if (!membersArray.includes(userId)) {
-        membersArray.push(userId); // Ensure creator is included
-      }
+      console.log(membersArray);
+      // if (!membersArray.includes(userId)) {
+      //   membersArray.push(userId); // Ensure creator is included
+      // }
 
       const groupData = {
         name: newGroupData.name,
-        createdBy: userId,
         groupBudget: parseFloat(newGroupData.budget),
         description: newGroupData.description || "No description",
         groupMembers: membersArray,
       };
 
       const res = await axios.post(
-        "https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/group/createGroup",
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/createGroup`,
         groupData,
         {
-            headers: {
-              Authorization: `Bearer ${idToken}`,
-            },
-          }
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        }
       );
-      setRefreshFlag((refreshFlag)=> !refreshFlag)
+      setRefreshFlag((refreshFlag) => !refreshFlag);
 
       Alert.alert("Success", "Group created successfully!");
 
