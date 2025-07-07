@@ -85,11 +85,12 @@ exports.getGroupMembers = async (req, res) => {
 };
 
 exports.addMemberToGroup = async (req, res) => {
-  const { groupId, userId } = req.body;
+  const { groupId, add_userId } = req.body;
+  console.log(groupId, " ", add_userId);
   try {
     const checkUser = await pool.query(
       `SELECT * FROM GROUP_MEMBERS WHERE groupId = $1 AND userId = $2`,
-      [groupId, userId]
+      [groupId, add_userId]
     );
     if (checkUser.rowCount !== 0) {
       return res.status(400).json({ message: "Member already in group!" });
@@ -97,7 +98,7 @@ exports.addMemberToGroup = async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO GROUP_MEMBERS (groupId, userId) VALUES ($1, $2) RETURNING *`,
-      [groupId, userId]
+      [groupId, add_userId]
     );
     res.status(201).json({
       message: "Member Added Successfully!",
@@ -110,11 +111,11 @@ exports.addMemberToGroup = async (req, res) => {
 };
 
 exports.removeMemberFromGroup = async (req, res) => {
-  const { groupId, userId } = req.body;
+  const { groupId, delete_user_id } = req.body;
   try {
     const result = await pool.query(
       "DELETE FROM group_members WHERE groupId = $1 AND userId = $2 RETURNING *",
-      [groupId, userId]
+      [groupId, delete_user_id]
     );
 
     if (result.rowCount === 0) {

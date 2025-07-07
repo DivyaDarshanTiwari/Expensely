@@ -51,17 +51,6 @@ const ManageMembers = () => {
         try {
           const idToken = await firebaseUser?.getIdToken();
           setIdToken(idToken);
-
-          const res = await axios.get(
-            "https://07ttqbzs-8083.inc1.devtunnels.ms/api/v1/auth/me",
-            {
-              headers: {
-                Authorization: `Bearer ${idToken}`,
-              },
-            }
-          );
-          setCurrentUserId(res.data.user_id);
-
           fetchMembers(idToken);
         } catch (error) {
           console.error("Error getting ID token:", error);
@@ -124,10 +113,15 @@ const ManageMembers = () => {
 
     try {
       const res = await axios.get(
-        `http://localhost:8082/api/v1/users/search?q=${query}`
+        `https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/users/search?q=${query}`,
+        {
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        }
       );
       // Filter out users who are already members
-      const existingMemberIds = members.map((member) => member.id);
+      const existingMemberIds = members.map((member) => member.userId);
       const filteredResults = res.data.filter(
         (user) => !existingMemberIds.includes(user.id)
       );
@@ -141,12 +135,17 @@ const ManageMembers = () => {
   const handleAddMember = async (user) => {
     setLoading(true);
     try {
+      console.log(user);
       const res = await axios.post(
-        `http://localhost:8082/api/v1/group/addMember`,
+        `https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/group/addMember`,
         {
           groupId: parseInt(groupId),
-          userId: user.id,
-          addedBy: currentUserId,
+          add_userId: user.user_id,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
         }
       );
 
@@ -155,6 +154,13 @@ const ManageMembers = () => {
       setAddMemberQuery("");
       setSearchResults([]);
       fetchMembers(idToken); // Refresh the members list
+
+      setMembers((prevMembers) => [
+        ...prevMembers,
+        {
+          userId: user.userId,
+        },
+      ]);
     } catch (error) {
       console.error("Error adding member:", error);
       Alert.alert("Error", "Failed to add member. Please try again.");
@@ -168,18 +174,22 @@ const ManageMembers = () => {
 
     setLoading(true);
     try {
+      console.log(selectedMember);
       const res = await axios.delete(
         `https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/group/removeMember`,
         {
           data: {
             groupId: parseInt(groupId),
-            user_id: selectedMember.userId,
+            delete_user_id: selectedMember?.userId,
             removedBy: currentUserId,
           },
           headers: {
             Authorization: `Bearer ${idToken}`,
           },
         }
+      );
+      setMembers((prevMembers) =>
+        prevMembers.filter((member) => member.userId !== selectedMember?.userId)
       );
 
       Alert.alert(
@@ -203,11 +213,13 @@ const ManageMembers = () => {
     setRefreshing(false);
   };
 
-  const filteredMembers = members.filter(
-    (member) =>
-      member.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredMembers = members.filter((member) => {
+    const username = member.username?.toLowerCase() || "";
+    const email = member.email?.toLowerCase() || "";
+    const query = searchQuery.toLowerCase();
+
+    return username.includes(query) || email.includes(query);
+  });
 
   const currentUser = members.find((member) => member.id === currentUserId);
   const isOwner = true;
@@ -244,7 +256,7 @@ const ManageMembers = () => {
       <View style={styles.memberHeader}>
         <View style={styles.memberAvatar}>
           <Text style={styles.memberInitial}>
-            {item.username.charAt(0).toUpperCase()}
+            {(item.username?.charAt(0) || "?").toUpperCase()}
           </Text>
         </View>
         <View style={styles.memberInfo}>
@@ -276,7 +288,7 @@ const ManageMembers = () => {
             </Text>
           </View>
         </View>
-        {isOwner && item.user_id !== currentUserId && (
+        {isOwner && item.userId && (
           <TouchableOpacity
             style={styles.memberAction}
             onPress={() => {
@@ -299,11 +311,11 @@ const ManageMembers = () => {
     >
       <View style={styles.memberAvatar}>
         <Text style={styles.memberInitial}>
-          {item.name.charAt(0).toUpperCase()}
+          {(item.username?.charAt(0) || "?").toUpperCase()}
         </Text>
       </View>
       <View style={styles.searchResultInfo}>
-        <Text style={styles.searchResultName}>{item.name}</Text>
+        <Text style={styles.searchResultName}>{item.username}</Text>
         <Text style={styles.searchResultEmail}>{item.email}</Text>
       </View>
       <Ionicons name="add-circle" size={24} color="#8B5CF6" />
@@ -552,7 +564,7 @@ const ManageMembers = () => {
       <FlatList
         data={filteredMembers}
         renderItem={renderMemberCard}
-        keyExtractor={(item) => item.username}
+        keyExtractor={(item) => item.userId}
         contentContainerStyle={styles.membersList}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.separator} />}

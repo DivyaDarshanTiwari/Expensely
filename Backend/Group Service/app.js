@@ -26,6 +26,7 @@ const {
 
 const groupRoutes = require("./routes/group");
 const expenseRoutes = require("./routes/expense");
+const userRoutes = require("./routes/users");
 const authProxyMiddleware = require("./middlewares/authProxyMiddleware");
 
 app.use(express.json());
@@ -40,5 +41,6 @@ expensesShareTable();
 
 app.use("/api/v1/group", groupRoutes);
 app.use("/api/v1/groupExpense", expenseRoutes);
+app.use("/api/v1/users", userRoutes);
 
 module.exports = { app };
