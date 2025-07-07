@@ -37,7 +37,7 @@ export default function FinancialOverviewChart() {
         setError(null);
         try {
           const response = await axios.get(
-            `https://07ttqbzs-8080.inc1.devtunnels.ms/api/v1/account/getFinancialOverview`,
+            `https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/account/getFinancialOverview`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }

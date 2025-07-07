@@ -166,8 +166,8 @@ export default function AddTransactions() {
 
       const endpoint =
         transactionType === "expense"
-          ? "https://07ttqbzs-8080.inc1.devtunnels.ms/api/v1/expense/add"
-          : "https://07ttqbzs-8080.inc1.devtunnels.ms/api/v1/income/add";
+          ? "https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/expense/add"
+          : "https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/income/add";
 
       const res = await axios.post(endpoint, payload, {
         headers: {

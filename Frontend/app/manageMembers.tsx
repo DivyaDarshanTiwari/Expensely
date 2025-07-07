@@ -90,11 +90,11 @@ const ManageMembers = () => {
   const fetchMembers = async (idToken: string) => {
     try {
       const res = await axios.get(
-        `https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/group/getMembers/${groupId}`,
+        `https://zp5k3bcx-8084.inc1.devtunnels.ms/api/v1/group/getMembers/${groupId}`,
         {
-          headers : {
-            Authorization : `Bearer ${idToken}`
-          }
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
         }
       );
       setMembers(res.data || []);

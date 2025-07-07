@@ -29,7 +29,7 @@ export default function ExpenseChart() {
         setLoading(true);
         try {
           const res = await axios.get(
-            `https://07ttqbzs-8080.inc1.devtunnels.ms/api/v1/expense/getAll/?limit=100&page=1`,
+            `https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/expense/getAll/?limit=100&page=1`,
             { headers: { Authorization: `Bearer ${idToken}` } }
           );
 

@@ -44,7 +44,7 @@ const GroupDetails = () => {
       try {
         // Fetch recent expenses
         const expensesRes = await axios.get(
-          `https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/groupExpense/getAll/${groupId}`,
+          `https://zp5k3bcx-8084.inc1.devtunnels.ms/api/v1/groupExpense/getAll/${groupId}`,
           {
             headers: {
               Authorization: `Bearer ${idToken}`,
@@ -55,7 +55,7 @@ const GroupDetails = () => {
 
         // Fetch group members
         const membersRes = await axios.get(
-          `https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/group/getMembers/${groupId}`,
+          `https://zp5k3bcx-8084.inc1.devtunnels.ms/api/v1/group/getMembers/${groupId}`,
           {
             headers: {
               Authorization: `Bearer ${idToken}`,
