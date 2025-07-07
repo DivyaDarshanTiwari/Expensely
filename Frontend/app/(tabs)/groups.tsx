@@ -18,6 +18,8 @@ import {
   View,
 } from "react-native";
 import { auth } from "../../auth/firebase";
+import Config from "react-native-config";
+import Constants from "expo-constants";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -44,7 +46,7 @@ const ExpenselyGroups = () => {
       const fetchGroups = async (idToken: string) => {
         try {
           const res = await axios.get(
-            `https://zp5k3bcx-8084.inc1.devtunnels.ms/api/v1/group/getGroups`,
+            `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/getGroups`,
             {
               headers: {
                 Authorization: `Bearer ${idToken}`,
@@ -216,7 +218,7 @@ const ExpenselyGroups = () => {
       };
 
       const res = await axios.post(
-        "https://zp5k3bcx-8084.inc1.devtunnels.ms/api/v1/group/createGroup",
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/createGroup`,
         groupData,
         {
           headers: {

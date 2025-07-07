@@ -20,6 +20,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { auth } from "../../auth/firebase";
 import { getIdToken, onAuthStateChanged, User } from "firebase/auth";
 import { unsubscribe } from "diagnostics_channel";
+import Constants from "expo-constants";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 interface Transaction {
@@ -72,7 +73,7 @@ const ExpenselyDashboard = () => {
       const fetchData = async () => {
         try {
           const res = await axios.get(
-            "https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/account/getDashboard",
+            `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getDashboard`,
             {
               headers: {
                 Authorization: `Bearer ${idToken}`,
@@ -97,7 +98,7 @@ const ExpenselyDashboard = () => {
       ): Promise<Transaction[]> => {
         try {
           const res = await axios.get(
-            `https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/account/getMergedTransactions?page=${page}&limit=${limit}`,
+            `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getMergedTransactions?page=${page}&limit=${limit}`,
             {
               headers: {
                 Authorization: `Bearer ${idToken}`,
@@ -130,7 +131,7 @@ const ExpenselyDashboard = () => {
     const fetchAmounts = async (idToken: string) => {
       try {
         const res = await axios.get(
-          "https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/account/getDashboard",
+          `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getDashboard`,
           {
             headers: {
               Authorization: `Bearer ${idToken}`,

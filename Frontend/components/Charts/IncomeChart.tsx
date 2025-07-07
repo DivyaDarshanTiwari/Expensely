@@ -12,6 +12,7 @@ import { BarChart } from "react-native-gifted-charts";
 import { auth } from "../../auth/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { useFocusEffect } from "expo-router";
+import Constants from "expo-constants";
 
 const screenWidth = Dimensions.get("window").width - 32;
 
@@ -29,7 +30,7 @@ export default function IncomeChart() {
         setError(null);
         try {
           const res = await axios.get(
-            `https://zp5k3bcx-8080.inc1.devtunnels.ms/api/v1/income/getAll/?limit=100&page=1`,
+            `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/income/getAll/?limit=100&page=1`,
             { headers: { Authorization: `Bearer ${idToken}` } }
           );
 

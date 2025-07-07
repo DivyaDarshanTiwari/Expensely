@@ -21,6 +21,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import axios from "axios";
 import { auth } from "../auth/firebase";
 import { onAuthStateChanged, type User } from "firebase/auth";
+import Config from "react-native-config";
+import Constants from "expo-constants";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -89,7 +91,7 @@ const AddExpense = () => {
     const fetchMembers = async (token: string) => {
       try {
         const res = await axios.get(
-          `https://zp5k3bcx-8084.inc1.devtunnels.ms/api/v1/group/getMembers/${groupId}`,
+          `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/getMembers/${groupId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -219,7 +221,7 @@ const AddExpense = () => {
       console.log(payload);
 
       await axios.post(
-        "https://zp5k3bcx-8084.inc1.devtunnels.ms/api/v1/groupExpense/add",
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/groupExpense/add`,
         payload,
         {
           headers: {

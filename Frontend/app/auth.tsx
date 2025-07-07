@@ -16,7 +16,6 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { FirebaseError } from "firebase/app";
 import { auth } from "../auth/firebase";
 import axios from "axios";
 import {
@@ -26,6 +25,7 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
 } from "firebase/auth";
+import Constants from "expo-constants";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -99,7 +99,7 @@ const ExpenselyAuth = () => {
       // Send token to backend
       try {
         await axios.post(
-          "https://zp5k3bcx-8083.inc1.devtunnels.ms/api/v1/auth/validToken",
+          `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/validToken`,
           {},
           {
             headers: {
@@ -145,7 +145,7 @@ const ExpenselyAuth = () => {
       // Send UID + token + other user data to backend
       try {
         await axios.post(
-          "https://zp5k3bcx-8083.inc1.devtunnels.ms/api/v1/auth/signUp",
+          `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/signUp`,
           {},
           {
             headers: {

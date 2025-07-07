@@ -17,6 +17,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import axios from "axios";
 import { auth } from "../auth/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
+import Constants from "expo-constants";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -44,7 +45,7 @@ const GroupDetails = () => {
       try {
         // Fetch recent expenses
         const expensesRes = await axios.get(
-          `https://zp5k3bcx-8084.inc1.devtunnels.ms/api/v1/groupExpense/getAll/${groupId}`,
+          `${Constants.expoConfig?.extra?.Group_URL}/api/v1/groupExpense/getAll/${groupId}`,
           {
             headers: {
               Authorization: `Bearer ${idToken}`,
@@ -55,7 +56,7 @@ const GroupDetails = () => {
 
         // Fetch group members
         const membersRes = await axios.get(
-          `https://zp5k3bcx-8084.inc1.devtunnels.ms/api/v1/group/getMembers/${groupId}`,
+          `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/getMembers/${groupId}`,
           {
             headers: {
               Authorization: `Bearer ${idToken}`,
