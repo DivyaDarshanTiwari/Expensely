@@ -150,6 +150,7 @@ const ExpenselyDashboard = () => {
         try {
           const idToken = await firebaseUser?.getIdToken();
           setIdToken(idToken);
+          setUser(firebaseUser);
           fetchAmounts(idToken);
         } catch (error) {
           console.error("Error getting ID token:", error);

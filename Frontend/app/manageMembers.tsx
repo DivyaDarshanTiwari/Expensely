@@ -36,7 +36,7 @@ const ManageMembers = () => {
   const [addMemberQuery, setAddMemberQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [currentUserId] = useState(1); // Replace with actual logged-in user ID
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null); // Replace with actual logged-in user ID
   const [idToken, setIdToken] = useState("");
 
   // Animation refs
@@ -51,6 +51,17 @@ const ManageMembers = () => {
         try {
           const idToken = await firebaseUser?.getIdToken();
           setIdToken(idToken);
+
+          const res = await axios.get(
+            "https://07ttqbzs-8083.inc1.devtunnels.ms/api/v1/auth/me",
+            {
+              headers: {
+                Authorization: `Bearer ${idToken}`,
+              },
+            }
+          );
+          setCurrentUserId(res.data.user_id);
+
           fetchMembers(idToken);
         } catch (error) {
           console.error("Error getting ID token:", error);
@@ -92,11 +103,12 @@ const ManageMembers = () => {
       const res = await axios.get(
         `https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/group/getMembers/${groupId}`,
         {
-          headers : {
-            Authorization : `Bearer ${idToken}`
-          }
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
         }
       );
+      console.log(res.data);
       setMembers(res.data || []);
     } catch (error) {
       console.error("Failed to fetch members", error);
@@ -157,12 +169,15 @@ const ManageMembers = () => {
     setLoading(true);
     try {
       const res = await axios.delete(
-        `http://localhost:8082/api/v1/group/removeMember`,
+        `https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/group/removeMember`,
         {
           data: {
             groupId: parseInt(groupId),
-            userId: selectedMember.id,
+            user_id: selectedMember.userId,
             removedBy: currentUserId,
+          },
+          headers: {
+            Authorization: `Bearer ${idToken}`,
           },
         }
       );
@@ -190,12 +205,12 @@ const ManageMembers = () => {
 
   const filteredMembers = members.filter(
     (member) =>
-      member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      member.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
       member.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const currentUser = members.find((member) => member.id === currentUserId);
-  const isOwner = currentUser?.role === "owner" || currentUser?.isOwner;
+  const isOwner = true;
 
   const getBalanceColor = (balance: any) => {
     if (balance > 0) return "#10B981"; // Green for positive
@@ -261,7 +276,7 @@ const ManageMembers = () => {
             </Text>
           </View>
         </View>
-        {isOwner && item.id !== currentUserId && (
+        {isOwner && item.user_id !== currentUserId && (
           <TouchableOpacity
             style={styles.memberAction}
             onPress={() => {
@@ -348,7 +363,7 @@ const ManageMembers = () => {
                 <FlatList
                   data={searchResults}
                   renderItem={renderSearchResult}
-                  keyExtractor={(item) => item.id.toString()}
+                  keyExtractor={(item) => item.username}
                   style={styles.searchResultsList}
                   showsVerticalScrollIndicator={false}
                 />
@@ -537,7 +552,7 @@ const ManageMembers = () => {
       <FlatList
         data={filteredMembers}
         renderItem={renderMemberCard}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => item.username}
         contentContainerStyle={styles.membersList}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
