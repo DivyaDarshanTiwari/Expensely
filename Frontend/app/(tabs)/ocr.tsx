@@ -13,7 +13,6 @@ import axios from "axios";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../auth/firebase";
 import { useFocusEffect } from "expo-router";
-import Config from "react-native-config";
 import Constants from "expo-constants";
 
 export default function CameraUploadScreen() {

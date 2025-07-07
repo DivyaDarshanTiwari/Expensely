@@ -12,7 +12,6 @@ import { onAuthStateChanged } from "firebase/auth";
 import axios from "axios";
 import { auth } from "../../auth/firebase";
 import { useFocusEffect } from "expo-router";
-import Config from "react-native-config";
 import Constants from "expo-constants";
 
 const screenWidth = Dimensions.get("window").width - 32;

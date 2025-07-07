@@ -18,7 +18,6 @@ import {
   View,
 } from "react-native";
 import { auth } from "../../auth/firebase";
-import Config from "react-native-config";
 import Constants from "expo-constants";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");

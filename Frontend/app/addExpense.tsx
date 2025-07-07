@@ -21,7 +21,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import axios from "axios";
 import { auth } from "../auth/firebase";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import Config from "react-native-config";
 import Constants from "expo-constants";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
