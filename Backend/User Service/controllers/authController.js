@@ -93,4 +93,28 @@ const signUpController = async (req, res) => {
   }
 };
 
-module.exports = { authController, signUpController };
+const getMe = async (req, res) => {
+  const userId = req.user?.userId; // Assuming middleware sets req.user.userId
+
+  if (!userId) {
+    return res.status(401).json({ message: "Unauthorized: No userId found" });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT user_id, username, email FROM USERS WHERE user_id = $1`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json(result.rows[0]);
+  } catch (err) {
+    console.error("Error getting user info:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+module.exports = { authController, signUpController, getMe };
