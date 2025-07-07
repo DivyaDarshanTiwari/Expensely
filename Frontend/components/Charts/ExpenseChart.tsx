@@ -12,6 +12,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import axios from "axios";
 import { auth } from "../../auth/firebase";
 import { useFocusEffect } from "expo-router";
+import Constants from "expo-constants";
 
 const screenWidth = Dimensions.get("window").width - 32;
 
@@ -29,7 +30,7 @@ export default function ExpenseChart() {
         setLoading(true);
         try {
           const res = await axios.get(
-            `https://07ttqbzs-8080.inc1.devtunnels.ms/api/v1/expense/getAll/?limit=100&page=1`,
+            `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/expense/getAll/?limit=10&page=1`,
             { headers: { Authorization: `Bearer ${idToken}` } }
           );
 

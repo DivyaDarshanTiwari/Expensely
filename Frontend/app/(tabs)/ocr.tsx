@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -10,8 +10,32 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../../auth/firebase";
+import { useFocusEffect } from "expo-router";
+import Constants from "expo-constants";
 
 export default function CameraUploadScreen() {
+  useFocusEffect(
+    useCallback(() => {
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser) {
+          try {
+            const token = await firebaseUser.getIdToken();
+            setIdToken(token);
+          } catch (error) {
+            console.error("Error fetching ID token:", error);
+            Alert.alert("Error", "Could not retrieve authentication token.");
+          }
+        } else {
+          setIdToken(null);
+        }
+      });
+
+      return () => unsubscribe();
+    }, [])
+  );
+
   const [ocrResult, setOcrResult] = useState<{
     category: string;
     total_amount: number;
@@ -19,6 +43,7 @@ export default function CameraUploadScreen() {
   } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [hasCaptured, setHasCaptured] = useState(false);
+  const [idToken, setIdToken] = useState<string | null>(null);
 
   const requestCameraPermissions = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -66,10 +91,13 @@ export default function CameraUploadScreen() {
       } as any);
 
       const response = await axios.post(
-        "https://zp5k3bcx-8082.inc1.devtunnels.ms/api/v1/ocr/get/json/1",
+        `${Constants.expoConfig?.extra?.OCR_URL}/api/v1/ocr/get/json`,
         formData,
         {
-          headers: { "Content-Type": "multipart/form-data" },
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+            "Content-Type": "multipart/form-data",
+          },
         }
       );
 

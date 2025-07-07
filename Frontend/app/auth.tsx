@@ -16,7 +16,6 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { FirebaseError } from "firebase/app";
 import { auth } from "../auth/firebase";
 import axios from "axios";
 import {
@@ -26,6 +25,7 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
 } from "firebase/auth";
+import Constants from "expo-constants";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -99,7 +99,7 @@ const ExpenselyAuth = () => {
       // Send token to backend
       try {
         await axios.post(
-          "https://07ttqbzs-8083.inc1.devtunnels.ms/api/v1/auth/validToken", 
+          `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/validToken`,
           {},
           {
             headers: {
@@ -143,20 +143,29 @@ const ExpenselyAuth = () => {
       const idToken = await getIdToken(userCredential.user);
 
       // Send UID + token + other user data to backend
-      try{
-        await axios.post("https://07ttqbzs-8083.inc1.devtunnels.ms/api/v1/auth/signUp", 
-          {},{
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-          },
-        });
+      try {
+        await axios.post(
+          `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/signUp`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
+          }
+        );
+      } catch (apiError: any) {
+        // Handle backend/API error separately
+        console.error(
+          "API error:",
+          apiError?.response?.data || apiError.message
+        );
+        Alert.alert(
+          "Server Error",
+          apiError?.response?.data?.message ||
+            "Something went wrong while saving user data to backend."
+        );
+        return; // Exit early — don’t proceed
       }
-      catch (apiError: any) {
-      // Handle backend/API error separately
-      console.error("API error:", apiError?.response?.data || apiError.message);
-      Alert.alert("Server Error", apiError?.response?.data?.message || "Something went wrong while saving user data to backend.");
-      return; // Exit early — don’t proceed
-      };
 
       Alert.alert("Success", "Account created successfully!");
       return userCredential;

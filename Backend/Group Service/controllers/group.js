@@ -1,7 +1,9 @@
 const { pool } = require("../config/db");
 
 exports.createGroup = async (req, res) => {
-  const { name, createdBy, groupBudget, description, groupMembers } = req.body; //groupMembers = [userIds] Array of userIds
+  const { name, groupBudget, description, groupMembers } = req.body; //groupMembers = [userIds] Array of userIds
+  const createdBy = req.body.userId;
+  groupMembers.push(createdBy);
   try {
     if (!name || !createdBy || !groupBudget || !groupMembers) {
       return res.status(404).json({ message: "Incomplete Fields" });

@@ -19,6 +19,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import axios from "axios";
 import { auth } from "../../auth/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import Constants from "expo-constants";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -166,8 +167,8 @@ export default function AddTransactions() {
 
       const endpoint =
         transactionType === "expense"
-          ? "https://07ttqbzs-8080.inc1.devtunnels.ms/api/v1/expense/add"
-          : "https://07ttqbzs-8080.inc1.devtunnels.ms/api/v1/income/add";
+          ? `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/expense/add`
+          : `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/income/add`;
 
       const res = await axios.post(endpoint, payload, {
         headers: {
