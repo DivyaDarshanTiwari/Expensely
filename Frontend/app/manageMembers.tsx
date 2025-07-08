@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import axios from "axios";
 import { auth } from "../auth/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
@@ -46,47 +46,51 @@ const ManageMembers = () => {
   const headerSlide = useRef(new Animated.Value(-50)).current;
   const cardScale = useRef(new Animated.Value(0.95)).current;
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          const idToken = await firebaseUser?.getIdToken();
-          setIdToken(idToken);
-          fetchMembers(idToken);
-        } catch (error) {
-          console.error("Error getting ID token:", error);
+  // ...
+
+  useFocusEffect(
+    useCallback(() => {
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser) {
+          try {
+            const idToken = await firebaseUser.getIdToken();
+            setIdToken(idToken);
+            fetchMembers(idToken);
+          } catch (error) {
+            console.error("Error getting ID token:", error);
+          }
         }
-      }
-    });
+      });
 
-    // Start animations
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(headerSlide, {
-        toValue: 0,
-        duration: 700,
-        useNativeDriver: true,
-      }),
-      Animated.spring(cardScale, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        delay: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
+      // Start animations
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(headerSlide, {
+          toValue: 0,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.spring(cardScale, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          delay: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
 
-    return () => unsubscribe();
-  }, []);
+      return () => unsubscribe();
+    }, [])
+  );
 
   const fetchMembers = async (idToken: string) => {
     try {
@@ -114,7 +118,7 @@ const ManageMembers = () => {
 
     try {
       const res = await axios.get(
-        `https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/users/search?q=${query}`,
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/users/search?q=${query}`,
         {
           headers: {
             Authorization: `Bearer ${idToken}`,
@@ -138,7 +142,7 @@ const ManageMembers = () => {
     try {
       console.log(user);
       const res = await axios.post(
-        `https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/group/addMember`,
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/addMember`,
         {
           groupId: parseInt(groupId),
           add_userId: user.user_id,
@@ -177,7 +181,7 @@ const ManageMembers = () => {
     try {
       console.log(selectedMember);
       const res = await axios.delete(
-        `https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/group/removeMember`,
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/removeMember`,
         {
           data: {
             groupId: parseInt(groupId),
