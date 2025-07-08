@@ -78,11 +78,11 @@ const ocrFunction = async (req, res) => {
           error: "Upstream server error. Please try again later.",
         });
       }
-    } else if (err.request) {
-      console.error("No response from Server B", err.request);
+    } else if (error.request) {
+      console.error("No response from Server B", error.request);
       return res.status(504).json({ error: "Server B is unreachable." });
     } else {
-      console.error("Unexpected error:", err.message);
+      console.error("Unexpected error:", error.message);
       return res.status(500).json({ error: "Internal server error." });
     }
   }

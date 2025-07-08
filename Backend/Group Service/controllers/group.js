@@ -170,3 +170,46 @@ exports.getGroupsByUser = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+exports.deleteGroup = async (req, res) => {
+  const { groupId } = req.body;
+
+  try {
+    // Optional: Check if group exists
+    const checkGroup = await pool.query(
+      `SELECT * FROM GROUPS WHERE groupid = $1`,
+      [groupId]
+    );
+
+    if (checkGroup.rowCount === 0) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+
+    // Step 1: Delete from EXPENSES_SHARE (if foreign key not set to cascade)
+    await pool.query(
+      `
+      DELETE FROM EXPENSES_SHARE
+      WHERE expenseId IN (
+        SELECT id FROM GROUP_EXPENSES WHERE groupId = $1
+      )
+      `,
+      [groupId]
+    );
+
+    // Step 2: Delete from GROUP_EXPENSES
+    await pool.query(`DELETE FROM GROUP_EXPENSES WHERE groupId = $1`, [
+      groupId,
+    ]);
+
+    // Step 3: Delete from GROUP_MEMBERS
+    await pool.query(`DELETE FROM GROUP_MEMBERS WHERE groupId = $1`, [groupId]);
+
+    // Step 4: Finally delete the group
+    await pool.query(`DELETE FROM GROUPS WHERE groupid = $1`, [groupId]);
+
+    res.status(200).json({ message: "Group deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting group:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
