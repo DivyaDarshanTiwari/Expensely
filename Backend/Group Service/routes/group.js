@@ -14,4 +14,6 @@ Router.get("/getGroups", groupControllers.getGroupsByUser);
 
 Router.delete("/removeMember", groupControllers.removeMemberFromGroup);
 
+Router.delete("/deleteGroup", groupControllers.deleteGroup);
+
 module.exports = Router;

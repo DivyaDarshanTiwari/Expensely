@@ -1,30 +1,32 @@
-import { Ionicons } from "@expo/vector-icons";
-import axios from "axios";
-import { LinearGradient } from "expo-linear-gradient";
-import { useFocusEffect, useRouter } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
-import React, { useEffect, useRef, useState } from "react";
+"use client"
+import { Ionicons } from "@expo/vector-icons"
+import axios from "axios"
+import { LinearGradient } from "expo-linear-gradient"
+import { useFocusEffect, useRouter } from "expo-router"
+import { onAuthStateChanged } from "firebase/auth"
+import React, { useEffect, useRef, useState } from "react"
 import {
   Alert,
   Animated,
   Dimensions,
   FlatList,
   Modal,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-} from "react-native";
-import { auth } from "../../auth/firebase";
-import Constants from "expo-constants";
+} from "react-native"
+import { auth } from "../../auth/firebase"
+import Constants from "expo-constants"
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+const { width: screenWidth, height: screenHeight } = Dimensions.get("window")
 
 const ExpenselyGroups = () => {
-  const router = useRouter();
-  const [idToken, setIdToken] = useState("");
+  const router = useRouter()
+  const [idToken, setIdToken] = useState("")
   const [groups, setGroups] = useState([
     {
       id: 0,
@@ -37,52 +39,48 @@ const ExpenselyGroups = () => {
       icon: "",
       isOwner: true,
     },
-  ]);
-  const [refreshFlag, setRefreshFlag] = useState(false);
+  ])
+  const [refreshFlag, setRefreshFlag] = useState(false)
+  const [deletingGroupId, setDeletingGroupId] = useState<number | null>(null)
 
   useFocusEffect(
     React.useCallback(() => {
       const fetchGroups = async (idToken: string) => {
         try {
-          const res = await axios.get(
-            `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/getGroups`,
-            {
-              headers: {
-                Authorization: `Bearer ${idToken}`,
-              },
-            }
-          );
-
+          const res = await axios.get(`${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/getGroups`, {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
+          })
           const mappedGroups = res.data.map((group: any, index: number) => ({
             id: group.groupid,
             name: group.name,
             description: group.description,
-            members: parseInt(group.member_count),
-            totalBudget: parseFloat(group.groupbudget),
-            spent: parseFloat(group.spent),
+            members: Number.parseInt(group.member_count),
+            totalBudget: Number.parseFloat(group.groupbudget),
+            spent: Number.parseFloat(group.spent),
             color: ["#8B5CF6", "#7C3AED"],
             icon: "people",
             isOwner: true,
-          }));
-
-          setGroups(mappedGroups);
+          }))
+          setGroups(mappedGroups)
         } catch (err) {
-          console.error("Failed to fetch groups", err);
-          Alert.alert("Error", "Could not fetch groups from server");
+          console.error("Failed to fetch groups", err)
+          Alert.alert("Error", "Could not fetch groups from server")
         }
-      };
+      }
 
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         if (firebaseUser) {
           try {
-            const idToken = await firebaseUser.getIdToken();
-            setIdToken(idToken);
-            fetchGroups(idToken);
+            const idToken = await firebaseUser.getIdToken()
+            setIdToken(idToken)
+            fetchGroups(idToken)
           } catch (error) {
-            console.error("Error getting ID token:", error);
+            console.error("Error getting ID token:", error)
           }
         }
-      });
+      })
 
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -107,26 +105,28 @@ const ExpenselyGroups = () => {
           delay: 400,
           useNativeDriver: true,
         }),
-      ]).start();
+      ]).start()
 
-      return () => unsubscribe();
-    }, [refreshFlag])
-  );
+      return () => unsubscribe()
+    }, [refreshFlag]),
+  )
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("")
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [newGroupData, setNewGroupData] = useState({
     name: "",
     description: "",
     budget: "",
-    members: "", //comma-seperated user IDs
-  });
+  })
+  const [memberSearchQuery, setMemberSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState([])
+  const [selectedMembers, setSelectedMembers] = useState([])
 
   // Animation refs
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const headerSlide = useRef(new Animated.Value(-50)).current;
-  const fabScale = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current
+  const slideAnim = useRef(new Animated.Value(50)).current
+  const headerSlide = useRef(new Animated.Value(-50)).current
+  const fabScale = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
     Animated.parallel([
@@ -152,101 +152,151 @@ const ExpenselyGroups = () => {
         delay: 400,
         useNativeDriver: true,
       }),
-    ]).start();
-  }, []);
+    ]).start()
+  }, [])
 
   const filteredGroups = groups.filter(
     (group) =>
       group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      group.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+      group.description.toLowerCase().includes(searchQuery.toLowerCase()),
+  )
 
   const calculateProgress = (spent: any, total: any) => {
-    return Math.min((spent / total) * 100, 100);
-  };
+    return Math.min((spent / total) * 100, 100)
+  }
 
   const getProgressColor = (progress: any) => {
-    if (progress < 50) return "#10B981";
-    if (progress < 80) return "#F59E0B";
-    return "#EF4444";
-  };
+    if (progress < 50) return "#10B981"
+    if (progress < 80) return "#F59E0B"
+    return "#EF4444"
+  }
 
   const handleGroupSelect = (group: any) => {
     router.push({
       pathname: "/groupDetails",
-
       params: {
         groupId: group.id,
-
         groupName: group.name,
-
         groupData: JSON.stringify(group), // for complex objects
       },
-    });
-  };
+    })
+  }
+
+  const handleDeleteGroup = (group: any) => {
+    Alert.alert(
+      "Delete Group",
+      `Are you sure you want to delete "${group.name}"? This action cannot be undone and will remove all expenses and data associated with this group.`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => confirmDeleteGroup(group.id),
+        },
+      ],
+      { cancelable: true },
+    )
+  }
+
+  const confirmDeleteGroup = async (groupId: number) => {
+    setDeletingGroupId(groupId)
+    try {
+      await axios.delete(`${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/deleteGroup`, {
+        data: { groupId },
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      })
+      // Remove the group from local state
+      setGroups((prevGroups) => prevGroups.filter((group) => group.id !== groupId))
+      Alert.alert("Success", "Group deleted successfully!")
+    } catch (error) {
+      console.error("Error deleting group:", error)
+      Alert.alert("Error", "Failed to delete group. Please try again.")
+    } finally {
+      setDeletingGroupId(null)
+    }
+  }
+
+  const handleGroupLongPress = (group: any) => {
+    if (!group.isOwner) {
+      Alert.alert("Permission Denied", "Only group owners can delete groups.")
+      return
+    }
+    Alert.alert("Group Options", `What would you like to do with "${group.name}"?`, [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Delete Group",
+        style: "destructive",
+        onPress: () => handleDeleteGroup(group),
+      },
+    ])
+  }
+
+  const searchUsers = async (query: string) => {
+    if (query.trim().length < 2) return setSearchResults([])
+    try {
+      const res = await axios.get(`${Constants.expoConfig?.extra?.Group_URL}/api/v1/users/search?q=${query}`, {
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      })
+      const existingIds = selectedMembers.map((m) => m.user_id)
+      const filtered = res.data.filter((user) => !existingIds.includes(user.user_id))
+      setSearchResults(filtered)
+    } catch (err) {
+      console.error("Search failed", err)
+    }
+  }
 
   const handleCreateGroup = async () => {
     if (!newGroupData.name.trim()) {
-      Alert.alert("Error", "Please enter a group name");
-      return;
+      Alert.alert("Error", "Please enter a group name")
+      return
     }
     if (!newGroupData.budget.trim()) {
-      Alert.alert("Error", "Please enter a budget amount");
-      return;
+      Alert.alert("Error", "Please enter a budget amount")
+      return
     }
-    if (!newGroupData.members.trim()) {
-      Alert.alert("Error", "Please enter at least one member");
-      return;
-    }
-
     try {
-      const membersArray = newGroupData.members
-        .split(",")
-        .map((id) => parseInt(id.trim()))
-        .filter((id) => !isNaN(id));
-      console.log(membersArray);
-      // if (!membersArray.includes(userId)) {
-      //   membersArray.push(userId); // Ensure creator is included
-      // }
-
+      const membersArray = selectedMembers.map((m) => m.user_id)
+      console.log(membersArray)
       const groupData = {
         name: newGroupData.name,
-        groupBudget: parseFloat(newGroupData.budget),
+        groupBudget: Number.parseFloat(newGroupData.budget),
         description: newGroupData.description || "No description",
         groupMembers: membersArray,
-      };
-
-      const res = await axios.post(
-        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/createGroup`,
-        groupData,
-        {
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-          },
-        }
-      );
-      setRefreshFlag((refreshFlag) => !refreshFlag);
-
-      Alert.alert("Success", "Group created successfully!");
-
-      // Optionally refresh the group list here (e.g., fetchGroups())
-
-      setShowCreateModal(false);
+      }
+      const res = await axios.post(`${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/createGroup`, groupData, {
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      })
+      setRefreshFlag((refreshFlag) => !refreshFlag)
+      Alert.alert("Success", "Group created successfully!")
+      setShowCreateModal(false)
       setNewGroupData({
         name: "",
         description: "",
         budget: "",
         members: "",
-      });
+      })
     } catch (error) {
-      console.error("Error creating group:", error);
-      Alert.alert("Error", "Failed to create group. Please try again.");
+      console.error("Error creating group:", error)
+      Alert.alert("Error", "Failed to create group. Please try again.")
     }
-  };
+  }
 
   const renderGroupCard = ({ item, index }: { item: any; index: any }) => {
-    const progress = calculateProgress(item.spent, item.totalBudget);
-    const progressColor = getProgressColor(progress);
+    const progress = calculateProgress(item.spent, item.totalBudget)
+    const progressColor = getProgressColor(progress)
+    const isDeleting = deletingGroupId === item.id
 
     return (
       <Animated.View
@@ -268,14 +318,42 @@ const ExpenselyGroups = () => {
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => handleGroupSelect(item)}
+          onLongPress={() => handleGroupLongPress(item)}
           style={styles.groupCardTouchable}
+          disabled={isDeleting}
         >
           <LinearGradient
             colors={[`${item.color[0]}10`, `${item.color[1]}05`]}
-            style={styles.groupCardGradient}
+            style={[styles.groupCardGradient, isDeleting && styles.groupCardDeleting]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
+            {/* Delete Loading Overlay */}
+            {isDeleting && (
+              <View style={styles.deleteOverlay}>
+                <View style={styles.deleteLoadingContainer}>
+                  <Animated.View
+                    style={[
+                      styles.deleteSpinner,
+                      {
+                        transform: [
+                          {
+                            rotate: fadeAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: ["0deg", "360deg"],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  >
+                    <Ionicons name="trash" size={24} color="#EF4444" />
+                  </Animated.View>
+                  <Text style={styles.deleteLoadingText}>Deleting...</Text>
+                </View>
+              </View>
+            )}
+
             {/* Header */}
             <View style={styles.groupCardHeader}>
               <View style={styles.groupIconContainer}>
@@ -291,14 +369,18 @@ const ExpenselyGroups = () => {
               <View style={styles.groupInfo}>
                 <View style={styles.groupTitleRow}>
                   <Text style={styles.groupName}>{item.name}</Text>
-                  {item.isOwner && (
-                    <View style={styles.ownerBadge}>
-                      <Ionicons size={12} color="#F59E0B" />
-                    </View>
-                  )}
                 </View>
                 <Text style={styles.groupDescription}>{item.description}</Text>
               </View>
+              {item.isOwner && (
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => handleDeleteGroup(item)}
+                  disabled={isDeleting}
+                >
+                  <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Stats */}
@@ -308,15 +390,11 @@ const ExpenselyGroups = () => {
                 <Text style={styles.statLabel}>Members</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={[styles.statValue, { color: item.color[0] }]}>
-                  ${item.totalBudget.toLocaleString()}
-                </Text>
+                <Text style={[styles.statValue, { color: item.color[0] }]}>${item.totalBudget.toLocaleString()}</Text>
                 <Text style={styles.statLabel}>Budget</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={[styles.statValue, { color: progressColor }]}>
-                  ${item.spent.toLocaleString()}
-                </Text>
+                <Text style={[styles.statValue, { color: progressColor }]}>${item.spent.toLocaleString()}</Text>
                 <Text style={styles.statLabel}>Spent</Text>
               </View>
             </View>
@@ -334,23 +412,16 @@ const ExpenselyGroups = () => {
                   ]}
                 />
               </View>
-              <Text style={styles.progressText}>
-                {progress.toFixed(0)}% used
-              </Text>
+              <Text style={styles.progressText}>{progress.toFixed(0)}% used</Text>
             </View>
           </LinearGradient>
         </TouchableOpacity>
       </Animated.View>
-    );
-  };
+    )
+  }
 
   const renderCreateModal = () => (
-    <Modal
-      visible={showCreateModal}
-      transparent
-      animationType="fade"
-      onRequestClose={() => setShowCreateModal(false)}
-    >
+    <Modal visible={showCreateModal} transparent animationType="fade" onRequestClose={() => setShowCreateModal(false)}>
       <View style={styles.modalOverlay}>
         <Animated.View
           style={[
@@ -363,15 +434,12 @@ const ExpenselyGroups = () => {
         >
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Create New Group</Text>
-            <TouchableOpacity
-              onPress={() => setShowCreateModal(false)}
-              style={styles.modalCloseButton}
-            >
+            <TouchableOpacity onPress={() => setShowCreateModal(false)} style={styles.modalCloseButton}>
               <Ionicons name="close" size={24} color="#6B7280" />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.modalForm}>
+          <ScrollView style={styles.modalForm}>
             <View style={styles.modalInputContainer}>
               <Text style={styles.modalInputLabel}>Group Name</Text>
               <TextInput
@@ -379,9 +447,7 @@ const ExpenselyGroups = () => {
                 placeholder="Enter group name"
                 placeholderTextColor="#9CA3AF"
                 value={newGroupData.name}
-                onChangeText={(text) =>
-                  setNewGroupData((prev) => ({ ...prev, name: text }))
-                }
+                onChangeText={(text) => setNewGroupData((prev) => ({ ...prev, name: text }))}
               />
             </View>
 
@@ -392,9 +458,7 @@ const ExpenselyGroups = () => {
                 placeholder="Enter group description"
                 placeholderTextColor="#9CA3AF"
                 value={newGroupData.description}
-                onChangeText={(text) =>
-                  setNewGroupData((prev) => ({ ...prev, description: text }))
-                }
+                onChangeText={(text) => setNewGroupData((prev) => ({ ...prev, description: text }))}
                 multiline
               />
             </View>
@@ -406,45 +470,125 @@ const ExpenselyGroups = () => {
                 placeholder="Enter budget amount"
                 placeholderTextColor="#9CA3AF"
                 value={newGroupData.budget}
-                onChangeText={(text) =>
-                  setNewGroupData((prev) => ({ ...prev, budget: text }))
-                }
+                onChangeText={(text) => setNewGroupData((prev) => ({ ...prev, budget: text }))}
                 keyboardType="numeric"
               />
             </View>
 
-            <View style={styles.modalInputContainer}>
-              <Text style={styles.modalInputLabel}>
-                Members (comma-separated user IDs)
-              </Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="e.g. 1,2,3"
-                placeholderTextColor="#9CA3AF"
-                value={newGroupData.members}
-                onChangeText={(text) =>
-                  setNewGroupData((prev) => ({ ...prev, members: text }))
-                }
-                keyboardType="numeric"
-              />
+            {/* Enhanced Members Section */}
+            <View style={styles.membersSection}>
+              <View style={styles.membersSectionHeader}>
+                <Ionicons name="people-outline" size={20} color="#8B5CF6" />
+                <Text style={styles.membersSectionTitle}>Add Members</Text>
+                <View style={styles.membersCount}>
+                  <Text style={styles.membersCountText}>{selectedMembers.length}</Text>
+                </View>
+              </View>
+
+              {/* Search Input with Enhanced Styling */}
+              <View style={styles.memberSearchContainer}>
+                <View style={styles.memberSearchInputWrapper}>
+                  <Ionicons name="search-outline" size={18} color="#9CA3AF" style={styles.memberSearchIcon} />
+                  <TextInput
+                    style={styles.memberSearchInput}
+                    placeholder="Search by name or email..."
+                    placeholderTextColor="#9CA3AF"
+                    value={memberSearchQuery}
+                    onChangeText={(text) => {
+                      setMemberSearchQuery(text)
+                      searchUsers(text)
+                    }}
+                  />
+                  {memberSearchQuery.length > 0 && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setMemberSearchQuery("")
+                        setSearchResults([])
+                      }}
+                      style={styles.clearSearchButton}
+                    >
+                      <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Search Results with Enhanced Styling */}
+                {searchResults.length > 0 && (
+                  <View style={styles.searchResultsContainer}>
+                    <FlatList
+                      data={searchResults}
+                      keyExtractor={(item) => item.user_id}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          onPress={() => {
+                            setSelectedMembers([...selectedMembers, item])
+                            setSearchResults([])
+                            setMemberSearchQuery("")
+                          }}
+                          style={styles.searchResultItem}
+                        >
+                          <View style={styles.searchResultAvatar}>
+                            <Text style={styles.searchResultAvatarText}>{item.username.charAt(0).toUpperCase()}</Text>
+                          </View>
+                          <View style={styles.searchResultInfo}>
+                            <Text style={styles.searchResultName}>{item.username}</Text>
+                            <Text style={styles.searchResultEmail}>{item.email}</Text>
+                          </View>
+                          <Ionicons name="add-circle-outline" size={20} color="#8B5CF6" />
+                        </TouchableOpacity>
+                      )}
+                      style={styles.searchResultsList}
+                      showsVerticalScrollIndicator={false}
+                    />
+                  </View>
+                )}
+              </View>
+
+              {/* Selected Members with Enhanced Styling */}
+              {selectedMembers.length > 0 && (
+                <View style={styles.selectedMembersContainer}>
+                  <Text style={styles.selectedMembersTitle}>Selected Members ({selectedMembers.length})</Text>
+                  <View style={styles.selectedMembersList}>
+                    {selectedMembers.map((member) => (
+                      <View key={member.user_id} style={styles.selectedMemberItem}>
+                        <View style={styles.selectedMemberAvatar}>
+                          <Text style={styles.selectedMemberAvatarText}>{member.username.charAt(0).toUpperCase()}</Text>
+                        </View>
+                        <View style={styles.selectedMemberInfo}>
+                          <Text style={styles.selectedMemberName}>{member.username}</Text>
+                          <Text style={styles.selectedMemberEmail}>{member.email}</Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() =>
+                            setSelectedMembers(selectedMembers.filter((m) => m.user_id !== member.user_id))
+                          }
+                          style={styles.removeMemberButton}
+                        >
+                          <Ionicons name="close" size={16} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Empty State */}
+              {selectedMembers.length === 0 && memberSearchQuery.length === 0 && (
+                <View style={styles.emptyMembersState}>
+                  <Ionicons name="person-add-outline" size={32} color="#D1D5DB" />
+                  <Text style={styles.emptyMembersText}>Start typing to search for members</Text>
+                  <Text style={styles.emptyMembersSubtext}>You can add members by name or email</Text>
+                </View>
+              )}
             </View>
-          </View>
+          </ScrollView>
 
           <View style={styles.modalButtons}>
-            <TouchableOpacity
-              style={styles.modalCancelButton}
-              onPress={() => setShowCreateModal(false)}
-            >
+            <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowCreateModal(false)}>
               <Text style={styles.modalCancelText}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.modalCreateButton}
-              onPress={handleCreateGroup}
-            >
-              <LinearGradient
-                colors={["#8B5CF6", "#7C3AED"]}
-                style={styles.modalCreateGradient}
-              >
+            <TouchableOpacity style={styles.modalCreateButton} onPress={handleCreateGroup}>
+              <LinearGradient colors={["#8B5CF6", "#7C3AED"]} style={styles.modalCreateGradient}>
                 <Text style={styles.modalCreateText}>Create Group</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -452,7 +596,7 @@ const ExpenselyGroups = () => {
         </Animated.View>
       </View>
     </Modal>
-  );
+  )
 
   return (
     <View style={styles.container}>
@@ -468,7 +612,7 @@ const ExpenselyGroups = () => {
           },
         ]}
       >
-        <TouchableOpacity style={styles.backButton}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -489,12 +633,7 @@ const ExpenselyGroups = () => {
         ]}
       >
         <View style={styles.searchBar}>
-          <Ionicons
-            name="search"
-            size={20}
-            color="#6B7280"
-            style={styles.searchIcon}
-          />
+          <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search groups..."
@@ -529,15 +668,8 @@ const ExpenselyGroups = () => {
           },
         ]}
       >
-        <TouchableOpacity
-          style={styles.fabButton}
-          onPress={() => setShowCreateModal(true)}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={["#8B5CF6", "#7C3AED"]}
-            style={styles.fabGradient}
-          >
+        <TouchableOpacity style={styles.fabButton} onPress={() => setShowCreateModal(true)} activeOpacity={0.8}>
+          <LinearGradient colors={["#8B5CF6", "#7C3AED"]} style={styles.fabGradient}>
             <Ionicons name="add" size={28} color="white" />
           </LinearGradient>
         </TouchableOpacity>
@@ -545,8 +677,8 @@ const ExpenselyGroups = () => {
 
       {renderCreateModal()}
     </View>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -633,6 +765,32 @@ const styles = StyleSheet.create({
   groupCardGradient: {
     padding: 20,
     backgroundColor: "#FFFFFF",
+    position: "relative",
+  },
+  groupCardDeleting: {
+    opacity: 0.7,
+  },
+  deleteOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  deleteLoadingContainer: {
+    alignItems: "center",
+  },
+  deleteSpinner: {
+    marginBottom: 8,
+  },
+  deleteLoadingText: {
+    fontSize: 14,
+    color: "#EF4444",
+    fontWeight: "600",
   },
   groupCardHeader: {
     flexDirection: "row",
@@ -674,6 +832,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6B7280",
     lineHeight: 20,
+  },
+  deleteButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#FEF2F2",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
   },
   groupStats: {
     flexDirection: "row",
@@ -760,6 +927,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     width: "100%",
     maxWidth: 400,
+    maxHeight: "90%",
     elevation: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
@@ -789,6 +957,7 @@ const styles = StyleSheet.create({
   },
   modalForm: {
     padding: 20,
+    maxHeight: 400,
   },
   modalInputContainer: {
     marginBottom: 20,
@@ -809,6 +978,196 @@ const styles = StyleSheet.create({
     color: "#111827",
     backgroundColor: "#F9FAFB",
   },
+
+  // Enhanced Members Section Styles
+  membersSection: {
+    marginBottom: 10,
+  },
+  membersSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  membersSectionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+    marginLeft: 8,
+    flex: 1,
+  },
+  membersCount: {
+    backgroundColor: "#EDE9FE",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    minWidth: 24,
+    alignItems: "center",
+  },
+  membersCountText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#8B5CF6",
+  },
+
+  // Search Input Styles
+  memberSearchContainer: {
+    marginBottom: 16,
+  },
+  memberSearchInputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  memberSearchIcon: {
+    marginRight: 8,
+  },
+  memberSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: "#111827",
+  },
+  clearSearchButton: {
+    padding: 4,
+  },
+
+  // Search Results Styles
+  searchResultsContainer: {
+    marginTop: 8,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    maxHeight: 150,
+    overflow: "hidden",
+  },
+  searchResultsList: {
+    maxHeight: 150,
+  },
+  searchResultItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  searchResultAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#8B5CF6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  searchResultAvatarText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  searchResultInfo: {
+    flex: 1,
+  },
+  searchResultName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 2,
+  },
+  searchResultEmail: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
+
+  // Selected Members Styles
+  selectedMembersContainer: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  selectedMembersTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#64748B",
+    marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  selectedMembersList: {
+    gap: 8,
+  },
+  selectedMemberItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  selectedMemberAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#10B981",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+  },
+  selectedMemberAvatarText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  selectedMemberInfo: {
+    flex: 1,
+  },
+  selectedMemberName: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 1,
+  },
+  selectedMemberEmail: {
+    fontSize: 11,
+    color: "#6B7280",
+  },
+  removeMemberButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#FEF2F2",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  // Empty State Styles
+  emptyMembersState: {
+    alignItems: "center",
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+  },
+  emptyMembersText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#6B7280",
+    marginTop: 8,
+    textAlign: "center",
+  },
+  emptyMembersSubtext: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    marginTop: 4,
+    textAlign: "center",
+  },
+
   modalButtons: {
     flexDirection: "row",
     padding: 20,
@@ -842,6 +1201,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "white",
   },
-});
+})
 
-export default ExpenselyGroups;
+export default ExpenselyGroups
