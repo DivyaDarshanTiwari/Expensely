@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import axios from "axios";
 import { auth } from "../auth/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
@@ -40,77 +40,81 @@ const GroupDetails = () => {
   const headerSlide = useRef(new Animated.Value(-50)).current;
   const cardScale = useRef(new Animated.Value(0.9)).current;
 
-  useEffect(() => {
-    const fetchGroupDetails = async (idToken: string) => {
-      try {
-        // Fetch recent expenses
-        const expensesRes = await axios.get(
-          `${Constants.expoConfig?.extra?.Group_URL}/api/v1/groupExpense/getAll/${groupId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${idToken}`,
-            },
-          }
-        );
-        setExpenses(expensesRes.data || []);
+  // ...
 
-        // Fetch group members
-        const membersRes = await axios.get(
-          `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/getMembers/${groupId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${idToken}`,
-            },
-          }
-        );
-        setMembers(membersRes.data || []);
-      } catch (error) {
-        console.error("Failed to fetch group details", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
+  useFocusEffect(
+    useCallback(() => {
+      const fetchGroupDetails = async (idToken: string) => {
         try {
-          const idToken = await firebaseUser?.getIdToken();
-          setIdToken(idToken);
-          fetchGroupDetails(idToken);
+          // Fetch recent expenses
+          const expensesRes = await axios.get(
+            `${Constants.expoConfig?.extra?.Group_URL}/api/v1/groupExpense/getAll/${groupId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${idToken}`,
+              },
+            }
+          );
+          setExpenses(expensesRes.data || []);
+
+          // Fetch group members
+          const membersRes = await axios.get(
+            `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/getMembers/${groupId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${idToken}`,
+              },
+            }
+          );
+          setMembers(membersRes.data || []);
         } catch (error) {
-          console.error("Error getting ID token:", error);
+          console.error("Failed to fetch group details", error);
+        } finally {
+          setLoading(false);
         }
-      }
-    });
+      };
 
-    // Start animations
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(headerSlide, {
-        toValue: 0,
-        duration: 700,
-        useNativeDriver: true,
-      }),
-      Animated.spring(cardScale, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        delay: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser) {
+          try {
+            const idToken = await firebaseUser.getIdToken();
+            setIdToken(idToken);
+            fetchGroupDetails(idToken);
+          } catch (error) {
+            console.error("Error getting ID token:", error);
+          }
+        }
+      });
 
-    return () => unsubscribe();
-  }, []);
+      // Start animations
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(headerSlide, {
+          toValue: 0,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.spring(cardScale, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          delay: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      return () => unsubscribe();
+    }, []) // Add dependencies if needed
+  );
 
   const calculateProgress = (spent: any, total: any) => {
     return Math.min((spent / total) * 100, 100);

@@ -1,7 +1,12 @@
-"use client"
-import { useRouter } from "expo-router"
-import { onAuthStateChanged, signOut, updateProfile, type User } from "firebase/auth"
-import { useEffect, useState, useRef } from "react"
+"use client";
+import { useRouter } from "expo-router";
+import {
+  onAuthStateChanged,
+  signOut,
+  updateProfile,
+  type User,
+} from "firebase/auth";
+import { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -14,28 +19,28 @@ import {
   ScrollView,
   Animated,
   Dimensions,
-} from "react-native"
-import { Ionicons } from "@expo/vector-icons"
-import * as ImagePicker from "expo-image-picker"
-import { auth } from "../auth/firebase"
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import { auth } from "../auth/firebase";
 
-const { width: screenWidth } = Dimensions.get("window")
+const { width: screenWidth } = Dimensions.get("window");
 
 interface UserProfile {
-  displayName: string
-  email: string
-  photoURL: string
-  phoneNumber: string
-  bio: string
+  displayName: string;
+  email: string;
+  photoURL: string;
+  phoneNumber: string;
+  bio: string;
 }
 
 export default function ProfileScreen() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [loggingOut, setLoggingOut] = useState(false)
-  const [editing, setEditing] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [showImagePicker, setShowImagePicker] = useState(false)
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [showImagePicker, setShowImagePicker] = useState(false);
 
   const [profile, setProfile] = useState<UserProfile>({
     displayName: "",
@@ -43,7 +48,7 @@ export default function ProfileScreen() {
     photoURL: "",
     phoneNumber: "",
     bio: "",
-  })
+  });
 
   const [editedProfile, setEditedProfile] = useState<UserProfile>({
     displayName: "",
@@ -51,28 +56,28 @@ export default function ProfileScreen() {
     photoURL: "",
     phoneNumber: "",
     bio: "",
-  })
+  });
 
-  const router = useRouter()
-  const fadeAnim = useRef(new Animated.Value(0)).current
-  const slideAnim = useRef(new Animated.Value(50)).current
+  const router = useRouter();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (!firebaseUser) {
-        router.replace("/auth")
+        router.replace("/auth");
       } else {
-        setUser(firebaseUser)
+        setUser(firebaseUser);
         const userProfile = {
           displayName: firebaseUser.displayName || "",
           email: firebaseUser.email || "",
           photoURL: firebaseUser.photoURL || "",
           phoneNumber: firebaseUser.phoneNumber || "",
           bio: "", // This would come from your database
-        }
-        setProfile(userProfile)
-        setEditedProfile(userProfile)
-        setLoading(false)
+        };
+        setProfile(userProfile);
+        setEditedProfile(userProfile);
+        setLoading(false);
 
         // Start animations
         Animated.parallel([
@@ -86,34 +91,44 @@ export default function ProfileScreen() {
             duration: 600,
             useNativeDriver: true,
           }),
-        ]).start()
+        ]).start();
       }
-    })
+    });
 
-    return unsubscribe
-  }, [])
+    return unsubscribe;
+  }, []);
 
   const handleImagePicker = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (status !== "granted") {
-      Alert.alert("Permission Required", "Please grant camera roll permissions to change your profile picture.")
-      return
+      Alert.alert(
+        "Permission Required",
+        "Please grant camera roll permissions to change your profile picture."
+      );
+      return;
     }
 
-    Alert.alert("Select Image", "Choose how you'd like to select your profile picture", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Camera", onPress: () => openCamera() },
-      { text: "Gallery", onPress: () => openGallery() },
-    ])
-  }
+    Alert.alert(
+      "Select Image",
+      "Choose how you'd like to select your profile picture",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Camera", onPress: () => openCamera() },
+        { text: "Gallery", onPress: () => openGallery() },
+      ]
+    );
+  };
 
   const openCamera = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync()
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
 
     if (status !== "granted") {
-      Alert.alert("Permission Required", "Please grant camera permissions to take a photo.")
-      return
+      Alert.alert(
+        "Permission Required",
+        "Please grant camera permissions to take a photo."
+      );
+      return;
     }
 
     const result = await ImagePicker.launchCameraAsync({
@@ -121,12 +136,12 @@ export default function ProfileScreen() {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
-    })
+    });
 
     if (!result.canceled && result.assets[0]) {
-      setEditedProfile((prev) => ({ ...prev, photoURL: result.assets[0].uri }))
+      setEditedProfile((prev) => ({ ...prev, photoURL: result.assets[0].uri }));
     }
-  }
+  };
 
   const openGallery = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -134,42 +149,42 @@ export default function ProfileScreen() {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
-    })
+    });
 
     if (!result.canceled && result.assets[0]) {
-      setEditedProfile((prev) => ({ ...prev, photoURL: result.assets[0].uri }))
+      setEditedProfile((prev) => ({ ...prev, photoURL: result.assets[0].uri }));
     }
-  }
+  };
 
   const handleSave = async () => {
-    if (!user) return
+    if (!user) return;
 
-    setSaving(true)
+    setSaving(true);
     try {
       // Update Firebase Auth profile
       await updateProfile(user, {
         displayName: editedProfile.displayName,
         photoURL: editedProfile.photoURL,
-      })
+      });
 
       // Here you would also update your backend database with additional fields
       // like phoneNumber and bio
 
-      setProfile(editedProfile)
-      setEditing(false)
-      Alert.alert("Success", "Profile updated successfully!")
+      setProfile(editedProfile);
+      setEditing(false);
+      Alert.alert("Success", "Profile updated successfully!");
     } catch (error) {
-      console.error("Profile update error:", error)
-      Alert.alert("Error", "Failed to update profile. Please try again.")
+      console.error("Profile update error:", error);
+      Alert.alert("Error", "Failed to update profile. Please try again.");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const handleCancel = () => {
-    setEditedProfile(profile)
-    setEditing(false)
-  }
+    setEditedProfile(profile);
+    setEditing(false);
+  };
 
   const handleLogout = async () => {
     Alert.alert(
@@ -185,22 +200,22 @@ export default function ProfileScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              setLoggingOut(true)
-              await signOut(auth)
-              setUser(null)
-              router.replace("/auth")
+              setLoggingOut(true);
+              await signOut(auth);
+              setUser(null);
+              router.replace("/auth");
             } catch (error) {
-              console.error("Logout error:", error)
-              Alert.alert("Error", "Something went wrong while logging out.")
+              console.error("Logout error:", error);
+              Alert.alert("Error", "Something went wrong while logging out.");
             } finally {
-              setLoggingOut(false)
+              setLoggingOut(false);
             }
           },
         },
       ],
-      { cancelable: true },
-    )
-  }
+      { cancelable: true }
+    );
+  };
 
   if (loading) {
     return (
@@ -208,7 +223,7 @@ export default function ProfileScreen() {
         <ActivityIndicator size="large" color="#8B5CF6" />
         <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
-    )
+    );
   }
 
   return (
@@ -222,12 +237,23 @@ export default function ProfileScreen() {
           },
         ]}
       >
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
-        <TouchableOpacity style={styles.editButton} onPress={() => setEditing(!editing)} disabled={saving}>
-          <Ionicons name={editing ? "close" : "pencil"} size={20} color={editing ? "#EF4444" : "#8B5CF6"} />
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => setEditing(!editing)}
+          disabled={saving}
+        >
+          <Ionicons
+            name={editing ? "close" : "pencil"}
+            size={20}
+            color={editing ? "#EF4444" : "#8B5CF6"}
+          />
         </TouchableOpacity>
       </Animated.View>
 
@@ -251,12 +277,16 @@ export default function ProfileScreen() {
               source={{
                 uri: editing
                   ? editedProfile.photoURL
-                  : profile.photoURL || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y",
+                  : profile.photoURL ||
+                    "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y",
               }}
               style={styles.avatar}
             />
             {editing && (
-              <TouchableOpacity style={styles.cameraButton} onPress={handleImagePicker}>
+              <TouchableOpacity
+                style={styles.cameraButton}
+                onPress={handleImagePicker}
+              >
                 <Ionicons name="camera" size={20} color="#FFFFFF" />
               </TouchableOpacity>
             )}
@@ -280,19 +310,25 @@ export default function ProfileScreen() {
               <TextInput
                 style={styles.textInput}
                 value={editedProfile.displayName}
-                onChangeText={(text) => setEditedProfile((prev) => ({ ...prev, displayName: text }))}
+                onChangeText={(text) =>
+                  setEditedProfile((prev) => ({ ...prev, displayName: text }))
+                }
                 placeholder="Enter your display name"
                 placeholderTextColor="#9CA3AF"
               />
             ) : (
-              <Text style={styles.fieldValue}>{profile.displayName || "Not set"}</Text>
+              <Text style={styles.fieldValue}>
+                {profile.displayName || "Not set"}
+              </Text>
             )}
           </View>
 
           {/* Email */}
           <View style={styles.fieldContainer}>
             <Text style={styles.fieldLabel}>Email</Text>
-            <Text style={[styles.fieldValue, styles.emailText]}>{profile.email}</Text>
+            <Text style={[styles.fieldValue, styles.emailText]}>
+              {profile.email}
+            </Text>
           </View>
 
           {/* Phone Number */}
@@ -302,13 +338,17 @@ export default function ProfileScreen() {
               <TextInput
                 style={styles.textInput}
                 value={editedProfile.phoneNumber}
-                onChangeText={(text) => setEditedProfile((prev) => ({ ...prev, phoneNumber: text }))}
+                onChangeText={(text) =>
+                  setEditedProfile((prev) => ({ ...prev, phoneNumber: text }))
+                }
                 placeholder="Enter your phone number"
                 placeholderTextColor="#9CA3AF"
                 keyboardType="phone-pad"
               />
             ) : (
-              <Text style={styles.fieldValue}>{profile.phoneNumber || "Not set"}</Text>
+              <Text style={styles.fieldValue}>
+                {profile.phoneNumber || "Not set"}
+              </Text>
             )}
           </View>
 
@@ -319,7 +359,9 @@ export default function ProfileScreen() {
               <TextInput
                 style={[styles.textInput, styles.bioInput]}
                 value={editedProfile.bio}
-                onChangeText={(text) => setEditedProfile((prev) => ({ ...prev, bio: text }))}
+                onChangeText={(text) =>
+                  setEditedProfile((prev) => ({ ...prev, bio: text }))
+                }
                 placeholder="Tell us about yourself"
                 placeholderTextColor="#9CA3AF"
                 multiline
@@ -327,7 +369,9 @@ export default function ProfileScreen() {
                 textAlignVertical="top"
               />
             ) : (
-              <Text style={styles.fieldValue}>{profile.bio || "No bio added"}</Text>
+              <Text style={styles.fieldValue}>
+                {profile.bio || "No bio added"}
+              </Text>
             )}
           </View>
         </Animated.View>
@@ -351,7 +395,11 @@ export default function ProfileScreen() {
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, styles.saveButton]} onPress={handleSave} disabled={saving}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.saveButton]}
+                onPress={handleSave}
+                disabled={saving}
+              >
                 {saving ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
@@ -378,7 +426,7 @@ export default function ProfileScreen() {
         </Animated.View>
       </ScrollView>
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -560,4 +608,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-})
+});

@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -12,221 +12,239 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-} from "react-native"
-import { Ionicons } from "@expo/vector-icons"
-import { useLocalSearchParams, useRouter } from "expo-router"
-import axios from "axios"
-import { auth } from "../../auth/firebase"
-import { onAuthStateChanged } from "firebase/auth"
-import ExpenseList from "../../components/Expense/ExpenseList"
-import IncomeList from "../../components/Income/IncomeList"
+  FlatList,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import axios from "axios";
+import { auth } from "../../auth/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import ExpenseItem from "../../components/Expense/ExpenseList";
+import IncomeItem from "../../components/Income/IncomeList";
+import Constants from "expo-constants";
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get("window")
+const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
-type ViewType = "expenses" | "income"
+type ViewType = "expenses" | "income";
 
 interface PaginationState {
   expenses: {
-    page: number
-    hasMore: boolean
-    loading: boolean
-    showAll: boolean
-  }
+    page: number;
+    hasMore: boolean;
+    loading: boolean;
+    showAll: boolean;
+    total_records?: number;
+  };
   income: {
-    page: number
-    hasMore: boolean
-    loading: boolean
-    showAll: boolean
-  }
+    page: number;
+    hasMore: boolean;
+    loading: boolean;
+    showAll: boolean;
+    total_records?: number;
+  };
 }
 
 const FinancialOverview = () => {
-  const router = useRouter()
-  const { groupId, groupName } = useLocalSearchParams()
+  const router = useRouter();
+  const { groupId, groupName } = useLocalSearchParams();
 
-  const [currentView, setCurrentView] = useState<ViewType>("expenses")
-  const [expenseData, setExpenseData] = useState([])
-  const [incomeData, setIncomeData] = useState([])
-  const [idToken, setIdToken] = useState("")
+  const [currentView, setCurrentView] = useState<ViewType>("expenses");
+  const [expenseData, setExpenseData] = useState([]);
+  const [incomeData, setIncomeData] = useState([]);
+  const [idToken, setIdToken] = useState("");
   const [pagination, setPagination] = useState<PaginationState>({
     expenses: { page: 1, hasMore: true, loading: false, showAll: false },
     income: { page: 1, hasMore: true, loading: false, showAll: false },
-  })
+  });
 
   // Animation refs
-  const fadeAnim = useRef(new Animated.Value(0)).current
-  const slideAnim = useRef(new Animated.Value(50)).current
-  const headerSlide = useRef(new Animated.Value(-50)).current
-  const toggleSlide = useRef(new Animated.Value(0)).current
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const headerSlide = useRef(new Animated.Value(-50)).current;
+  const toggleSlide = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          const token = await firebaseUser.getIdToken()
-          setIdToken(token)
-          // Load initial data (last 5 entries)
-          fetchExpenses(token, 1, 5, true)
-          fetchIncome(token, 1, 5, true)
-        } catch (error) {
-          console.error("Error getting ID token:", error)
-          Alert.alert("Error", "Authentication failed")
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser && isActive) {
+          try {
+            const token = await firebaseUser.getIdToken();
+            setIdToken(token);
+            // Load initial data (last 5 entries)
+            fetchExpenses(token, 1, 5, true);
+            fetchIncome(token, 1, 5, true);
+          } catch (error) {
+            console.error("Error getting ID token:", error);
+            Alert.alert("Error", "Authentication failed");
+          }
+        } else if (isActive) {
+          Alert.alert("Error", "Please log in to continue");
+          router.back();
         }
-      } else {
-        Alert.alert("Error", "Please log in to continue")
-        router.back()
-      }
-    })
+      });
 
-    // Start animations
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(headerSlide, {
-        toValue: 0,
-        duration: 700,
-        useNativeDriver: true,
-      }),
-    ]).start()
+      // Start animations
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(headerSlide, {
+          toValue: 0,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ]).start();
 
-    return () => unsubscribe()
-  }, [groupId])
+      return () => {
+        isActive = false;
+        unsubscribe();
+      };
+    }, [groupId])
+  );
 
-  const fetchExpenses = async (token: string, page: number, limit: number, isInitial = false) => {
+  const fetchExpenses = async (
+    token: string,
+    page: number,
+    limit: number,
+    isInitial = false
+  ) => {
     setPagination((prev) => ({
       ...prev,
       expenses: { ...prev.expenses, loading: true },
-    }))
-
+    }));
     try {
-      const response = await axios.get(`https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/expenses/group/${groupId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { page, limit },
-      })
-
-      const newData = response.data.expenses || []
-      const hasMore = response.data.hasMore || false
-
-      setExpenseData((prev) => (isInitial ? newData : [...prev, ...newData]))
+      const { data } = await axios.get(
+        `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/expense/getAll`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { page, limit },
+        }
+      );
+      const hasMore = data.pagination.next_page !== null;
+      setExpenseData((prev) =>
+        isInitial ? data.data : [...prev, ...data.data]
+      );
       setPagination((prev) => ({
         ...prev,
         expenses: {
           ...prev.expenses,
-          page: page,
+          page,
           hasMore,
           loading: false,
+          total_records: data.pagination.total_records,
         },
-      }))
+      }));
     } catch (error) {
-      console.error("Failed to fetch expenses", error)
-      Alert.alert("Error", "Could not fetch expenses")
+      console.error(error);
+      Alert.alert("Error", "Failed to fetch expenses");
       setPagination((prev) => ({
         ...prev,
         expenses: { ...prev.expenses, loading: false },
-      }))
+      }));
     }
-  }
+  };
 
-  const fetchIncome = async (token: string, page: number, limit: number, isInitial = false) => {
+  const fetchIncome = async (
+    token: string,
+    page: number,
+    limit: number,
+    isInitial = false
+  ) => {
     setPagination((prev) => ({
       ...prev,
       income: { ...prev.income, loading: true },
-    }))
-
+    }));
     try {
-      const response = await axios.get(`https://07ttqbzs-8082.inc1.devtunnels.ms/api/v1/income/group/${groupId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { page, limit },
-      })
-
-      const newData = response.data.income || []
-      const hasMore = response.data.hasMore || false
-
-      setIncomeData((prev) => (isInitial ? newData : [...prev, ...newData]))
+      const { data } = await axios.get(
+        `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/income/getAll`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { page, limit },
+        }
+      );
+      const mappedData = data.data.map((item: any) => ({
+        id: item.incomeid,
+        amount: parseFloat(item.amount),
+        description: item.description,
+        category: item.category.toLowerCase(),
+        createdAt: item.createdat,
+      }));
+      const hasMore = data.pagination.next_page !== null;
+      setIncomeData((prev) =>
+        isInitial ? mappedData : [...prev, ...mappedData]
+      );
       setPagination((prev) => ({
         ...prev,
         income: {
           ...prev.income,
-          page: page,
+          page,
           hasMore,
           loading: false,
+          total_records: data.pagination.total_records,
         },
-      }))
+      }));
     } catch (error) {
-      console.error("Failed to fetch income", error)
-      Alert.alert("Error", "Could not fetch income")
+      console.error(error);
+      Alert.alert("Error", "Failed to fetch income");
       setPagination((prev) => ({
         ...prev,
         income: { ...prev.income, loading: false },
-      }))
+      }));
     }
-  }
+  };
 
-  const handleViewAll = () => {
-    const currentType = currentView
-    const currentPagination = pagination[currentType]
+  const handleViewAll = async () => {
+    const currentType = currentView;
+    const typePagination = pagination[currentType];
+    const limit = typePagination.total_records || 100;
 
-    if (!currentPagination.showAll) {
-      // First time clicking "View All" - fetch next 20 entries
-      const nextPage = 2
+    if (!typePagination.showAll) {
       if (currentType === "expenses") {
-        fetchExpenses(idToken, nextPage, 20)
+        fetchExpenses(idToken, 1, limit, true);
       } else {
-        fetchIncome(idToken, nextPage, 20)
+        fetchIncome(idToken, 1, limit, true);
       }
-
       setPagination((prev) => ({
         ...prev,
-        [currentType]: {
-          ...prev[currentType],
-          showAll: true,
-        },
-      }))
+        [currentType]: { ...prev[currentType], showAll: true },
+      }));
     } else {
-      // Hide - reset to initial 5 entries
       if (currentType === "expenses") {
-        fetchExpenses(idToken, 1, 5, true)
-        setExpenseData([])
+        fetchExpenses(idToken, 1, 5, true);
       } else {
-        fetchIncome(idToken, 1, 5, true)
-        setIncomeData([])
+        fetchIncome(idToken, 1, 5, true);
       }
-
       setPagination((prev) => ({
         ...prev,
-        [currentType]: {
-          page: 1,
-          hasMore: true,
-          loading: false,
-          showAll: false,
-        },
-      }))
+        [currentType]: { ...prev[currentType], showAll: false },
+      }));
     }
-  }
+  };
 
   const handleLoadMore = () => {
-    const currentType = currentView
-    const currentPagination = pagination[currentType]
-    const nextPage = currentPagination.page + 1
+    const currentType = currentView;
+    const currentPagination = pagination[currentType];
+    const nextPage = currentPagination.page + 1;
 
     if (currentType === "expenses") {
-      fetchExpenses(idToken, nextPage, 20)
+      fetchExpenses(idToken, nextPage, 20);
     } else {
-      fetchIncome(idToken, nextPage, 20)
+      fetchIncome(idToken, nextPage, 20);
     }
-  }
+  };
 
   const handleViewToggle = (view: ViewType) => {
     if (view !== currentView) {
-      setCurrentView(view)
+      setCurrentView(view);
 
       // Animate toggle
       Animated.sequence([
@@ -235,9 +253,9 @@ const FinancialOverview = () => {
           duration: 200,
           useNativeDriver: true,
         }),
-      ]).start()
+      ]).start();
     }
-  }
+  };
 
   const renderToggleHeader = () => (
     <Animated.View
@@ -266,46 +284,88 @@ const FinancialOverview = () => {
           ]}
         />
         <TouchableOpacity
-          style={[styles.toggleButton, currentView === "expenses" && styles.toggleButtonActive]}
+          style={[
+            styles.toggleButton,
+            currentView === "expenses" && styles.toggleButtonActive,
+          ]}
           onPress={() => handleViewToggle("expenses")}
         >
-          <Ionicons name="card-outline" size={20} color={currentView === "expenses" ? "#FFFFFF" : "#6B7280"} />
-          <Text style={[styles.toggleText, currentView === "expenses" && styles.toggleTextActive]}>Expenses</Text>
+          <Ionicons
+            name="card-outline"
+            size={20}
+            color={currentView === "expenses" ? "#FFFFFF" : "#6B7280"}
+          />
+          <Text
+            style={[
+              styles.toggleText,
+              currentView === "expenses" && styles.toggleTextActive,
+            ]}
+          >
+            Expenses
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.toggleButton, currentView === "income" && styles.toggleButtonActive]}
+          style={[
+            styles.toggleButton,
+            currentView === "income" && styles.toggleButtonActive,
+          ]}
           onPress={() => handleViewToggle("income")}
         >
-          <Ionicons name="trending-up-outline" size={20} color={currentView === "income" ? "#FFFFFF" : "#6B7280"} />
-          <Text style={[styles.toggleText, currentView === "income" && styles.toggleTextActive]}>Income</Text>
+          <Ionicons
+            name="trending-up-outline"
+            size={20}
+            color={currentView === "income" ? "#FFFFFF" : "#6B7280"}
+          />
+          <Text
+            style={[
+              styles.toggleText,
+              currentView === "income" && styles.toggleTextActive,
+            ]}
+          >
+            Income
+          </Text>
         </TouchableOpacity>
       </View>
     </Animated.View>
-  )
+  );
 
   const renderViewAllButton = () => {
-    const currentPagination = pagination[currentView]
+    const currentPagination = pagination[currentView];
 
     return (
       <View style={styles.actionButtonsContainer}>
-        <TouchableOpacity style={styles.viewAllButton} onPress={handleViewAll} disabled={currentPagination.loading}>
-          <Text style={styles.viewAllText}>{currentPagination.showAll ? "Hide" : "View All"}</Text>
-          <Ionicons name={currentPagination.showAll ? "chevron-up" : "chevron-down"} size={16} color="#8B5CF6" />
+        <TouchableOpacity
+          style={styles.viewAllButton}
+          onPress={handleViewAll}
+          disabled={currentPagination.loading}
+        >
+          <Text style={styles.viewAllText}>
+            {currentPagination.showAll ? "Hide" : "View All"}
+          </Text>
+          <Ionicons
+            name={currentPagination.showAll ? "chevron-up" : "chevron-down"}
+            size={16}
+            color="#8B5CF6"
+          />
         </TouchableOpacity>
       </View>
-    )
-  }
+    );
+  };
 
   const renderLoadMoreButton = () => {
-    const currentPagination = pagination[currentView]
+    const currentPagination = pagination[currentView];
 
     if (!currentPagination.showAll || !currentPagination.hasMore) {
-      return null
+      return null;
     }
 
     return (
       <View style={styles.loadMoreContainer}>
-        <TouchableOpacity style={styles.loadMoreButton} onPress={handleLoadMore} disabled={currentPagination.loading}>
+        <TouchableOpacity
+          style={styles.loadMoreButton}
+          onPress={handleLoadMore}
+          disabled={currentPagination.loading}
+        >
           {currentPagination.loading ? (
             <ActivityIndicator size="small" color="#8B5CF6" />
           ) : (
@@ -316,8 +376,8 @@ const FinancialOverview = () => {
           )}
         </TouchableOpacity>
       </View>
-    )
-  }
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -333,7 +393,10 @@ const FinancialOverview = () => {
           },
         ]}
       >
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -346,33 +409,38 @@ const FinancialOverview = () => {
       {/* Toggle Header */}
       {renderToggleHeader()}
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* View All/Hide Button */}
-        {renderViewAllButton()}
-
-        {/* Content */}
-        <Animated.View
-          style={[
-            styles.listContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          {currentView === "expenses" ? (
-            <ExpenseList data={expenseData} loading={pagination.expenses.loading && expenseData.length === 0} />
+      <FlatList
+        data={currentView === "expenses" ? expenseData : incomeData}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) =>
+          currentView === "expenses" ? (
+            <ExpenseItem item={item} type={"expense"} />
           ) : (
-            <IncomeList data={incomeData} loading={pagination.income.loading && incomeData.length === 0} />
-          )}
-        </Animated.View>
-
-        {/* Load More Button */}
-        {renderLoadMoreButton()}
-      </ScrollView>
+            <IncomeItem item={item} />
+          )
+        }
+        ListHeaderComponent={
+          <>
+            {renderViewAllButton()}
+            <Animated.View
+              style={[
+                styles.listContainer,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateY: slideAnim }],
+                },
+              ]}
+            >
+              {/* Optional: Animated entrance can wrap around header content here if needed */}
+            </Animated.View>
+          </>
+        }
+        ListFooterComponent={renderLoadMoreButton}
+        showsVerticalScrollIndicator={false}
+      />
     </View>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -512,6 +580,6 @@ const styles = StyleSheet.create({
     color: "#8B5CF6",
     marginRight: 4,
   },
-})
+});
 
-export default FinancialOverview
+export default FinancialOverview;
