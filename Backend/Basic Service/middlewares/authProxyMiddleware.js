@@ -18,7 +18,7 @@ const authProxyMiddleware = async (req, res, next) => {
         },
       }
     );
-    console.log(response).data;
+    console.log(response.data);
     const user_id = response.data.user.user_id;
     req.body = req.body ?? {};
     req.body.userId = user_id;
