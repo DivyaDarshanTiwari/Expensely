@@ -34,10 +34,14 @@ app.use(morgan("dev"));
 app.use(cors());
 app.use(authProxyMiddleware);
 
-groupsTable();
-groupMembersTable();
-groupExpensesTable();
-expensesShareTable();
+async function initTables() {
+  await groupsTable();
+  await groupMembersTable();
+  await groupExpensesTable();
+  await expensesShareTable();
+}
+
+initTables();
 
 app.use("/api/v1/group", groupRoutes);
 app.use("/api/v1/groupExpense", expenseRoutes);
