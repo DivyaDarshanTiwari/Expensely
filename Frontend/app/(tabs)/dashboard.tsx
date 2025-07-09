@@ -79,7 +79,7 @@ const ExpenselyDashboard = () => {
                 const idToken = await firebaseUser.getIdToken();
                 setUser(firebaseUser);
                 setIdToken(idToken);
-
+                console.log(idToken);
                 // Fetch dashboard data
                 const dashboardRes = await axios.get(
                   `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getDashboard`,
