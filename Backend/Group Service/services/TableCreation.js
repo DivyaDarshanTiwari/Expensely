@@ -1,8 +1,8 @@
 const { pool } = require("../config/db");
 
 //createdBy needs to be the FOREIGN KEY to the User table
-exports.groupsTable = () => {
-  pool.query(
+exports.groupsTable = async () => {
+  await pool.query(
     `CREATE TABLE IF NOT EXISTS GROUPS (
         groupId SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
@@ -24,8 +24,8 @@ exports.groupsTable = () => {
 };
 
 //userId needs to be the FOREIGN KEY later
-exports.groupMembersTable = () => {
-  pool.query(
+exports.groupMembersTable = async () => {
+  await pool.query(
     `CREATE TABLE IF NOT EXISTS GROUP_MEMBERS (
         groupId INT REFERENCES GROUPS(groupId),
         userId INT NOT NULL,
@@ -43,8 +43,8 @@ exports.groupMembersTable = () => {
 };
 
 //paidBy needs to be the FOREIGN KEY referencing USERS
-exports.groupExpensesTable = () => {
-  pool.query(
+exports.groupExpensesTable = async () => {
+  await pool.query(
     `CREATE TABLE IF NOT EXISTS GROUP_EXPENSES (
         id SERIAL PRIMARY KEY,
         groupId INT REFERENCES GROUPS(groupId),
@@ -66,8 +66,8 @@ exports.groupExpensesTable = () => {
 };
 
 //userId needs to be the FOREIGN KEY
-exports.expensesShareTable = () => {
-  pool.query(
+exports.expensesShareTable = async () => {
+  await pool.query(
     `CREATE TABLE IF NOT EXISTS EXPENSES_SHARE (
         id SERIAL PRIMARY KEY,
         expenseId INT REFERENCES GROUP_EXPENSES(id),
