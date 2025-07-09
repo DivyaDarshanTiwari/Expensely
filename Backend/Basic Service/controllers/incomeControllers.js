@@ -53,6 +53,7 @@ exports.addIncome = async (req, res) => {
 
 exports.getAllIncome = async (req, res) => {
   const { userId } = req.body;
+  console.log(userId + "income ");
   const limit = parseInt(req.query.limit) || 5;
   const page = parseInt(req.query.page) || 1;
   const offset = (page - 1) * limit;

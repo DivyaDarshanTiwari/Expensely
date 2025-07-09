@@ -2,7 +2,7 @@ const { pool } = require("../config/db");
 
 exports.getDashboardAmounts = async (req, res) => {
   const { userId } = req.body;
-
+  console.log(userId + "dashbord ");
   if (!userId) {
     return res.status(404).json({ error: "User ID not found!" });
   }
