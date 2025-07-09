@@ -69,113 +69,87 @@ const ExpenselyDashboard = () => {
 
   useFocusEffect(
     useCallback(() => {
-      let isActive = true; // handle cleanup during fast tab switching
-      const fetchData = async () => {
+      let isActive = true;
+
+      const fetchDataOnFocus = async () => {
         try {
-          const res = await axios.get(
-            `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getDashboard`,
-            {
-              headers: {
-                Authorization: `Bearer ${idToken}`,
-              },
+          const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            if (firebaseUser && isActive) {
+              try {
+                const idToken = await firebaseUser.getIdToken();
+                setUser(firebaseUser);
+                setIdToken(idToken);
+
+                // Fetch dashboard data
+                const dashboardRes = await axios.get(
+                  `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getDashboard`,
+                  {
+                    headers: {
+                      Authorization: `Bearer ${idToken}`,
+                    },
+                  }
+                );
+
+                if (dashboardRes?.data?.data) {
+                  setTotalExpense(dashboardRes.data.data.totalExpense || 0);
+                  setTotalIncome(dashboardRes.data.data.totalIncome || 0);
+                }
+
+                // Fetch merged transactions
+                const transactionsRes = await axios.get(
+                  `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getMergedTransactions?page=1&limit=5`,
+                  {
+                    headers: {
+                      Authorization: `Bearer ${idToken}`,
+                    },
+                  }
+                );
+
+                if (transactionsRes?.data?.data) {
+                  setRecentTransactions(
+                    transactionsRes.data.data as Transaction[]
+                  );
+                } else {
+                  console.error(
+                    "No data returned from merged transactions API."
+                  );
+                  setRecentTransactions([]);
+                }
+              } catch (err) {
+                console.error("Error during data fetch:", err);
+              }
             }
-          );
-          if (res?.data?.data) {
-            setTotalExpense(res.data.data.totalExpense || 0);
-            setTotalIncome(res.data.data.totalIncome || 0);
-          }
-        } catch (error) {
-          console.error(error);
-        }
-      };
+          });
 
-      fetchData();
+          // Animations on focus
+          Animated.parallel([
+            Animated.timing(fadeAnim, {
+              toValue: 1,
+              duration: 1000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(slideAnim, {
+              toValue: 0,
+              duration: 800,
+              useNativeDriver: true,
+            }),
+          ]).start();
 
-      const fetchMergedTransactions = async (
-        idToken: string,
-        page: number = 1,
-        limit: number = 5
-      ): Promise<Transaction[]> => {
-        try {
-          const res = await axios.get(
-            `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getMergedTransactions?page=${page}&limit=${limit}`,
-            {
-              headers: {
-                Authorization: `Bearer ${idToken}`,
-              },
-            }
-          );
-
-          if (res?.data?.data) {
-            return res.data.data as Transaction[];
-          } else {
-            console.error("No data returned from merged transactions API.");
-            return [];
-          }
+          return () => {
+            unsubscribe();
+          };
         } catch (err) {
-          console.error("Error fetching merged transactions:", err);
-          return [];
+          console.error("Error in fetchDataOnFocus:", err);
         }
       };
-      fetchMergedTransactions(idToken).then((result) => {
-        setRecentTransactions(result);
-      });
+
+      fetchDataOnFocus();
 
       return () => {
-        isActive = false; // cleanup flag
+        isActive = false;
       };
-    }, [idToken])
+    }, [])
   );
-
-  useEffect(() => {
-    const fetchAmounts = async (idToken: string) => {
-      try {
-        const res = await axios.get(
-          `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getDashboard`,
-          {
-            headers: {
-              Authorization: `Bearer ${idToken}`,
-            },
-          }
-        );
-        if (res?.data?.data) {
-          setTotalExpense(res.data.data.totalExpense || 0);
-          setTotalIncome(res.data.data.totalIncome || 0);
-        }
-      } catch (err) {
-        console.error("Error fetching dashboard data:", err);
-      }
-    };
-
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          const idToken = await firebaseUser?.getIdToken();
-          setUser(firebaseUser);
-          setIdToken(idToken);
-          setUser(firebaseUser);
-          fetchAmounts(idToken);
-        } catch (error) {
-          console.error("Error getting ID token:", error);
-        }
-      }
-    });
-
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    return () => unsubscribe();
-  }, []);
 
   const summaryCards = [
     {
