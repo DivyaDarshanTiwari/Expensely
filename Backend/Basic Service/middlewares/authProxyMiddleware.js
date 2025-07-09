@@ -7,7 +7,7 @@ const authProxyMiddleware = async (req, res, next) => {
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "Unauthorized: No token provided" });
   }
-
+  console.log(authHeader);
   try {
     const response = await axios.post(
       process.env.AUTH_SERVICE_API, // your Auth Microservice URL
@@ -18,7 +18,7 @@ const authProxyMiddleware = async (req, res, next) => {
         },
       }
     );
-
+    console.log(response).data;
     const user_id = response.data.user.user_id;
     req.body = req.body ?? {};
     req.body.userId = user_id;
