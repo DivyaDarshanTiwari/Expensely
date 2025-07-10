@@ -1,23 +1,23 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import axios from "axios";
+import Constants from "expo-constants";
+import { LinearGradient } from "expo-linear-gradient";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { onAuthStateChanged } from "firebase/auth";
+import React, { useCallback, useRef, useState } from "react";
 import {
-  View,
+  Animated,
+  Dimensions,
+  FlatList,
+  Modal,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  Dimensions,
-  Animated,
-  StyleSheet,
-  StatusBar,
-  FlatList,
-  ScrollView,
-  Alert,
+  View
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import axios from "axios";
 import { auth } from "../auth/firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
-import Constants from "expo-constants";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -33,6 +33,9 @@ const GroupDetails = () => {
   const [loading, setLoading] = useState(true);
   const [idToken, setIdToken] = useState("");
   const [showMembers, setShowMembers] = useState(false);
+  const [showBalancesModal, setShowBalancesModal] = useState(false);
+  const [balances, setBalances] = useState({ owesMe: [], iOwe: [] });
+  const [balancesLoading, setBalancesLoading] = useState(false);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -144,6 +147,37 @@ const GroupDetails = () => {
         groupName: group.name,
       },
     });
+  };
+
+  const handleViewBalances = async () => {
+    setBalancesLoading(true);
+    try {
+      // Get current user ID from Firebase
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        console.log("No user logged in");
+        return;
+      }
+
+      const balancesRes = await axios.post(
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/balances/${groupId}`,
+        {
+          userId: currentUser.uid,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        }
+      );
+      setBalances(balancesRes.data);
+      setShowBalancesModal(true);
+    } catch (error) {
+      console.error("Failed to fetch balances", error);
+      console.log("Failed to fetch balances");
+    } finally {
+      setBalancesLoading(false);
+    }
   };
 
   const renderExpenseItem = ({ item, index }: { item: any; index: any }) => (
@@ -369,6 +403,27 @@ const GroupDetails = () => {
           </TouchableOpacity>
         </Animated.View>
 
+        {/* View Balances Button */}
+        <Animated.View
+          style={[
+            styles.balancesButtonContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.balancesButton}
+            onPress={handleViewBalances}
+          >
+            <LinearGradient colors={group.color} style={styles.balancesGradient}>
+              <Ionicons name="wallet" size={24} color="white" />
+              <Text style={styles.balancesButtonText}>View Balances</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+
         {/* Members Section */}
         <Animated.View
           style={[
@@ -429,6 +484,81 @@ const GroupDetails = () => {
           />
         </Animated.View>
       </ScrollView>
+
+             {/* Balances Modal */}
+       <Modal
+         visible={showBalancesModal}
+         animationType="slide"
+         transparent={true}
+         onRequestClose={() => setShowBalancesModal(false)}
+       >
+         <View style={styles.modalOverlay}>
+           <View style={styles.modalContent}>
+             <View style={styles.modalHeader}>
+               <Text style={styles.modalTitle}>Group Balances</Text>
+               <TouchableOpacity
+                 onPress={() => setShowBalancesModal(false)}
+                 style={styles.modalCloseIcon}
+               >
+                 <Ionicons name="close" size={24} color="#6B7280" />
+               </TouchableOpacity>
+             </View>
+
+             {balancesLoading ? (
+               <View style={styles.loadingContainer}>
+                 <Text style={styles.loadingText}>Loading balances...</Text>
+               </View>
+             ) : (
+               <ScrollView style={styles.balancesScrollView}>
+                 {/* People who owe you */}
+                 <View style={styles.balanceSection}>
+                   <Text style={styles.balanceSectionTitle}>
+                     People who owe you
+                   </Text>
+                   {balances.owesMe.length > 0 ? (
+                     balances.owesMe.map((item: any, index: number) => (
+                       <View key={index} style={styles.balanceItem}>
+                         <Text style={styles.balanceName}>{item.username}</Text>
+                         <Text style={[styles.balanceAmount, { color: "#10B981" }]}>
+                           +${item.amount}
+                         </Text>
+                       </View>
+                     ))
+                   ) : (
+                     <Text style={styles.noBalanceText}>No one owes you money</Text>
+                   )}
+                 </View>
+
+                 {/* People you owe */}
+                 <View style={styles.balanceSection}>
+                   <Text style={styles.balanceSectionTitle}>
+                     People you owe
+                   </Text>
+                   {balances.iOwe.length > 0 ? (
+                     balances.iOwe.map((item: any, index: number) => (
+                       <View key={index} style={styles.balanceItem}>
+                         <Text style={styles.balanceName}>{item.username}</Text>
+                         <Text style={[styles.balanceAmount, { color: "#EF4444" }]}>
+                           -${item.amount}
+                         </Text>
+                       </View>
+                     ))
+                   ) : (
+                     <Text style={styles.noBalanceText}>You don't owe anyone money</Text>
+                   )}
+                 </View>
+               </ScrollView>
+             )}
+
+             <TouchableOpacity
+               style={styles.modalCloseButton}
+               onPress={() => setShowBalancesModal(false)}
+             >
+               <Text style={styles.modalCloseButtonText}>Close</Text>
+             </TouchableOpacity>
+           </View>
+         </View>
+       </Modal>
     </View>
   );
 };
@@ -711,6 +841,114 @@ const styles = StyleSheet.create({
   },
   expenseSeparator: {
     height: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalContent: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 20,
+    width: "80%",
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 20,
+  },
+  balanceItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  balanceName: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  balanceAmount: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  modalCloseButton: {
+    marginTop: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    backgroundColor: "#E5E7EB",
+    borderRadius: 12,
+  },
+  modalCloseButtonText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  balancesButtonContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  balancesButton: {
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  balancesGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  balancesButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "white",
+    marginLeft: 8,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    marginBottom: 20,
+  },
+  modalCloseIcon: {
+    padding: 8,
+  },
+  loadingContainer: {
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: "#6B7280",
+  },
+  balancesScrollView: {
+    maxHeight: 400,
+    width: "100%",
+  },
+  balanceSection: {
+    marginBottom: 24,
+  },
+  balanceSectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 12,
+  },
+  noBalanceText: {
+    fontSize: 14,
+    color: "#6B7280",
+    fontStyle: "italic",
+    textAlign: "center",
+    paddingVertical: 20,
   },
 });
 

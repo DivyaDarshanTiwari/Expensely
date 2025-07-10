@@ -213,3 +213,85 @@ exports.deleteGroup = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+// Get per-user group balances (who owes you, whom you owe)
+exports.getUserGroupBalances = async (req, res) => {
+  const { groupId } = req.params;
+  const { userId } = req.body;
+
+  try {
+    // 1. Get all users in the group
+    const membersRes = await pool.query(
+      "SELECT userId FROM GROUP_MEMBERS WHERE groupId = $1",
+      [groupId]
+    );
+    const members = membersRes.rows.map((row) => row.userid);
+
+    // 2. Get all expenses in this group
+    const expensesRes = await pool.query(
+      "SELECT id, paidBy, amount FROM GROUP_EXPENSES WHERE groupId = $1",
+      [groupId]
+    );
+    const expenses = expensesRes.rows;
+
+    const owesMe = [];
+    const iOwe = [];
+
+    // 3. Track balances per user
+    const userBalances = {};
+
+    for (const expense of expenses) {
+      const { id: expenseId, paidby } = expense;
+      const sharesRes = await pool.query(
+        "SELECT userId, amountOwned FROM EXPENSES_SHARE WHERE expenseId = $1",
+        [expenseId]
+      );
+      for (const share of sharesRes.rows) {
+        const { userid, amountowned } = share;
+        const amount = parseFloat(amountowned);
+        if (paidby === Number(userId) && userid !== Number(userId)) {
+          // Requesting user paid for others → others owe them
+          if (!userBalances[userid]) userBalances[userid] = 0;
+          userBalances[userid] += amount;
+        } else if (userid === Number(userId) && paidby !== Number(userId)) {
+          // Someone else paid for requesting user → user owes them
+          if (!userBalances[paidby]) userBalances[paidby] = 0;
+          userBalances[paidby] -= amount;
+        }
+      }
+    }
+
+    // 4. Get usernames and split balances
+    for (const [otherUserId, balance] of Object.entries(userBalances)) {
+      const id = parseInt(otherUserId);
+      const userRes = await pool.query(
+        "SELECT username FROM USERS WHERE user_id = $1",
+        [id]
+      );
+      const username = userRes.rows[0]?.username || `User ${id}`;
+
+      if (balance > 0) {
+        // They owe you
+        owesMe.push({ username, amount: parseFloat(balance.toFixed(2)) });
+      } else if (balance < 0) {
+        // You owe them
+        iOwe.push({
+          username,
+          amount: parseFloat(Math.abs(balance).toFixed(2)),
+        });
+      }
+    }
+
+    console.log("People who owe me:", owesMe);
+    console.log("People I owe:", iOwe);
+
+    // Add some additional debugging
+    console.log("Total people who owe me:", owesMe.length);
+    console.log("Total people I owe:", iOwe.length);
+
+    res.status(200).json({ owesMe, iOwe });
+  } catch (err) {
+    console.error("Error getting user group balances: ", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
