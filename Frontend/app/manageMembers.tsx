@@ -236,9 +236,9 @@ const ManageMembers = () => {
   };
 
   const getBalanceText = (balance: any) => {
-    if (balance > 0) return `+$${balance.toFixed(2)}`;
-    if (balance < 0) return `-$${Math.abs(balance).toFixed(2)}`;
-    return "$0.00";
+    if (balance > 0) return `+₹${balance.toFixed(2)}`;
+    if (balance < 0) return `-₹${Math.abs(balance).toFixed(2)}`;
+    return "₹0.00";
   };
 
   const renderMemberCard = ({ item, index }: { item: any; index: any }) => (
