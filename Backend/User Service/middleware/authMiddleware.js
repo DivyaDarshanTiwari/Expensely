@@ -28,12 +28,7 @@ const authMiddleware = async (req, res, next) => {
     }
 
     // Attach user info to request
-    req.user = {
-      userId: rows[0].user_id,
-      firebase_uid,
-      email: rows[0].email,
-      username: rows[0].username,
-    };
+    req.userid = rows[0].user_id;
 
     next(); // Move to the next middleware or controller
   } catch (error) {
