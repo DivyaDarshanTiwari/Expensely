@@ -15,7 +15,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { auth } from "../auth/firebase";
 
@@ -23,7 +23,7 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 const GroupDetails = () => {
   const router = useRouter();
-  const { groupId, groupName, groupData } = useLocalSearchParams();
+  const { groupId, groupName, groupData, refresh } = useLocalSearchParams();
 
   // Parse the group data
   const group = JSON.parse(groupData as string);
@@ -116,7 +116,7 @@ const GroupDetails = () => {
       ]).start();
 
       return () => unsubscribe();
-    }, []) // Add dependencies if needed
+    }, [refresh]) // Add dependencies if needed
   );
 
   const calculateProgress = (spent: any, total: any) => {
@@ -135,6 +135,7 @@ const GroupDetails = () => {
       params: {
         groupId: group.id,
         groupName: group.name,
+        groupData: groupData,
       },
     });
   };
@@ -217,7 +218,7 @@ const GroupDetails = () => {
         </View>
         <View style={styles.expenseAmount}>
           <Text style={[styles.expenseValue, { color: group.color[0] }]}>
-            ${item.amount}
+            ₹{item.amount}
           </Text>
           <Text style={styles.expensePaidBy}>by {item.paidby}</Text>
         </View>
@@ -244,8 +245,8 @@ const GroupDetails = () => {
         <Text style={styles.memberName}>{item.username}</Text>
         <Text style={styles.memberBalance}>
           {item.balance >= 0
-            ? `+$${item.balance}`
-            : `-$${Math.abs(item.balance)}`}
+            ? `+₹${item.balance}`
+            : `-₹${Math.abs(item.balance)}`}
         </Text>
       </View>
       {group.isOwner && (
@@ -329,13 +330,13 @@ const GroupDetails = () => {
               <View style={styles.budgetItem}>
                 <Text style={styles.budgetLabel}>Total Budget</Text>
                 <Text style={[styles.budgetValue, { color: group.color[0] }]}>
-                  ${group.totalBudget.toLocaleString()}
+                  ₹{group.totalBudget.toLocaleString()}
                 </Text>
               </View>
               <View style={styles.budgetItem}>
                 <Text style={styles.budgetLabel}>Spent</Text>
                 <Text style={[styles.budgetValue, { color: progressColor }]}>
-                  ${group.spent.toLocaleString()}
+                  ₹{group.spent.toLocaleString()}
                 </Text>
               </View>
               <View style={styles.budgetItem}>
@@ -346,7 +347,7 @@ const GroupDetails = () => {
                     { color: remaining >= 0 ? "#10B981" : "#EF4444" },
                   ]}
                 >
-                  ${remaining.toLocaleString()}
+                  ₹{remaining.toLocaleString()}
                 </Text>
               </View>
             </View>
@@ -417,7 +418,10 @@ const GroupDetails = () => {
             style={styles.balancesButton}
             onPress={handleViewBalances}
           >
-            <LinearGradient colors={group.color} style={styles.balancesGradient}>
+            <LinearGradient
+              colors={group.color}
+              style={styles.balancesGradient}
+            >
               <Ionicons name="wallet" size={24} color="white" />
               <Text style={styles.balancesButtonText}>View Balances</Text>
             </LinearGradient>
@@ -485,80 +489,86 @@ const GroupDetails = () => {
         </Animated.View>
       </ScrollView>
 
-             {/* Balances Modal */}
-       <Modal
-         visible={showBalancesModal}
-         animationType="slide"
-         transparent={true}
-         onRequestClose={() => setShowBalancesModal(false)}
-       >
-         <View style={styles.modalOverlay}>
-           <View style={styles.modalContent}>
-             <View style={styles.modalHeader}>
-               <Text style={styles.modalTitle}>Group Balances</Text>
-               <TouchableOpacity
-                 onPress={() => setShowBalancesModal(false)}
-                 style={styles.modalCloseIcon}
-               >
-                 <Ionicons name="close" size={24} color="#6B7280" />
-               </TouchableOpacity>
-             </View>
+      {/* Balances Modal */}
+      <Modal
+        visible={showBalancesModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowBalancesModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Group Balances</Text>
+              <TouchableOpacity
+                onPress={() => setShowBalancesModal(false)}
+                style={styles.modalCloseIcon}
+              >
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
 
-             {balancesLoading ? (
-               <View style={styles.loadingContainer}>
-                 <Text style={styles.loadingText}>Loading balances...</Text>
-               </View>
-             ) : (
-               <ScrollView style={styles.balancesScrollView}>
-                 {/* People who owe you */}
-                 <View style={styles.balanceSection}>
-                   <Text style={styles.balanceSectionTitle}>
-                     People who owe you
-                   </Text>
-                   {balances.owesMe.length > 0 ? (
-                     balances.owesMe.map((item: any, index: number) => (
-                       <View key={index} style={styles.balanceItem}>
-                         <Text style={styles.balanceName}>{item.username}</Text>
-                         <Text style={[styles.balanceAmount, { color: "#10B981" }]}>
-                           +${item.amount}
-                         </Text>
-                       </View>
-                     ))
-                   ) : (
-                     <Text style={styles.noBalanceText}>No one owes you money</Text>
-                   )}
-                 </View>
+            {balancesLoading ? (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>Loading balances...</Text>
+              </View>
+            ) : (
+              <ScrollView style={styles.balancesScrollView}>
+                {/* People who owe you */}
+                <View style={styles.balanceSection}>
+                  <Text style={styles.balanceSectionTitle}>
+                    People who owe you
+                  </Text>
+                  {balances.owesMe.length > 0 ? (
+                    balances.owesMe.map((item: any, index: number) => (
+                      <View key={index} style={styles.balanceItem}>
+                        <Text style={styles.balanceName}>{item.username}</Text>
+                        <Text
+                          style={[styles.balanceAmount, { color: "#10B981" }]}
+                        >
+                          +₹{item.amount}
+                        </Text>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.noBalanceText}>
+                      No one owes you money
+                    </Text>
+                  )}
+                </View>
 
-                 {/* People you owe */}
-                 <View style={styles.balanceSection}>
-                   <Text style={styles.balanceSectionTitle}>
-                     People you owe
-                   </Text>
-                   {balances.iOwe.length > 0 ? (
-                     balances.iOwe.map((item: any, index: number) => (
-                       <View key={index} style={styles.balanceItem}>
-                         <Text style={styles.balanceName}>{item.username}</Text>
-                         <Text style={[styles.balanceAmount, { color: "#EF4444" }]}>
-                           -${item.amount}
-                         </Text>
-                       </View>
-                     ))
-                   ) : (
-                     <Text style={styles.noBalanceText}>You don't owe anyone money</Text>
-                   )}
-                 </View>
-               </ScrollView>
-             )}
+                {/* People you owe */}
+                <View style={styles.balanceSection}>
+                  <Text style={styles.balanceSectionTitle}>People you owe</Text>
+                  {balances.iOwe.length > 0 ? (
+                    balances.iOwe.map((item: any, index: number) => (
+                      <View key={index} style={styles.balanceItem}>
+                        <Text style={styles.balanceName}>{item.username}</Text>
+                        <Text
+                          style={[styles.balanceAmount, { color: "#EF4444" }]}
+                        >
+                          -₹{item.amount}
+                        </Text>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.noBalanceText}>
+                      You don't owe anyone money
+                    </Text>
+                  )}
+                </View>
+              </ScrollView>
+            )}
 
-             <TouchableOpacity
-               style={styles.modalCloseButton}
-               onPress={() => setShowBalancesModal(false)}
-             >
-               <Text style={styles.modalCloseButtonText}>Close</Text>
-             </TouchableOpacity>
-           </View>
-         </View>
-       </Modal>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowBalancesModal(false)}
+            >
+              <Text style={styles.modalCloseButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };

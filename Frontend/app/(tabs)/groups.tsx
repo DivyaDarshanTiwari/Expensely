@@ -181,6 +181,7 @@ const ExpenselyGroups = () => {
         groupId: group.id,
         groupName: group.name,
         groupData: JSON.stringify(group), // for complex objects
+        refresh: "true",
       },
     });
   };
@@ -415,13 +416,13 @@ const ExpenselyGroups = () => {
               </View>
               <View style={styles.statItem}>
                 <Text style={[styles.statValue, { color: item.color[0] }]}>
-                  ${item.totalBudget.toLocaleString()}
+                  ₹{item.totalBudget.toLocaleString()}
                 </Text>
                 <Text style={styles.statLabel}>Budget</Text>
               </View>
               <View style={styles.statItem}>
                 <Text style={[styles.statValue, { color: progressColor }]}>
-                  ${item.spent.toLocaleString()}
+                  ₹{item.spent.toLocaleString()}
                 </Text>
                 <Text style={styles.statLabel}>Spent</Text>
               </View>

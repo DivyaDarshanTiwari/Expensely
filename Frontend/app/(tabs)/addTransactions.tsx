@@ -287,7 +287,7 @@ export default function AddTransactions() {
   };
 
   const getAmountPrefix = () => {
-    return transactionType === "expense" ? "-$" : "+$";
+    return transactionType === "expense" ? "-₹" : "+₹";
   };
 
   return (
