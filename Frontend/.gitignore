@@ -44,3 +44,6 @@ app-example
 
 android/
 ios/
+
+app.config.js
+eas.json
