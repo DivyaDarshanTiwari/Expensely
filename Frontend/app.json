@@ -2,6 +2,7 @@
   "expo": {
     "name": "ExpenselyExpo",
     "slug": "ExpenselyExpo",
+    "owner": "vilsium",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -19,7 +20,7 @@
         "package": "com.application.expensely"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.rakshita0808.ExpenselyExpo"
+      "package": "com.vilsium.ExpenselyExpo"
     },
     "web": {
       "bundler": "metro",
@@ -45,8 +46,12 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "cb7d630a-b1ab-4f14-8cc9-1c5aa21ebfad"
-      }
+        "projectId": "54f5ac2b-ff86-4fb3-bb33-e012d2d4b0c6"
+      },
+      "Basic_URL": "https://awake-fascination-production.up.railway.app",
+      "Group_URL": "https://satisfied-solace-production.up.railway.app",
+      "User_URL": "https://lucky-vitality-production.up.railway.app",
+      "OCR_URL": "https://vigilant-tranquility-production.up.railway.app"
     }
   }
 }
