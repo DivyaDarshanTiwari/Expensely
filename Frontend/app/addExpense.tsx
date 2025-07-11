@@ -41,7 +41,7 @@ interface ExpenseData {
 
 const AddExpense = () => {
   const router = useRouter();
-  const { groupId, groupName } = useLocalSearchParams();
+  const { groupId, groupName, groupData } = useLocalSearchParams();
 
   const [expenseData, setExpenseData] = useState<ExpenseData>({
     amount: "",
@@ -232,7 +232,15 @@ const AddExpense = () => {
       Alert.alert("Success", "Expense added successfully!", [
         {
           text: "OK",
-          onPress: () => router.back(),
+          onPress: () => router.push({
+      pathname: "/groupDetails",
+      params: {
+        groupId: groupId,
+        groupName: groupName,
+        groupData: groupData, // for complex objects
+        refresh: "true",
+      },
+    });,
         },
       ]);
     } catch (err) {
@@ -502,7 +510,7 @@ const AddExpense = () => {
           >
             <Text style={styles.amountLabel}>Amount</Text>
             <View style={styles.amountInputContainer}>
-              <Text style={styles.currencySymbol}>$</Text>
+              <Text style={styles.currencySymbol}>₹</Text>
               <TextInput
                 style={styles.amountInput}
                 placeholder="0.00"
@@ -622,7 +630,7 @@ const AddExpense = () => {
                 {expenseData.splitAmong.length > 0 ? (
                   <Text style={styles.selectText}>
                     {expenseData.splitAmong.length} member
-                    {expenseData.splitAmong.length !== 1 ? "s" : ""} • $
+                    {expenseData.splitAmong.length !== 1 ? "s" : ""} • ₹
                     {expenseData.amount
                       ? (
                           Number.parseFloat(expenseData.amount) /
