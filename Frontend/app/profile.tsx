@@ -23,6 +23,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { auth } from "../auth/firebase";
+import axios from "axios";
+import Constants from "expo-constants";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -120,6 +122,16 @@ export default function ProfileScreen() {
     );
   };
 
+  const fileType = (fileName: string) => {
+    const extension = fileName.split(".").pop()?.toLowerCase();
+    let mimeType = "image/jpeg";
+    if (extension === "png") mimeType = "image/png";
+    else if (extension === "jpg" || extension === "jpeg")
+      mimeType = "image/jpeg";
+
+    return mimeType;
+  };
+
   const openCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
 
@@ -139,7 +151,48 @@ export default function ProfileScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setEditedProfile((prev) => ({ ...prev, photoURL: result.assets[0].uri }));
+      const idToken = await user?.getIdToken();
+      const asset = result.assets[0];
+
+      const formData = new FormData();
+      const fileName = asset.fileName ?? `photo_${Date.now()}.jpg`;
+      const mimeType: string = fileType(fileName);
+      formData.append("picture", {
+        uri: asset.uri,
+        name: fileName,
+        type: mimeType,
+      });
+      try {
+        const imageCloudURL = await axios.post(
+          `${Constants.expoConfig?.extra?.User_URL}/api/v1/upload/profilePic`,
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+        setEditedProfile((prev) => ({
+          ...prev,
+          photoURL: imageCloudURL.data.data,
+        }));
+        const user = auth.currentUser;
+
+        if (user) {
+          await updateProfile(user, {
+            photoURL: imageCloudURL.data.data, // URL returned from your backend
+          });
+        } else {
+          console.error("No user is currently signed in.");
+        }
+      } catch (error) {
+        console.error("Image upload failed:", error);
+        Alert.alert(
+          "Upload Failed",
+          "Could not upload your profile picture. Please try again."
+        );
+      }
     }
   };
 
@@ -152,7 +205,50 @@ export default function ProfileScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setEditedProfile((prev) => ({ ...prev, photoURL: result.assets[0].uri }));
+      const idToken = await user?.getIdToken();
+      const asset = result.assets[0];
+
+      const formData = new FormData();
+      const fileName = asset.fileName ?? `photo_${Date.now()}.jpg`;
+      const mimeType: string = fileType(fileName);
+      formData.append("picture", {
+        uri: asset.uri,
+        name: fileName,
+        type: mimeType,
+      });
+      console.log("Uploading image to backend...");
+      console.log(asset.uri, fileName);
+      try {
+        const imageCloudURL = await axios.post(
+          `${Constants.expoConfig?.extra?.User_URL}/api/v1/upload/profilePic`,
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+        setEditedProfile((prev) => ({
+          ...prev,
+          photoURL: imageCloudURL.data.data,
+        }));
+        const user = auth.currentUser;
+
+        if (user) {
+          await updateProfile(user, {
+            photoURL: imageCloudURL.data.data, // URL returned from your backend
+          });
+        } else {
+          console.error("No user is currently signed in.");
+        }
+      } catch (error) {
+        console.error("Image upload failed:", error);
+        Alert.alert(
+          "Upload Failed",
+          "Could not upload your profile picture. Please try again."
+        );
+      }
     }
   };
 
