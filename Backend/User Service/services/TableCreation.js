@@ -1,6 +1,6 @@
 const { pool } = require("../config/db");
 
-const userTable = () => {
+const userTable = async () => {
   pool.query(
     `
     CREATE TABLE IF NOT EXISTS USERS (
@@ -24,4 +24,22 @@ const userTable = () => {
   );
 };
 
-module.exports = { userTable };
+const profileImagaeTable = async () => {
+  pool.query(
+    `
+    CREATE TABLE IF NOT EXISTS PROFILEIMAGE (
+    userid INT PRIMARY KEY,
+    public_id VARCHAR(100) UNIQUE NOT NULL,
+    FOREIGN KEY (userid) REFERENCES users(user_id)
+    )
+    `,
+    (err, res) => {
+      if (err) {
+        console.error("❌ Error creating profileimage table:", err);
+      } else {
+        console.log("✅ profileimage table created or already exists");
+      }
+    }
+  );
+};
+module.exports = { userTable, profileImagaeTable };
