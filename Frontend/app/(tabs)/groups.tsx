@@ -1,26 +1,26 @@
 "use client";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
+import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Alert,
-  Animated,
-  Dimensions,
-  FlatList,
-  Modal,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Animated,
+    Dimensions,
+    FlatList,
+    Modal,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { auth } from "../../auth/firebase";
-import Constants from "expo-constants";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -55,6 +55,20 @@ const ExpenselyGroups = () => {
               },
             }
           );
+          
+          // Get current user ID from auth service
+          const authRes = await axios.post(
+            `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/validToken`,
+            {},
+            {
+              headers: {
+                Authorization: `Bearer ${idToken}`,
+              },
+            }
+          );
+          
+          const currentUserId = authRes.data.user.user_id;
+          
           const mappedGroups = res.data.map((group: any, index: number) => ({
             id: group.groupid,
             name: group.name,
@@ -64,7 +78,7 @@ const ExpenselyGroups = () => {
             spent: Number.parseFloat(group.spent),
             color: ["#8B5CF6", "#7C3AED"],
             icon: "people",
-            isOwner: true,
+            isOwner: group.createdby === currentUserId, // Check if current user is the creator
           }));
           setGroups(mappedGroups);
         } catch (err) {
@@ -208,7 +222,7 @@ const ExpenselyGroups = () => {
   const confirmDeleteGroup = async (groupId: number) => {
     setDeletingGroupId(groupId);
     try {
-      await axios.delete(
+      const response = await axios.delete(
         `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/deleteGroup`,
         {
           data: { groupId },
@@ -217,39 +231,142 @@ const ExpenselyGroups = () => {
           },
         }
       );
+      
       // Remove the group from local state
       setGroups((prevGroups) =>
         prevGroups.filter((group) => group.id !== groupId)
       );
       Alert.alert("Success", "Group deleted successfully!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting group:", error);
-      Alert.alert("Error", "Failed to delete group. Please try again.");
+      
+      // Check if the error is because user is not the owner
+      if (error.response?.status === 403 && error.response?.data?.action === "leave_group") {
+        // User is not the owner, offer to leave the group instead
+        Alert.alert(
+          "Leave Group",
+          "Only group owners can delete groups. Would you like to leave this group instead?",
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+            {
+              text: "Leave Group",
+              style: "destructive",
+              onPress: () => confirmLeaveGroup(groupId),
+            },
+          ]
+        );
+      } else {
+        Alert.alert("Error", "Failed to delete group. Please try again.");
+      }
     } finally {
       setDeletingGroupId(null);
     }
   };
 
-  const handleGroupLongPress = (group: any) => {
-    if (!group.isOwner) {
-      Alert.alert("Permission Denied", "Only group owners can delete groups.");
-      return;
+  const confirmLeaveGroup = async (groupId: number) => {
+    setDeletingGroupId(groupId);
+    try {
+      await axios.delete(
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/leaveGroup`,
+        {
+          data: { groupId },
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        }
+      );
+      
+      // Remove the group from local state
+      setGroups((prevGroups) =>
+        prevGroups.filter((group) => group.id !== groupId)
+      );
+      Alert.alert("Success", "You have left the group successfully!");
+    } catch (error: any) {
+      console.error("Error leaving group:", error);
+      
+      if (error.response?.status === 400 && error.response?.data?.action === "delete_group") {
+        // User is the owner, they need to delete instead
+        Alert.alert(
+          "Delete Group",
+          "Group owners cannot leave their own group. Would you like to delete the group instead?",
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+            {
+              text: "Delete Group",
+              style: "destructive",
+              onPress: () => confirmDeleteGroup(groupId),
+            },
+          ]
+        );
+      } else {
+        Alert.alert("Error", "Failed to leave group. Please try again.");
+      }
+    } finally {
+      setDeletingGroupId(null);
     }
+  };
+
+  const handleLeaveGroup = (group: any) => {
     Alert.alert(
-      "Group Options",
-      `What would you like to do with "${group.name}"?`,
+      "Leave Group",
+      `Are you sure you want to leave "${group.name}"? You will no longer have access to this group's expenses and data.`,
       [
         {
           text: "Cancel",
           style: "cancel",
         },
         {
-          text: "Delete Group",
+          text: "Leave Group",
           style: "destructive",
-          onPress: () => handleDeleteGroup(group),
+          onPress: () => confirmLeaveGroup(group.id),
         },
-      ]
+      ],
+      { cancelable: true }
     );
+  };
+
+  const handleGroupLongPress = (group: any) => {
+    if (group.isOwner) {
+      // User is the owner - can delete the group
+      Alert.alert(
+        "Group Options",
+        `What would you like to do with "${group.name}"?`,
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Delete Group",
+            style: "destructive",
+            onPress: () => handleDeleteGroup(group),
+          },
+        ]
+      );
+    } else {
+      // User is not the owner - can leave the group
+      Alert.alert(
+        "Group Options",
+        `What would you like to do with "${group.name}"?`,
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Leave Group",
+            style: "destructive",
+            onPress: () => handleLeaveGroup(group),
+          },
+        ]
+      );
+    }
   };
 
   const searchUsers = async (query: string) => {
@@ -374,7 +491,9 @@ const ExpenselyGroups = () => {
                   >
                     <Ionicons name="trash" size={24} color="#EF4444" />
                   </Animated.View>
-                  <Text style={styles.deleteLoadingText}>Deleting...</Text>
+                  <Text style={styles.deleteLoadingText}>
+                    {item.isOwner ? "Deleting..." : "Leaving..."}
+                  </Text>
                 </View>
               </View>
             )}
@@ -404,6 +523,15 @@ const ExpenselyGroups = () => {
                   disabled={isDeleting}
                 >
                   <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                </TouchableOpacity>
+              )}
+              {!item.isOwner && (
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => handleLeaveGroup(item)}
+                  disabled={isDeleting}
+                >
+                  <Ionicons name="exit-outline" size={18} color="#EF4444" />
                 </TouchableOpacity>
               )}
             </View>

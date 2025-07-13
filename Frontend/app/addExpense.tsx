@@ -240,7 +240,7 @@ const AddExpense = () => {
         groupData: groupData, // for complex objects
         refresh: "true",
       },
-    });,
+    })
         },
       ]);
     } catch (err) {

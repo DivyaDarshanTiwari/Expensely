@@ -18,4 +18,6 @@ Router.delete("/removeMember", groupControllers.removeMemberFromGroup);
 
 Router.delete("/deleteGroup", groupControllers.deleteGroup);
 
+Router.delete("/leaveGroup", groupControllers.leaveGroup);
+
 module.exports = Router;
