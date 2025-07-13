@@ -88,7 +88,7 @@ const ExpenseItem = ({ item, type }: ExpenseItemProps) => {
             { color: type === "expense" ? "#EF4444" : "#10B981" },
           ]}
         >
-          {type === "expense" ? "-" : "+"}${amountNum.toFixed(2)}
+          {type === "expense" ? "-" : "+"}₹{amountNum.toFixed(2)}
         </Text>
         <Text style={styles.expenseDescription}>
           {item.description.split(" ").slice(0, 5).join(" ")}

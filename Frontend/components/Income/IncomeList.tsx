@@ -63,7 +63,7 @@ const IncomeItem = ({ item }: IncomeItemProps) => {
         </View>
       </View>
       <View style={styles.incomeRight}>
-        <Text style={styles.incomeAmount}>+${item.amount}</Text>
+        <Text style={styles.incomeAmount}>+₹{item.amount}</Text>
         <Text style={styles.incomeSource}>
           {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
         </Text>
