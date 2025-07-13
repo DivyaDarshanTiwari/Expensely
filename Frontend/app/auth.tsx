@@ -24,6 +24,7 @@ import {
   getIdToken,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
 } from "firebase/auth";
 import Constants from "expo-constants";
 
@@ -94,12 +95,19 @@ const ExpenselyAuth = () => {
         email,
         password
       );
-
+      if (!userCredential.user.emailVerified) {
+        Alert.alert(
+          "Email Not Verified",
+          "Please verify your email before logging in.Check your spam"
+        );
+        await auth.signOut();
+        return null;
+      }
       const idToken = await getIdToken(userCredential.user);
       // Send token to backend
       try {
         await axios.post(
-          `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/validToken`,
+          `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/signUp`,
           {},
           {
             headers: {
@@ -140,34 +148,17 @@ const ExpenselyAuth = () => {
         displayName: formData.fullName,
       });
 
-      const idToken = await getIdToken(userCredential.user);
+      // Send verification email
+      await sendEmailVerification(userCredential.user);
 
-      // Send UID + token + other user data to backend
-      try {
-        await axios.post(
-          `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/signUp`,
-          {},
-          {
-            headers: {
-              Authorization: `Bearer ${idToken}`,
-            },
-          }
-        );
-      } catch (apiError: any) {
-        // Handle backend/API error separately
-        console.error(
-          "API error:",
-          apiError?.response?.data || apiError.message
-        );
-        Alert.alert(
-          "Server Error",
-          apiError?.response?.data?.message ||
-            "Something went wrong while saving user data to backend."
-        );
-        return; // Exit early — don’t proceed
-      }
+      Alert.alert(
+        "Verify Your Email",
+        "A verification email has been sent. Please verify your email before logging in.Check your spam"
+      );
 
-      Alert.alert("Success", "Account created successfully!");
+      // Sign out immediately to prevent accidental use before verification
+      await auth.signOut();
+
       return userCredential;
     } catch (firebaseError: any) {
       throw firebaseError;
@@ -244,8 +235,6 @@ const ExpenselyAuth = () => {
         if (userCredential?.user) {
           Alert.alert("Login Successful", "Welcome back!");
           router.replace("/(tabs)/dashboard");
-        } else {
-          Alert.alert("Login Failed", "No user found after login.");
         }
       } catch (err: any) {
         console.log(err.message);
@@ -254,7 +243,6 @@ const ExpenselyAuth = () => {
     } else {
       try {
         await signUp();
-        Alert.alert("Signup Successfully");
         setIsLogin(true);
       } catch (err: any) {
         console.log(err.message);
