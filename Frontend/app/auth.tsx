@@ -27,6 +27,7 @@ import {
   sendEmailVerification,
 } from "firebase/auth";
 import Constants from "expo-constants";
+import * as SecureStore from "expo-secure-store";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -50,6 +51,11 @@ const ExpenselyAuth = () => {
   const logoScale = useRef(new Animated.Value(0.8)).current;
   const formSlide = useRef(new Animated.Value(30)).current;
   const switchAnim = useRef(new Animated.Value(0)).current;
+
+  //function to set the token on login
+  const storeToken = async (token: any) => {
+    await SecureStore.setItemAsync("userToken", token);
+  };
 
   useEffect(() => {
     // Initial animations
@@ -77,7 +83,7 @@ const ExpenselyAuth = () => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  });
 
   useEffect(() => {
     // Animation when switching between login/signup
@@ -95,42 +101,60 @@ const ExpenselyAuth = () => {
         email,
         password
       );
+
       if (!userCredential.user.emailVerified) {
         Alert.alert(
           "Email Not Verified",
-          "Please verify your email before logging in.Check your spam"
+          "Please verify your email before logging in. Check your spam."
         );
         await auth.signOut();
         return null;
       }
+
       const idToken = await getIdToken(userCredential.user);
-      // Send token to backend
+
       try {
+        // Attempt signUp on first login
         await axios.post(
           `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/signUp`,
           {},
           {
-            headers: {
-              Authorization: `Bearer ${idToken}`,
-            },
+            headers: { Authorization: `Bearer ${idToken}` },
           }
         );
-      } catch (apiError: any) {
-        console.error(
-          "API error:",
-          apiError?.response?.data || apiError.message
+      } catch (signUpError: any) {
+        console.warn(
+          "SignUp API error (expected if user already exists):",
+          signUpError?.response?.data || signUpError.message
         );
-        Alert.alert(
-          "Server Error",
-          apiError?.response?.data?.message ||
-            "Something went wrong while communicating with backend."
-        );
-        return null;
-      }
 
+        try {
+          // Validate token if signUp fails (user likely already exists)
+          await axios.post(
+            `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/validToken`,
+            {},
+            {
+              headers: { Authorization: `Bearer ${idToken}` },
+            }
+          );
+        } catch (validationError: any) {
+          console.error(
+            "Token validation API error:",
+            validationError?.response?.data || validationError.message
+          );
+          Alert.alert(
+            "Server Error",
+            validationError?.response?.data?.message ||
+              "Something went wrong while communicating with the backend."
+          );
+          return null;
+        }
+      }
+      await storeToken(idToken);
       Alert.alert("Login Successful", "Welcome back!");
       return userCredential;
     } catch (firebaseError: any) {
+      console.error("Firebase login error:", firebaseError.message);
       throw firebaseError;
     }
   };

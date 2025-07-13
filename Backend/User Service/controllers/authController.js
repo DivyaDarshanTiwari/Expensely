@@ -13,7 +13,7 @@ const authController = async (req, res) => {
 
   try {
     const decodeToken = await admin.auth().verifyIdToken(idToken);
-    if (!decodedToken.email_verified) {
+    if (!decodeToken.email_verified) {
       return res.status(403).json({ message: "Email not verified" });
     }
     const firebase_uid = decodeToken.uid;
