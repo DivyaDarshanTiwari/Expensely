@@ -13,6 +13,9 @@ const authController = async (req, res) => {
 
   try {
     const decodeToken = await admin.auth().verifyIdToken(idToken);
+    if (!decodeToken.email_verified) {
+      return res.status(403).json({ message: "Email not verified" });
+    }
     const firebase_uid = decodeToken.uid;
     const { rows } = await pool.query(
       "SELECT * FROM users WHERE firebase_uid = $1",
@@ -50,7 +53,9 @@ const signUpController = async (req, res) => {
 
   try {
     const decodeToken = await admin.auth().verifyIdToken(idToken);
-
+    if (!decodeToken.email_verified) {
+      return res.status(403).json({ message: "Email not verified" });
+    }
     const { rows } = await pool.query(
       "SELECT * FROM users WHERE firebase_uid = $1",
       [decodeToken.uid]

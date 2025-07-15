@@ -43,6 +43,7 @@ export default function ProfileScreen() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showImagePicker, setShowImagePicker] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [profile, setProfile] = useState<UserProfile>({
     displayName: "",
@@ -162,6 +163,7 @@ export default function ProfileScreen() {
         name: fileName,
         type: mimeType,
       });
+      setIsUploading(true);
       try {
         const imageCloudURL = await axios.post(
           `${Constants.expoConfig?.extra?.User_URL}/api/v1/upload/profilePic`,
@@ -192,6 +194,8 @@ export default function ProfileScreen() {
           "Upload Failed",
           "Could not upload your profile picture. Please try again."
         );
+      } finally {
+        setIsUploading(false);
       }
     }
   };
@@ -216,8 +220,7 @@ export default function ProfileScreen() {
         name: fileName,
         type: mimeType,
       });
-      console.log("Uploading image to backend...");
-      console.log(asset.uri, fileName);
+      setIsUploading(true);
       try {
         const imageCloudURL = await axios.post(
           `${Constants.expoConfig?.extra?.User_URL}/api/v1/upload/profilePic`,
@@ -248,6 +251,8 @@ export default function ProfileScreen() {
           "Upload Failed",
           "Could not upload your profile picture. Please try again."
         );
+      } finally {
+        setIsUploading(false);
       }
     }
   };
@@ -371,10 +376,12 @@ export default function ProfileScreen() {
           <View style={styles.avatarContainer}>
             <Image
               source={{
-                uri: editing
-                  ? editedProfile.photoURL
-                  : profile.photoURL ||
-                    "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y",
+                uri: isUploading
+                  ? "https://media.tenor.com/UnFx-k_lSckAAAAM/amalie-steiness.gif" // or your loading spinner gif
+                  : editing
+                    ? editedProfile.photoURL
+                    : profile.photoURL ||
+                      "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y",
               }}
               style={styles.avatar}
             />

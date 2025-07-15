@@ -53,12 +53,9 @@ exports.addIncome = async (req, res) => {
 
 exports.getAllIncome = async (req, res) => {
   const { userId } = req.body;
-  console.log(userId + "income ");
   const limit = parseInt(req.query.limit) || 5;
   const page = parseInt(req.query.page) || 1;
   const offset = (page - 1) * limit;
-
-  console.log(userId);
 
   if (!userId) {
     return res.status(404).json({ error: "User ID missing!" });
@@ -119,7 +116,7 @@ exports.deleteIncome = async (req, res) => {
     await pool.query(
       `
         UPDATE account
-        SET totalExpense = totalExpense - $1
+        SET totalIncome = totalIncome - $1
         WHERE userId = $2
       `,
       [amount, result.rows[0].userid]

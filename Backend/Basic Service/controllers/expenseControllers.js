@@ -6,11 +6,10 @@ const expenseSchema = require("../services/InputValidation"); //importing schema
 //Add expense
 const addExpense = async (req, res) => {
   const { userId, amount, category, description } = req.body;
-  console.log(userId, amount, category, description);
   const validatedData = expenseSchema.safeParse(req.body);
 
   if (!validatedData.success) {
-    console.log(validatedData.error.issues);
+    console.error(validatedData.error.issues);
     return res.status(400).json({
       error: "Validation failed",
       details: validatedData.error.issues,
@@ -58,7 +57,6 @@ const addExpense = async (req, res) => {
 //Getting all the expense/spenditure
 const getAllExpense = async (req, res) => {
   const { userId } = req.body;
-  console.log(userId + "getAll Expense ");
   const limit = parseInt(req.query.limit) || 5;
   const page = parseInt(req.query.page) || 1;
   const offset = (page - 1) * limit;
