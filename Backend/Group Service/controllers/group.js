@@ -148,6 +148,7 @@ exports.getGroupsByUser = async (req, res) => {
         g.name,
         g.description,
         g.groupbudget,
+        g.createdby,
       (
         SELECT COUNT(*)
         FROM group_members gm2
@@ -172,12 +173,12 @@ exports.getGroupsByUser = async (req, res) => {
 };
 
 exports.deleteGroup = async (req, res) => {
-  const { groupId } = req.body;
+  const { groupId, userId } = req.body;
 
   try {
-    // Optional: Check if group exists
+    // Check if group exists and get the creator
     const checkGroup = await pool.query(
-      `SELECT * FROM GROUPS WHERE groupid = $1`,
+      `SELECT createdby FROM GROUPS WHERE groupid = $1`,
       [groupId]
     );
 
@@ -185,6 +186,18 @@ exports.deleteGroup = async (req, res) => {
       return res.status(404).json({ message: "Group not found" });
     }
 
+    const groupCreator = checkGroup.rows[0].createdby;
+
+    // Check if the user is the group creator
+    if (groupCreator !== userId) {
+      // User is not the creator, they can only leave the group
+      return res.status(403).json({ 
+        message: "Only group owners can delete groups. You can leave the group instead.",
+        action: "leave_group"
+      });
+    }
+
+    // User is the creator, proceed with full group deletion
     // Step 1: Delete from EXPENSES_SHARE (if foreign key not set to cascade)
     await pool.query(
       `
@@ -210,6 +223,43 @@ exports.deleteGroup = async (req, res) => {
     res.status(200).json({ message: "Group deleted successfully" });
   } catch (err) {
     console.error("Error deleting group:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+exports.leaveGroup = async (req, res) => {
+  const { groupId, userId } = req.body;
+
+  try {
+    // Check if group exists and get the creator
+    const checkGroup = await pool.query(
+      `SELECT createdby FROM GROUPS WHERE groupid = $1`,
+      [groupId]
+    );
+
+    if (checkGroup.rowCount === 0) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+
+    const groupCreator = checkGroup.rows[0].createdby;
+
+    // Check if the user is the group creator
+    if (groupCreator === userId) {
+      return res.status(400).json({
+        message: "Group owners cannot leave their own group. Please delete the group instead.",
+        action: "delete_group"
+      });
+    }
+
+    // Remove user from group
+    await pool.query(
+      `DELETE FROM GROUP_MEMBERS WHERE groupId = $1 AND userId = $2`,
+      [groupId, userId]
+    );
+
+    res.status(200).json({ message: "Successfully left the group" });
+  } catch (err) {
+    console.error("Error leaving group:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
