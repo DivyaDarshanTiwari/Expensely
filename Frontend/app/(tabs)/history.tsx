@@ -9,7 +9,6 @@ import {
   Animated,
   StyleSheet,
   StatusBar,
-  ScrollView,
   Alert,
   ActivityIndicator,
   FlatList,
@@ -23,7 +22,7 @@ import ExpenseItem from "../../components/Expense/ExpenseList";
 import IncomeItem from "../../components/Income/IncomeList";
 import Constants from "expo-constants";
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+const { width: screenWidth } = Dimensions.get("window");
 
 type ViewType = "expenses" | "income";
 
