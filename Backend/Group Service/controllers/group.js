@@ -245,20 +245,10 @@ exports.leaveGroup = async (req, res) => {
 
     // Check if the user is the group creator
     if (groupCreator === userId) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Group owners cannot leave their own group. Please delete the group instead.",
         action: "delete_group"
       });
-    }
-
-    // Check if user is a member of the group
-    const checkMember = await pool.query(
-      `SELECT * FROM GROUP_MEMBERS WHERE groupId = $1 AND userId = $2`,
-      [groupId, userId]
-    );
-
-    if (checkMember.rowCount === 0) {
-      return res.status(404).json({ message: "You are not a member of this group" });
     }
 
     // Remove user from group
