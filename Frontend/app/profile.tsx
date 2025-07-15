@@ -1,4 +1,8 @@
 "use client";
+import { Ionicons } from "@expo/vector-icons";
+import axios from "axios";
+import Constants from "expo-constants";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import {
   onAuthStateChanged,
@@ -6,25 +10,21 @@ import {
   updateProfile,
   type User,
 } from "firebase/auth";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  TouchableOpacity,
-  Alert,
   ActivityIndicator,
-  TextInput,
-  ScrollView,
+  Alert,
   Animated,
   Dimensions,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
 import { auth } from "../auth/firebase";
-import axios from "axios";
-import Constants from "expo-constants";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -183,6 +183,7 @@ export default function ProfileScreen() {
           await updateProfile(user, {
             photoURL: imageCloudURL.data.data, // URL returned from your backend
           });
+          Alert.alert("Success", "Profile photo updated!");
         } else {
           console.error("No user is currently signed in.");
         }
@@ -239,6 +240,7 @@ export default function ProfileScreen() {
           await updateProfile(user, {
             photoURL: imageCloudURL.data.data, // URL returned from your backend
           });
+          Alert.alert("Success", "Profile photo updated!");
         } else {
           console.error("No user is currently signed in.");
         }
@@ -378,10 +380,13 @@ export default function ProfileScreen() {
               }}
               style={styles.avatar}
             />
-            {editing && (
+            {(
               <TouchableOpacity
                 style={styles.cameraButton}
-                onPress={handleImagePicker}
+                onPress={async () => {
+                  await handleImagePicker();
+                }}
+                disabled={saving}
               >
                 <Ionicons name="camera" size={20} color="#FFFFFF" />
               </TouchableOpacity>

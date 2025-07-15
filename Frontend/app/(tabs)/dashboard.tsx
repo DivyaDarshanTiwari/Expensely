@@ -51,20 +51,20 @@ const ExpenselyDashboard = () => {
     string,
     { icon: keyof typeof Ionicons.glyphMap; color: string }
   > = {
-    food: { icon: "restaurant", color: "#F59E0B" },
-    transport: { icon: "car", color: "#3B82F6" },
-    entertainment: { icon: "game-controller", color: "#8B5CF6" },
-    shopping: { icon: "bag", color: "#EC4899" },
-    utilities: { icon: "flash", color: "#10B981" },
-    health: { icon: "medical", color: "#EF4444" },
-    general: { icon: "card", color: "#6B7280" },
-    salary: { icon: "briefcase", color: "#10B981" },
-    freelance: { icon: "laptop", color: "#3B82F6" },
-    investment: { icon: "trending-up", color: "#8B5CF6" },
-    gift: { icon: "gift", color: "#EC4899" },
-    refund: { icon: "refresh", color: "#F59E0B" },
-    bonus: { icon: "star", color: "#EF4444" },
-    other: { icon: "cash", color: "#6B7280" },
+    Food: { icon: "restaurant", color: "#F59E0B" },
+    Transport: { icon: "car", color: "#3B82F6" },
+    Entertainment: { icon: "game-controller", color: "#8B5CF6" },
+    Shopping: { icon: "bag", color: "#EC4899" },
+    Utilities: { icon: "flash", color: "#10B981" },
+    Health: { icon: "medical", color: "#EF4444" },
+    General: { icon: "card", color: "#6B7280" },
+    Salary: { icon: "briefcase", color: "#10B981" },
+    Freelance: { icon: "laptop", color: "#3B82F6" },
+    Investment: { icon: "trending-up", color: "#8B5CF6" },
+    Gift: { icon: "gift", color: "#EC4899" },
+    Refund: { icon: "refresh", color: "#F59E0B" },
+    Bonus: { icon: "star", color: "#EF4444" },
+    Other: { icon: "cash", color: "#6B7280" },
   };
 
   useFocusEffect(
@@ -154,11 +154,11 @@ const ExpenselyDashboard = () => {
   const summaryCards = [
     {
       id: 1,
-      title: "Total Income",
-      amount: `${totalIncome}`,
-      icon: "trending-up",
-      gradient: ["#10B981", "#059669"],
-      bgGradient: ["#ECFDF5", "#D1FAE5"],
+      title: "Balance",
+      amount: `${totalIncome - totalExpense}`,
+      icon: "wallet",
+      gradient: ["#8B5CF6", "#7C3AED"],
+      bgGradient: ["#F3E8FF", "#DDD6FE"],
     },
     {
       id: 2,
@@ -170,11 +170,11 @@ const ExpenselyDashboard = () => {
     },
     {
       id: 3,
-      title: "Balance",
-      amount: `${totalIncome - totalExpense}`,
-      icon: "wallet",
-      gradient: ["#8B5CF6", "#7C3AED"],
-      bgGradient: ["#F3E8FF", "#DDD6FE"],
+      title: "Total Income",
+      amount: `${totalIncome}`,
+      icon: "trending-up",
+      gradient: ["#10B981", "#059669"],
+      bgGradient: ["#ECFDF5", "#D1FAE5"],
     },
   ];
 
