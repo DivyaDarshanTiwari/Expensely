@@ -4,7 +4,7 @@ const express = require("express");
 const {
   authController,
   signUpController,
-  getMe
+  getMe,
 } = require("../controllers/authController");
 
 const authMiddleware = require("../middleware/authMiddleware");

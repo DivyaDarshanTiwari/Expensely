@@ -232,15 +232,16 @@ const AddExpense = () => {
       Alert.alert("Success", "Expense added successfully!", [
         {
           text: "OK",
-          onPress: () => router.push({
-      pathname: "/groupDetails",
-      params: {
-        groupId: groupId,
-        groupName: groupName,
-        groupData: groupData, // for complex objects
-        refresh: "true",
-      },
-    })
+          onPress: () =>
+            router.push({
+              pathname: "/groupDetails",
+              params: {
+                groupId: groupId,
+                groupName: groupName,
+                groupData: groupData, // for complex objects
+                refresh: "true",
+              },
+            }),
         },
       ]);
     } catch (err) {
