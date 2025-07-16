@@ -14,6 +14,8 @@ Router.get("/getGroups", groupControllers.getGroupsByUser);
 
 Router.post("/balances/:groupId", groupControllers.getUserGroupBalances);
 
+Router.post("/settleUpWithUser/:groupId", groupControllers.settleUpWithUser);
+
 Router.delete("/removeMember", groupControllers.removeMemberFromGroup);
 
 Router.delete("/deleteGroup", groupControllers.deleteGroup);

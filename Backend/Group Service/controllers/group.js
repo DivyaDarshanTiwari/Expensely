@@ -191,9 +191,10 @@ exports.deleteGroup = async (req, res) => {
     // Check if the user is the group creator
     if (groupCreator !== userId) {
       // User is not the creator, they can only leave the group
-      return res.status(403).json({ 
-        message: "Only group owners can delete groups. You can leave the group instead.",
-        action: "leave_group"
+      return res.status(403).json({
+        message:
+          "Only group owners can delete groups. You can leave the group instead.",
+        action: "leave_group",
       });
     }
 
@@ -246,8 +247,9 @@ exports.leaveGroup = async (req, res) => {
     // Check if the user is the group creator
     if (groupCreator === userId) {
       return res.status(400).json({
-        message: "Group owners cannot leave their own group. Please delete the group instead.",
-        action: "delete_group"
+        message:
+          "Group owners cannot leave their own group. Please delete the group instead.",
+        action: "delete_group",
       });
     }
 
@@ -260,6 +262,28 @@ exports.leaveGroup = async (req, res) => {
     res.status(200).json({ message: "Successfully left the group" });
   } catch (err) {
     console.error("Error leaving group:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// Add a new function to settle up with a user in a group
+exports.settleUpWithUser = async (req, res) => {
+  const { groupId } = req.params;
+  const { fromUserId, toUserId, amount } = req.body;
+
+  if (!groupId || !fromUserId || !toUserId || !amount) {
+    return res.status(400).json({ message: "Missing required fields" });
+  }
+
+  try {
+    // Insert a settlement record
+    await pool.query(
+      `INSERT INTO SETTLEMENTS (groupid, fromuserid, touserid, amount) VALUES ($1, $2, $3, $4)`,
+      [groupId, fromUserId, toUserId, amount]
+    );
+    res.status(201).json({ message: "Settlement recorded successfully" });
+  } catch (err) {
+    console.error("Error recording settlement:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -283,9 +307,6 @@ exports.getUserGroupBalances = async (req, res) => {
       [groupId]
     );
     const expenses = expensesRes.rows;
-
-    const owesMe = [];
-    const iOwe = [];
 
     // 3. Track balances per user
     const userBalances = {};
@@ -311,7 +332,30 @@ exports.getUserGroupBalances = async (req, res) => {
       }
     }
 
-    // 4. Get usernames and split balances
+    // 4. Subtract settlements
+    // Get all settlements for this group involving the user
+    const settlementsRes = await pool.query(
+      `SELECT fromuserid, touserid, amount FROM SETTLEMENTS WHERE groupid = $1 AND (fromuserid = $2 OR touserid = $2)`,
+      [groupId, userId]
+    );
+    for (const settlement of settlementsRes.rows) {
+      const fromId = Number(settlement.fromuserid);
+      const toId = Number(settlement.touserid);
+      const amount = parseFloat(settlement.amount);
+      if (fromId === Number(userId)) {
+        // User paid to someone else (reduce what they owe)
+        if (!userBalances[toId]) userBalances[toId] = 0;
+        userBalances[toId] -= amount;
+      } else if (toId === Number(userId)) {
+        // Someone else paid to user (reduce what they owe user)
+        if (!userBalances[fromId]) userBalances[fromId] = 0;
+        userBalances[fromId] += amount;
+      }
+    }
+
+    // 5. Get usernames and split balances
+    const owesMe = [];
+    const iOwe = [];
     for (const [otherUserId, balance] of Object.entries(userBalances)) {
       const id = parseInt(otherUserId);
       const userRes = await pool.query(
@@ -319,25 +363,22 @@ exports.getUserGroupBalances = async (req, res) => {
         [id]
       );
       const username = userRes.rows[0]?.username || `User ${id}`;
-
-      if (balance > 0) {
+      if (balance > 0.009) {
         // They owe you
-        owesMe.push({ username, amount: parseFloat(balance.toFixed(2)) });
-      } else if (balance < 0) {
+        owesMe.push({
+          username,
+          amount: parseFloat(balance.toFixed(2)),
+          userId: id,
+        });
+      } else if (balance < -0.009) {
         // You owe them
         iOwe.push({
           username,
           amount: parseFloat(Math.abs(balance).toFixed(2)),
+          userId: id,
         });
       }
     }
-
-    console.log("People who owe me:", owesMe);
-    console.log("People I owe:", iOwe);
-
-    // Add some additional debugging
-    console.log("Total people who owe me:", owesMe.length);
-    console.log("Total people I owe:", iOwe.length);
 
     res.status(200).json({ owesMe, iOwe });
   } catch (err) {
