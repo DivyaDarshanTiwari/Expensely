@@ -4,8 +4,7 @@ const express = require("express");
 const {
   authController,
   signUpController,
-  getMe,
-  getUserIdByFirebaseUid,
+  getMe
 } = require("../controllers/authController");
 
 const authMiddleware = require("../middleware/authMiddleware");
@@ -16,6 +15,5 @@ router.post("/validToken", authController);
 router.post("/signUp", signUpController);
 
 router.get("/me", authMiddleware, getMe);
-router.get("/byFirebaseUid/:firebaseUid", getUserIdByFirebaseUid);
 
 module.exports = router;

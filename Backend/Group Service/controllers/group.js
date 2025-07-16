@@ -193,16 +193,13 @@ exports.deleteGroup = async (req, res) => {
       return res.status(403).json({
         message:
           "Only group owners can delete groups. You can leave the group instead.",
-        action: "leave_group",
       });
     }
 
     // If user is the creator, check action
     if (!action) {
-      return res.status(400).json({
-        message:
-          "You are the group owner. Do you want to leave the group (transfer ownership) or delete the group?",
-        actions: ["leave_group", "delete_group"],
+      return res.status(404).json({
+        message: "Action is required to proceed.",
       });
     }
 
@@ -272,17 +269,15 @@ exports.leaveGroup = async (req, res) => {
   const { groupId, userId } = req.body;
 
   try {
-    // 1. Check if group exists and who the creator is
+    // 1. Check if group exists
     const checkGroup = await pool.query(
-      `SELECT createdby FROM GROUPS WHERE groupid = $1`,
+      `SELECT 1 FROM GROUPS WHERE groupid = $1`,
       [groupId]
     );
 
     if (checkGroup.rowCount === 0) {
       return res.status(404).json({ message: "Group not found" });
     }
-
-    const groupCreator = checkGroup.rows[0].createdby;
 
     // 2. Build balances for the user
     const userOwes = {};
@@ -364,42 +359,13 @@ exports.leaveGroup = async (req, res) => {
       });
     }
 
-    // 4. If user is the creator, transfer ownership
-    if (Number(groupCreator) === Number(userId)) {
-      const otherMembersRes = await pool.query(
-        `SELECT userid FROM GROUP_MEMBERS WHERE groupid = $1 AND userid != $2`,
-        [groupId, userId]
-      );
-
-      if (otherMembersRes.rowCount === 0) {
-        return res.status(400).json({
-          message:
-            "You are the group creator and no other members exist. Cannot leave without members.",
-        });
-      }
-
-      // Randomly pick one new owner
-      const newOwner =
-        otherMembersRes.rows[
-          Math.floor(Math.random() * otherMembersRes.rows.length)
-        ].userid;
-
-      await pool.query(`UPDATE GROUPS SET createdby = $1 WHERE groupid = $2`, [
-        newOwner,
-        groupId,
-      ]);
-    }
-
-    // 5. Remove user from group
+    // 4. Remove user from group
     await pool.query(
       `DELETE FROM GROUP_MEMBERS WHERE groupid = $1 AND userid = $2`,
       [groupId, userId]
     );
 
-    return res.status(200).json({
-      message: "Successfully left the group",
-      creatorTransferred: Number(groupCreator) === Number(userId),
-    });
+    return res.status(200).json({ message: "Successfully left the group" });
   } catch (err) {
     console.error("Error leaving group:", err);
     return res.status(500).json({ message: "Internal Server Error" });

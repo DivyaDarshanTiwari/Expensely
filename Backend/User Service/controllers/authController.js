@@ -122,20 +122,4 @@ const getMe = async (req, res) => {
   }
 };
 
-const getUserIdByFirebaseUid = async (req, res) => {
-  const { firebaseUid } = req.params;
-  try {
-    const result = await pool.query(
-      "SELECT user_id FROM USERS WHERE firebase_uid = $1",
-      [firebaseUid]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "User not found" });
-    }
-    res.status(200).json({ userId: result.rows[0].user_id });
-  } catch (err) {
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-};
-
-module.exports = { authController, signUpController, getMe, getUserIdByFirebaseUid };
+module.exports = { authController, signUpController, getMe };
