@@ -87,7 +87,7 @@ exports.expensesShareTable = async () => {
 
 exports.settlementTable = async () => {
   await pool.query(
-    `CREATE TABLE IF NOT EXISTS SETTLEMENT (
+    `CREATE TABLE IF NOT EXISTS SETTLEMENTS (
         id SERIAL PRIMARY KEY,
         groupId INT REFERENCES GROUPS(groupId),
         fromUserId INT NOT NULL,

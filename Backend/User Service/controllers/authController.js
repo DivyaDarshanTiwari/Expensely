@@ -122,7 +122,7 @@ const getMe = async (req, res) => {
   }
 };
 
-exports.getUserIdByFirebaseUid = async (req, res) => {
+const getUserIdByFirebaseUid = async (req, res) => {
   const { firebaseUid } = req.params;
   try {
     const result = await pool.query(
@@ -138,4 +138,4 @@ exports.getUserIdByFirebaseUid = async (req, res) => {
   }
 };
 
-module.exports = { authController, signUpController, getMe };
+module.exports = { authController, signUpController, getMe, getUserIdByFirebaseUid };

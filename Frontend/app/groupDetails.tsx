@@ -4,18 +4,17 @@ import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-    Animated,
-    Dimensions,
-    FlatList,
-    Modal,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Animated,
+  Dimensions,
+  FlatList,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { auth } from "../auth/firebase";
 
@@ -33,9 +32,8 @@ const GroupDetails = () => {
   const [loading, setLoading] = useState(true);
   const [idToken, setIdToken] = useState("");
   const [showMembers, setShowMembers] = useState(false);
-  const [showBalancesModal, setShowBalancesModal] = useState(false);
-  const [balances, setBalances] = useState({ owesMe: [], iOwe: [] });
-  const [balancesLoading, setBalancesLoading] = useState(false);
+  const [settlingUserId, setSettlingUserId] = useState<string | null>(null);
+  const [backendUserId, setBackendUserId] = useState<number | null>(null);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -119,6 +117,23 @@ const GroupDetails = () => {
     }, [refresh]) // Add dependencies if needed
   );
 
+  useEffect(() => {
+    const fetchBackendUserId = async () => {
+      if (auth.currentUser) {
+        const firebaseUid = auth.currentUser.uid;
+        try {
+          const res = await axios.get(
+            `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/byFirebaseUid/${firebaseUid}`
+          );
+          setBackendUserId(res.data.userId);
+        } catch (error) {
+          console.error("Failed to fetch backend userId", error);
+        }
+      }
+    };
+    fetchBackendUserId();
+  }, []);
+
   const calculateProgress = (spent: any, total: any) => {
     return Math.min((spent / total) * 100, 100);
   };
@@ -150,20 +165,34 @@ const GroupDetails = () => {
     });
   };
 
-  const handleViewBalances = async () => {
-    setBalancesLoading(true);
+  const handleViewBalances = () => {
+    router.push({
+      pathname: "/groupBalances",
+      params: {
+        groupId: group.id,
+        groupName: group.name,
+        groupData: groupData,
+      },
+    });
+  };
+
+  // Settle up handler
+  const handleSettleUp = async (otherUserId: string, amount: number, type: 'owesMe' | 'iOwe') => {
+    setSettlingUserId(otherUserId + '-' + type);
     try {
-      // Get current user ID from Firebase
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        console.log("No user logged in");
+      if (!backendUserId) {
+        console.log("No backend userId available");
         return;
       }
-
-      const balancesRes = await axios.post(
-        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/balances/${groupId}`,
+      // Use backend userId for all API calls
+      const fromUserId = type === 'owesMe' ? otherUserId : backendUserId;
+      const toUserId = type === 'owesMe' ? backendUserId : otherUserId;
+      await axios.post(
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/settleUpWithUser/${groupId}`,
         {
-          userId: currentUser.uid,
+          fromUserId,
+          toUserId,
+          amount,
         },
         {
           headers: {
@@ -171,13 +200,12 @@ const GroupDetails = () => {
           },
         }
       );
-      setBalances(balancesRes.data);
-      setShowBalancesModal(true);
+      // Refresh balances
+      // await handleViewBalances(); // This line is removed as per the edit hint
     } catch (error) {
-      console.error("Failed to fetch balances", error);
-      console.log("Failed to fetch balances");
+      console.error("Failed to settle up", error);
     } finally {
-      setBalancesLoading(false);
+      setSettlingUserId(null);
     }
   };
 
@@ -488,87 +516,6 @@ const GroupDetails = () => {
           />
         </Animated.View>
       </ScrollView>
-
-      {/* Balances Modal */}
-      <Modal
-        visible={showBalancesModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowBalancesModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Group Balances</Text>
-              <TouchableOpacity
-                onPress={() => setShowBalancesModal(false)}
-                style={styles.modalCloseIcon}
-              >
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            {balancesLoading ? (
-              <View style={styles.loadingContainer}>
-                <Text style={styles.loadingText}>Loading balances...</Text>
-              </View>
-            ) : (
-              <ScrollView style={styles.balancesScrollView}>
-                {/* People who owe you */}
-                <View style={styles.balanceSection}>
-                  <Text style={styles.balanceSectionTitle}>
-                    People who owe you
-                  </Text>
-                  {balances.owesMe.length > 0 ? (
-                    balances.owesMe.map((item: any, index: number) => (
-                      <View key={index} style={styles.balanceItem}>
-                        <Text style={styles.balanceName}>{item.username}</Text>
-                        <Text
-                          style={[styles.balanceAmount, { color: "#10B981" }]}
-                        >
-                          +₹{item.amount}
-                        </Text>
-                      </View>
-                    ))
-                  ) : (
-                    <Text style={styles.noBalanceText}>
-                      No one owes you money
-                    </Text>
-                  )}
-                </View>
-
-                {/* People you owe */}
-                <View style={styles.balanceSection}>
-                  <Text style={styles.balanceSectionTitle}>People you owe</Text>
-                  {balances.iOwe.length > 0 ? (
-                    balances.iOwe.map((item: any, index: number) => (
-                      <View key={index} style={styles.balanceItem}>
-                        <Text style={styles.balanceName}>{item.username}</Text>
-                        <Text
-                          style={[styles.balanceAmount, { color: "#EF4444" }]}
-                        >
-                          -₹{item.amount}
-                        </Text>
-                      </View>
-                    ))
-                  ) : (
-                    <Text style={styles.noBalanceText}>
-                      You don't owe anyone money
-                    </Text>
-                  )}
-                </View>
-              </ScrollView>
-            )}
-
-            <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => setShowBalancesModal(false)}
-            >
-              <Text style={styles.modalCloseButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };
@@ -852,55 +799,6 @@ const styles = StyleSheet.create({
   expenseSeparator: {
     height: 12,
   },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)",
-  },
-  modalContent: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 20,
-    width: "80%",
-    alignItems: "center",
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 20,
-  },
-  balanceItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    width: "100%",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
-  },
-  balanceName: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  balanceAmount: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  modalCloseButton: {
-    marginTop: 20,
-    paddingVertical: 12,
-    paddingHorizontal: 25,
-    backgroundColor: "#E5E7EB",
-    borderRadius: 12,
-  },
-  modalCloseButtonText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#111827",
-  },
   balancesButtonContainer: {
     paddingHorizontal: 20,
     marginBottom: 24,
@@ -959,6 +857,20 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     textAlign: "center",
     paddingVertical: 20,
+  },
+  settleButton: {
+    marginLeft: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#E0E7FF',
+    borderRadius: 8,
+  },
+  remindButton: {
+    marginLeft: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
   },
 });
 
