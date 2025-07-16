@@ -1,25 +1,27 @@
-import React, { useState, useRef, useEffect } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Dimensions,
-  Animated,
-  StyleSheet,
-  StatusBar,
-  ScrollView,
-  TextInput,
-  Alert,
-  Modal,
-  FlatList,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
 import axios from "axios";
-import { auth } from "../../auth/firebase";
-import { onAuthStateChanged } from "firebase/auth";
 import Constants from "expo-constants";
+import { LinearGradient } from "expo-linear-gradient";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { onAuthStateChanged } from "firebase/auth";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Animated,
+  Dimensions,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { auth } from "../../auth/firebase";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -152,16 +154,12 @@ export default function AddTransactions() {
       Alert.alert("Error", "Please enter an amount");
       return;
     }
-    if (!transactionData.description.trim()) {
-      Alert.alert("Error", "Please enter a description");
-      return;
-    }
 
     setLoading(true);
     try {
       const payload = {
         amount: parseFloat(transactionData.amount),
-        description: transactionData.description,
+        description: transactionData.description.trim() ? transactionData.description : "No description",
         category: transactionData.category,
       };
 
@@ -241,7 +239,7 @@ export default function AddTransactions() {
                     { backgroundColor: `${item.color}20` },
                   ]}
                 >
-                  <Ionicons name={item.icon} size={24} color={item.color} />
+                  <Ionicons name={item.icon as any} size={24} color={item.color} />
                 </View>
                 <Text style={styles.categoryName}>{item.name}</Text>
                 {transactionData.category === item.id && (
@@ -291,7 +289,11 @@ export default function AddTransactions() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
+    >
       <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
 
       {/* Header */}
@@ -456,12 +458,12 @@ export default function AddTransactions() {
                   ]}
                 >
                   <Ionicons
-                    name={selectedCategory?.icon}
+                    name={selectedCategory?.icon as any}
                     size={20}
                     color={selectedCategory?.color}
                   />
                 </View>
-                <Text style={styles.selectText}>{selectedCategory.name}</Text>
+                <Text style={styles.selectText}>{selectedCategory?.name}</Text>
               </View>
               <Ionicons name="chevron-down" size={20} color="#6B7280" />
             </TouchableOpacity>
@@ -529,7 +531,7 @@ export default function AddTransactions() {
 
       {renderCategoryModal()}
       {renderMemberModal()}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

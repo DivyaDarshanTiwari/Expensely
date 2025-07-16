@@ -7,22 +7,29 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    Alert,
-    Animated,
-    Dimensions,
-    FlatList,
-    Modal,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Animated,
+  Dimensions,
+  FlatList,
+  Modal,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { auth } from "../../auth/firebase";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+
+// Add user type for members
+interface UserType {
+  user_id: string;
+  username: string;
+  email: string;
+}
 
 const ExpenselyGroups = () => {
   const router = useRouter();
@@ -136,8 +143,8 @@ const ExpenselyGroups = () => {
     budget: "",
   });
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [selectedMembers, setSelectedMembers] = useState([]);
+  const [searchResults, setSearchResults] = useState<UserType[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<UserType[]>([]);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -231,7 +238,6 @@ const ExpenselyGroups = () => {
           },
         }
       );
-      
       // Remove the group from local state
       setGroups((prevGroups) =>
         prevGroups.filter((group) => group.id !== groupId)
@@ -239,9 +245,31 @@ const ExpenselyGroups = () => {
       Alert.alert("Success", "Group deleted successfully!");
     } catch (error: any) {
       console.error("Error deleting group:", error);
-      
-      // Check if the error is because user is not the owner
-      if (error.response?.status === 403 && error.response?.data?.action === "leave_group") {
+      // Handle new backend logic
+      if (error.response?.data?.actions) {
+        // Creator: show options to leave or delete
+        Alert.alert(
+          "Group Owner Options",
+          error.response.data.message || "You are the group owner. What would you like to do?",
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+            {
+              text: "Leave Group",
+              onPress: () => confirmDeleteGroupWithAction(groupId, "leave_group"),
+            },
+            {
+              text: "Delete Group",
+              style: "destructive",
+              onPress: () => confirmDeleteGroupWithAction(groupId, "delete_group"),
+            },
+          ]
+        );
+      } else if (error.response?.data?.message === "No other members to transfer ownership to. Cannot leave group.") {
+        Alert.alert("Error", error.response.data.message);
+      } else if (error.response?.status === 403 && error.response?.data?.action === "leave_group") {
         // User is not the owner, offer to leave the group instead
         Alert.alert(
           "Leave Group",
@@ -266,6 +294,38 @@ const ExpenselyGroups = () => {
     }
   };
 
+  const confirmDeleteGroupWithAction = async (groupId: number, action: "leave_group" | "delete_group") => {
+    setDeletingGroupId(groupId);
+    try {
+      const response = await axios.delete(
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/deleteGroup`,
+        {
+          data: { groupId, action },
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        }
+      );
+      setGroups((prevGroups) =>
+        prevGroups.filter((group) => group.id !== groupId)
+      );
+      if (action === "leave_group") {
+        Alert.alert("Success", "Ownership transferred and you have left the group.");
+      } else {
+        Alert.alert("Success", "Group deleted successfully!");
+      }
+    } catch (error: any) {
+      console.error("Error with group owner action:", error);
+      if (error.response?.data?.message) {
+        Alert.alert("Error", error.response.data.message);
+      } else {
+        Alert.alert("Error", "Failed to process your request. Please try again.");
+      }
+    } finally {
+      setDeletingGroupId(null);
+    }
+  };
+
   const confirmLeaveGroup = async (groupId: number) => {
     setDeletingGroupId(groupId);
     try {
@@ -278,16 +338,15 @@ const ExpenselyGroups = () => {
           },
         }
       );
-      
-      // Remove the group from local state
       setGroups((prevGroups) =>
         prevGroups.filter((group) => group.id !== groupId)
       );
       Alert.alert("Success", "You have left the group successfully!");
     } catch (error: any) {
       console.error("Error leaving group:", error);
-      
-      if (error.response?.status === 400 && error.response?.data?.action === "delete_group") {
+      if (error.response?.data?.message === "You must settle all your balances before leaving the group.") {
+        Alert.alert("Settle Up Required", error.response.data.message);
+      } else if (error.response?.status === 400 && error.response?.data?.action === "delete_group") {
         // User is the owner, they need to delete instead
         Alert.alert(
           "Delete Group",
@@ -304,6 +363,8 @@ const ExpenselyGroups = () => {
             },
           ]
         );
+      } else if (error.response?.data?.message) {
+        Alert.alert("Error", error.response.data.message);
       } else {
         Alert.alert("Error", "Failed to leave group. Please try again.");
       }
@@ -381,7 +442,7 @@ const ExpenselyGroups = () => {
         }
       );
       const existingIds = selectedMembers.map((m) => m.user_id);
-      const filtered = res.data.filter(
+      const filtered = (res.data as UserType[]).filter(
         (user) => !existingIds.includes(user.user_id)
       );
       setSearchResults(filtered);
@@ -424,7 +485,6 @@ const ExpenselyGroups = () => {
         name: "",
         description: "",
         budget: "",
-        members: "",
       });
     } catch (error) {
       console.error("Error creating group:", error);
@@ -698,7 +758,7 @@ const ExpenselyGroups = () => {
                     <FlatList
                       data={searchResults}
                       keyExtractor={(item) => item.user_id}
-                      renderItem={({ item }) => (
+                      renderItem={({ item }: { item: UserType }) => (
                         <TouchableOpacity
                           onPress={() => {
                             setSelectedMembers([...selectedMembers, item]);
@@ -741,7 +801,7 @@ const ExpenselyGroups = () => {
                     Selected Members ({selectedMembers.length})
                   </Text>
                   <View style={styles.selectedMembersList}>
-                    {selectedMembers.map((member) => (
+                    {selectedMembers.map((member: UserType) => (
                       <View
                         key={member.user_id}
                         style={styles.selectedMemberItem}

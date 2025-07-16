@@ -22,6 +22,7 @@ const {
   groupMembersTable,
   groupExpensesTable,
   expensesShareTable,
+  settlementTable,
 } = require("./services/TableCreation");
 
 const groupRoutes = require("./routes/group");
@@ -39,6 +40,7 @@ async function initTables() {
   await groupMembersTable();
   await groupExpensesTable();
   await expensesShareTable();
+  await settlementTable();
 }
 
 initTables();

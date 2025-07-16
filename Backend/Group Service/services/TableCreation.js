@@ -84,3 +84,23 @@ exports.expensesShareTable = async () => {
     }
   );
 };
+
+exports.settlementTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS SETTLEMENTS (
+        id SERIAL PRIMARY KEY,
+        groupId INT REFERENCES GROUPS(groupId),
+        fromUserId INT NOT NULL,
+        toUserId INT NOT NULL,
+        amount NUMERIC(10, 2) NOT NULL,
+        settledAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );`,
+    (err, res) => {
+      if (err) {
+        console.error("❌ Error creating settlement table:", err);
+      } else {
+        console.log("✅ Settlement table created or already exists");
+      }
+    }
+  );
+};
