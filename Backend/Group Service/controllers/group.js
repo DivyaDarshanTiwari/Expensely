@@ -198,8 +198,10 @@ exports.deleteGroup = async (req, res) => {
 
     // If user is the creator, check action
     if (!action) {
-      return res.status(404).json({
-        message: "Action is required to proceed.",
+      return res.status(400).json({
+        message:
+          "You are the group owner. Do you want to leave the group (transfer ownership) or delete the group?",
+        actions: ["leave_group", "delete_group"],
       });
     }
 
