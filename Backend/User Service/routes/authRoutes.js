@@ -15,5 +15,6 @@ router.post("/validToken", authController);
 router.post("/signUp", signUpController);
 
 router.get("/me", authMiddleware, getMe);
+router.get("/byFirebaseUid/:firebaseUid", authController.getUserIdByFirebaseUid);
 
 module.exports = router;
