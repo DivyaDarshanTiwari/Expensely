@@ -47,38 +47,38 @@ export default function AddTransactions() {
   const toggleSlide = useRef(new Animated.Value(0)).current;
 
   const expenseCategories = [
-    { id: "food", name: "Food & Dining", icon: "restaurant", color: "#F59E0B" },
+    { id: "Food", name: "Food & Dining", icon: "restaurant", color: "#F59E0B" },
     { id: "transport", name: "Transportation", icon: "car", color: "#3B82F6" },
     {
-      id: "entertainment",
+      id: "Entertainment",
       name: "Entertainment",
       icon: "game-controller",
       color: "#8B5CF6",
     },
-    { id: "shopping", name: "Shopping", icon: "bag", color: "#EC4899" },
+    { id: "Shopping", name: "Shopping", icon: "bag", color: "#EC4899" },
     { id: "utilities", name: "Utilities", icon: "flash", color: "#10B981" },
     {
-      id: "health",
+      id: "Health",
       name: "Health & Medical",
       icon: "medical",
       color: "#EF4444",
     },
-    { id: "general", name: "General", icon: "card", color: "#6B7280" },
+    { id: "General", name: "General", icon: "card", color: "#6B7280" },
   ];
 
   const incomeCategories = [
-    { id: "salary", name: "Salary", icon: "briefcase", color: "#10B981" },
-    { id: "freelance", name: "Freelance", icon: "laptop", color: "#3B82F6" },
+    { id: "Salary", name: "Salary", icon: "briefcase", color: "#10B981" },
+    { id: "Freelance", name: "Freelance", icon: "laptop", color: "#3B82F6" },
     {
-      id: "investment",
+      id: "Investment",
       name: "Investment",
       icon: "trending-up",
       color: "#8B5CF6",
     },
-    { id: "gift", name: "Gift", icon: "gift", color: "#EC4899" },
-    { id: "refund", name: "Refund", icon: "refresh", color: "#F59E0B" },
-    { id: "bonus", name: "Bonus", icon: "star", color: "#EF4444" },
-    { id: "other", name: "Other Income", icon: "cash", color: "#6B7280" },
+    { id: "Gift", name: "Gift", icon: "gift", color: "#EC4899" },
+    { id: "Refund", name: "Refund", icon: "refresh", color: "#F59E0B" },
+    { id: "Bonus", name: "Bonus", icon: "star", color: "#EF4444" },
+    { id: "Other", name: "Other Income", icon: "cash", color: "#6B7280" },
   ];
 
   const categories =
