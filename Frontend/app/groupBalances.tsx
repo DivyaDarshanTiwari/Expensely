@@ -4,15 +4,16 @@ import Constants from "expo-constants";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { auth } from "../auth/firebase";
+import { getStoredUserId } from "./auth";
 
 const GroupBalances = () => {
   const router = useRouter();
@@ -26,36 +27,25 @@ const GroupBalances = () => {
   const [settlingUserId, setSettlingUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchBackendUserId = async () => {
-      if (auth.currentUser) {
-        const firebaseUid = auth.currentUser.uid;
-        try {
-          const res = await axios.get(
-            `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/byFirebaseUid/${firebaseUid}`
-          );
-          setBackendUserId(res.data.userId);
-        } catch (error) {
-          console.error("Failed to fetch backend userId", error);
-        }
-      }
-    };
-    const fetchIdToken = async () => {
+    const fetchUserIdAndToken = async () => {
+      const storedUserId = await getStoredUserId();
+      console.log("Stored userId:", storedUserId);
+      if (storedUserId) setBackendUserId(Number(storedUserId));
       if (auth.currentUser) {
         const token = await auth.currentUser.getIdToken();
         setIdToken(token);
       }
     };
-    fetchBackendUserId();
-    fetchIdToken();
+    fetchUserIdAndToken();
   }, []);
 
   const fetchBalances = async () => {
     setBalancesLoading(true);
     try {
-      if (!backendUserId) return;
+      // if (!backendUserId) return;
       const balancesRes = await axios.post(
         `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/balances/${groupId}`,
-        { userId: backendUserId },
+        {},
         { headers: { Authorization: `Bearer ${idToken}` } }
       );
       setBalances(balancesRes.data);

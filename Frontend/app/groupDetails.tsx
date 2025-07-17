@@ -17,6 +17,7 @@ import {
   View
 } from "react-native";
 import { auth } from "../auth/firebase";
+import { getStoredUserId } from "./auth";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -32,7 +33,6 @@ const GroupDetails = () => {
   const [loading, setLoading] = useState(true);
   const [idToken, setIdToken] = useState("");
   const [showMembers, setShowMembers] = useState(false);
-  const [settlingUserId, setSettlingUserId] = useState<string | null>(null);
   const [backendUserId, setBackendUserId] = useState<number | null>(null);
 
   // Animation refs
@@ -119,17 +119,8 @@ const GroupDetails = () => {
 
   useEffect(() => {
     const fetchBackendUserId = async () => {
-      if (auth.currentUser) {
-        const firebaseUid = auth.currentUser.uid;
-        try {
-          const res = await axios.get(
-            `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/byFirebaseUid/${firebaseUid}`
-          );
-          setBackendUserId(res.data.userId);
-        } catch (error) {
-          console.error("Failed to fetch backend userId", error);
-        }
-      }
+      const storedUserId = await getStoredUserId();
+      if (storedUserId) setBackendUserId(Number(storedUserId));
     };
     fetchBackendUserId();
   }, []);
@@ -174,39 +165,6 @@ const GroupDetails = () => {
         groupData: groupData,
       },
     });
-  };
-
-  // Settle up handler
-  const handleSettleUp = async (otherUserId: string, amount: number, type: 'owesMe' | 'iOwe') => {
-    setSettlingUserId(otherUserId + '-' + type);
-    try {
-      if (!backendUserId) {
-        console.log("No backend userId available");
-        return;
-      }
-      // Use backend userId for all API calls
-      const fromUserId = type === 'owesMe' ? otherUserId : backendUserId;
-      const toUserId = type === 'owesMe' ? backendUserId : otherUserId;
-      await axios.post(
-        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/settleUpWithUser/${groupId}`,
-        {
-          fromUserId,
-          toUserId,
-          amount,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-          },
-        }
-      );
-      // Refresh balances
-      // await handleViewBalances(); // This line is removed as per the edit hint
-    } catch (error) {
-      console.error("Failed to settle up", error);
-    } finally {
-      setSettlingUserId(null);
-    }
   };
 
   const renderExpenseItem = ({ item, index }: { item: any; index: any }) => (

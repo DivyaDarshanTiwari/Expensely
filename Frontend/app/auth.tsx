@@ -1,35 +1,44 @@
-import React, { useState, useRef, useEffect } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import axios from "axios";
+import Constants from "expo-constants";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Dimensions,
+  createUserWithEmailAndPassword,
+  getIdToken,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  updateProfile,
+} from "firebase/auth";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Alert,
   Animated,
-  StyleSheet,
-  StatusBar,
+  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { auth } from "../auth/firebase";
-import axios from "axios";
-import {
-  createUserWithEmailAndPassword,
-  updateProfile,
-  getIdToken,
-  signInWithEmailAndPassword,
-  sendPasswordResetEmail,
-  sendEmailVerification,
-} from "firebase/auth";
-import Constants from "expo-constants";
-import * as SecureStore from "expo-secure-store";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+
+// Store backend userId
+const storeUserId = async (userId: string | number) => {
+  await SecureStore.setItemAsync("userId", String(userId));
+};
+// Retrieve backend userId
+export const getStoredUserId = async () => {
+  return await SecureStore.getItemAsync("userId");
+};
 
 const ExpenselyAuth = () => {
   const router = useRouter();
@@ -115,13 +124,21 @@ const ExpenselyAuth = () => {
 
       try {
         // Attempt signUp on first login
-        await axios.post(
+        const signUpRes = await axios.post(
           `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/signUp`,
           {},
           {
             headers: { Authorization: `Bearer ${idToken}` },
           }
         );
+        // Store userId from backend response (handle both possible structures)
+        if (signUpRes.data) {
+          if (signUpRes.data.userId) {
+            await storeUserId(signUpRes.data.userId);
+          } else if (signUpRes.data.user && signUpRes.data.user.user_id) {
+            await storeUserId(signUpRes.data.user.user_id);
+          }
+        }
       } catch (signUpError: any) {
         console.warn(
           "SignUp API error (expected if user already exists):",
@@ -130,13 +147,21 @@ const ExpenselyAuth = () => {
 
         try {
           // Validate token if signUp fails (user likely already exists)
-          await axios.post(
+          const validTokenRes = await axios.post(
             `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/validToken`,
             {},
             {
               headers: { Authorization: `Bearer ${idToken}` },
             }
           );
+          // Store userId from backend response (handle both possible structures)
+          if (validTokenRes.data) {
+            if (validTokenRes.data.userId) {
+              await storeUserId(validTokenRes.data.userId);
+            } else if (validTokenRes.data.user && validTokenRes.data.user.user_id) {
+              await storeUserId(validTokenRes.data.user.user_id);
+            }
+          }
         } catch (validationError: any) {
           console.error(
             "Token validation API error:",
