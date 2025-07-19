@@ -4,7 +4,7 @@ import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -14,7 +14,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { auth } from "../auth/firebase";
 import { getStoredUserId } from "./auth";
@@ -34,6 +34,7 @@ const GroupDetails = () => {
   const [idToken, setIdToken] = useState("");
   const [showMembers, setShowMembers] = useState(false);
   const [backendUserId, setBackendUserId] = useState<number | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -45,7 +46,7 @@ const GroupDetails = () => {
 
   useFocusEffect(
     useCallback(() => {
-      const fetchGroupDetails = async (idToken: string) => {
+      const fetchGroupDetails = async (idToken: string, userId: number) => {
         try {
           // Fetch recent expenses
           const expensesRes = await axios.get(
@@ -68,6 +69,13 @@ const GroupDetails = () => {
             }
           );
           setMembers(membersRes.data || []);
+          
+          // Check if current user is admin
+          const currentUser = membersRes.data.find(
+            (member: any) => member.userId === userId
+          );
+          console.log("Current user:", currentUser, "User ID:", userId);
+          setIsAdmin(currentUser?.isAdmin || false);
         } catch (error) {
           console.error("Failed to fetch group details", error);
         } finally {
@@ -80,9 +88,21 @@ const GroupDetails = () => {
           try {
             const idToken = await firebaseUser.getIdToken();
             setIdToken(idToken);
-            fetchGroupDetails(idToken);
+            
+            // Get backend user ID first
+            const storedUserId = await getStoredUserId();
+            const userId = storedUserId ? Number(storedUserId) : null;
+            setBackendUserId(userId);
+            
+            if (userId) {
+              fetchGroupDetails(idToken, userId);
+            } else {
+              console.error("Backend user ID not found");
+              setLoading(false);
+            }
           } catch (error) {
             console.error("Error getting ID token:", error);
+            setLoading(false);
           }
         }
       });
@@ -116,14 +136,6 @@ const GroupDetails = () => {
       return () => unsubscribe();
     }, [refresh]) // Add dependencies if needed
   );
-
-  useEffect(() => {
-    const fetchBackendUserId = async () => {
-      const storedUserId = await getStoredUserId();
-      if (storedUserId) setBackendUserId(Number(storedUserId));
-    };
-    fetchBackendUserId();
-  }, []);
 
   const calculateProgress = (spent: any, total: any) => {
     return Math.min((spent / total) * 100, 100);
@@ -235,7 +247,7 @@ const GroupDetails = () => {
             : `-₹${Math.abs(item.balance)}`}
         </Text>
       </View>
-      {group.isOwner && (
+      {isAdmin && (
         <TouchableOpacity style={styles.memberAction}>
           <Ionicons name="ellipsis-horizontal" size={20} color="#6B7280" />
         </TouchableOpacity>
@@ -377,17 +389,19 @@ const GroupDetails = () => {
             </LinearGradient>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleManageMembers}
-          >
-            <View style={styles.actionSecondary}>
-              <Ionicons name="people" size={24} color={group.color[0]} />
-              <Text style={[styles.actionText, { color: group.color[0] }]}>
-                Manage Members
-              </Text>
-            </View>
-          </TouchableOpacity>
+          {isAdmin && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleManageMembers}
+            >
+              <View style={styles.actionSecondary}>
+                <Ionicons name="people" size={24} color={group.color[0]} />
+                <Text style={[styles.actionText, { color: group.color[0] }]}>
+                  Manage Members
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </Animated.View>
 
         {/* View Balances Button */}
@@ -820,14 +834,14 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: '#E0E7FF',
+    backgroundColor: "#E0E7FF",
     borderRadius: 8,
   },
   remindButton: {
     marginLeft: 8,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
     borderRadius: 8,
   },
 });
