@@ -103,31 +103,51 @@ exports.deleteIncome = async (req, res) => {
   const { incomeId } = req.params;
 
   try {
-    const result = await pool.query(
+    // Fetch the income entry first
+    const incomeResult = await pool.query(
+      "SELECT * FROM INCOME WHERE incomeid = $1",
+      [incomeId]
+    );
+
+    if (incomeResult.rowCount === 0) {
+      return res.status(404).json({ message: "Income not found" });
+    }
+
+    const income = incomeResult.rows[0];
+
+    // Check if the income entry is older than 1 month
+    const createdAt = new Date(income.createdat);
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+    if (createdAt < oneMonthAgo) {
+      return res.status(403).json({
+        message: "Cannot delete income entries older than one month",
+      });
+    }
+
+    // Proceed to delete
+    const deleteResult = await pool.query(
       "DELETE FROM INCOME WHERE incomeid = $1 RETURNING *",
       [incomeId]
     );
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({ message: "Income not found" });
-    }
-
-    const amount = result.rows[0].amount;
+    const amount = deleteResult.rows[0].amount;
     await pool.query(
       `
         UPDATE account
         SET totalIncome = totalIncome - $1
         WHERE userId = $2
       `,
-      [amount, result.rows[0].userid]
+      [amount, deleteResult.rows[0].userid]
     );
 
     res.status(200).json({
       message: "Income deleted successfully",
-      deletedIncome: result.rows[0],
+      deletedIncome: deleteResult.rows[0],
     });
   } catch (err) {
-    console.error("Error deleting income : ", err);
+    console.error("❌ Error deleting income:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };

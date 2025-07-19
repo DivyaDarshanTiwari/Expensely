@@ -69,3 +69,27 @@ exports.accountTable = () => {
     }
   );
 };
+
+exports.account_snapshotsTable = () => {
+  pool.query(
+    `
+        CREATE TABLE IF NOT EXISTS account_snapshots (
+          snapshotId SERIAL PRIMARY KEY,
+          userId INTEGER NOT NULL REFERENCES users(user_id),
+          snapshot_date DATE NOT NULL,          
+          snapshot_timestamp TIMESTAMP DEFAULT NOW(),
+          totalIncome NUMERIC(10, 2),
+          totalExpense NUMERIC(10, 2),
+          balance NUMERIC(10, 2)
+      );
+
+    `,
+    (err, res) => {
+      if (err) {
+        console.error("Error creating ACCOUNT SNAPSHOT Table! ", err);
+      } else {
+        console.log("✅ ACCOUNT SNAPSHOT Table created or already existed!");
+      }
+    }
+  );
+};
