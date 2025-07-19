@@ -83,6 +83,15 @@ const IncomeItem = ({ item, onDelete }: IncomeItemProps) => {
     }).format(amount);
   };
 
+  const isCurrentMonth = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    return (
+      date.getFullYear() === now.getFullYear() &&
+      date.getMonth() === now.getMonth()
+    );
+  };
+
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
       toValue: 0.98,
@@ -202,21 +211,23 @@ const IncomeItem = ({ item, onDelete }: IncomeItemProps) => {
           </View>
         </View>
 
-        <TouchableOpacity
-          onPress={() => handleDelete(item.id)}
-          style={[
-            styles.deleteButton,
-            isDeleting && styles.deleteButtonDisabled,
-          ]}
-          disabled={isDeleting}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons
-            name={isDeleting ? "hourglass-outline" : "trash-outline"}
-            size={20}
-            color={isDeleting ? "#9CA3AF" : "#EF4444"}
-          />
-        </TouchableOpacity>
+        {isCurrentMonth(item.createdAt) && (
+          <TouchableOpacity
+            onPress={() => handleDelete(item.id)}
+            style={[
+              styles.deleteButton,
+              isDeleting && styles.deleteButtonDisabled,
+            ]}
+            disabled={isDeleting}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons
+              name={isDeleting ? "hourglass-outline" : "trash-outline"}
+              size={20}
+              color={isDeleting ? "#9CA3AF" : "#EF4444"}
+            />
+          </TouchableOpacity>
+        )}
       </TouchableOpacity>
     </Animated.View>
   );

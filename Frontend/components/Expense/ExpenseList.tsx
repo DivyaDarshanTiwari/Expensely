@@ -88,6 +88,15 @@ const ExpenseItem = ({ item, onDelete }: ExpenseItemProps) => {
     }).format(amountNum);
   };
 
+  const isCurrentMonth = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    return (
+      date.getFullYear() === now.getFullYear() &&
+      date.getMonth() === now.getMonth()
+    );
+  };
+
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
       toValue: 0.98,
@@ -200,21 +209,23 @@ const ExpenseItem = ({ item, onDelete }: ExpenseItemProps) => {
           </View>
         </View>
 
-        <TouchableOpacity
-          onPress={handleDelete}
-          style={[
-            styles.deleteButton,
-            isDeleting && styles.deleteButtonDisabled,
-          ]}
-          disabled={isDeleting}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons
-            name={isDeleting ? "hourglass-outline" : "trash-outline"}
-            size={20}
-            color={isDeleting ? "#9CA3AF" : "#EF4444"}
-          />
-        </TouchableOpacity>
+        {isCurrentMonth(item.createdat) && (
+          <TouchableOpacity
+            onPress={handleDelete}
+            style={[
+              styles.deleteButton,
+              isDeleting && styles.deleteButtonDisabled,
+            ]}
+            disabled={isDeleting}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons
+              name={isDeleting ? "hourglass-outline" : "trash-outline"}
+              size={20}
+              color={isDeleting ? "#9CA3AF" : "#EF4444"}
+            />
+          </TouchableOpacity>
+        )}
       </TouchableOpacity>
     </Animated.View>
   );
