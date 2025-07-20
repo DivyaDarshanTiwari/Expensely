@@ -23,9 +23,11 @@ exports.createGroup = async (req, res) => {
     console.log(result.rows[0].groupid);
     const groupId = result.rows[0].groupid;
     for (let member of groupMembers) {
+      // Set the creator as admin, others as regular members
+      const isAdmin = member === createdBy;
       await pool.query(
-        `INSERT INTO GROUP_MEMBERS (groupId, userId) VALUES ($1, $2) RETURNING *`,
-        [groupId, member]
+        `INSERT INTO GROUP_MEMBERS (groupId, userId, isAdmin) VALUES ($1, $2, $3) RETURNING *`,
+        [groupId, member, isAdmin]
       );
     }
     res.status(201).json({
@@ -43,16 +45,20 @@ exports.getGroupMembers = async (req, res) => {
   const { groupId } = req.params;
 
   try {
-    // Step 1: Get all userIds in this group
+    // Step 1: Get all userIds and admin status in this group
     const userIdResult = await pool.query(
-      `SELECT userId FROM GROUP_MEMBERS WHERE groupId = $1`,
+      `SELECT userId, isAdmin FROM GROUP_MEMBERS WHERE groupId = $1`,
       [groupId]
     );
-    const userIds = userIdResult.rows.map((row) => row.userid);
+    const userIds = userIdResult.rows.map((row) => ({
+      userId: row.userid,
+      isAdmin: row.isadmin,
+    }));
 
     const memberData = [];
 
-    for (let userId of userIds) {
+    for (let member of userIds) {
+      const { userId, isAdmin } = member;
       // Step 2: Get username
       const userResult = await pool.query(
         `SELECT username FROM USERS WHERE user_id = $1`,
@@ -76,6 +82,7 @@ exports.getGroupMembers = async (req, res) => {
         userId,
         username,
         balance: amountOwned,
+        isAdmin: isAdmin,
       });
     }
 
@@ -87,7 +94,9 @@ exports.getGroupMembers = async (req, res) => {
 };
 
 exports.addMemberToGroup = async (req, res) => {
-  const { groupId, add_userId } = req.body;
+  const { add_userId } = req.body;
+  const groupId = req.groupId;
+
   console.log(groupId, " ", add_userId);
   try {
     const checkUser = await pool.query(
@@ -99,8 +108,8 @@ exports.addMemberToGroup = async (req, res) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO GROUP_MEMBERS (groupId, userId) VALUES ($1, $2) RETURNING *`,
-      [groupId, add_userId]
+      `INSERT INTO GROUP_MEMBERS (groupId, userId, isAdmin) VALUES ($1, $2, $3) RETURNING *`,
+      [groupId, add_userId, false] // New members are not admins by default
     );
     res.status(201).json({
       message: "Member Added Successfully!",
@@ -113,7 +122,9 @@ exports.addMemberToGroup = async (req, res) => {
 };
 
 exports.removeMemberFromGroup = async (req, res) => {
-  const { groupId, delete_user_id } = req.body;
+  const { delete_user_id } = req.body;
+  const groupId = req.groupId;
+
   try {
     const result = await pool.query(
       "DELETE FROM group_members WHERE groupId = $1 AND userId = $2 RETURNING *",
@@ -149,6 +160,7 @@ exports.getGroupsByUser = async (req, res) => {
         g.description,
         g.groupbudget,
         g.createdby,
+        gm.isAdmin,
       (
         SELECT COUNT(*)
         FROM group_members gm2
@@ -173,7 +185,9 @@ exports.getGroupsByUser = async (req, res) => {
 };
 
 exports.deleteGroup = async (req, res) => {
-  const { groupId, userId, action } = req.body;
+  const { action } = req.body;
+  const groupId = req.groupId;
+  const userId = req.currentUserId;
 
   try {
     // Check if group exists and get the creator
@@ -187,42 +201,66 @@ exports.deleteGroup = async (req, res) => {
     }
 
     const groupCreator = checkGroup.rows[0].createdby;
+    const isCreator = Number(userId) === Number(groupCreator);
 
-    // If user is not the creator, they can only leave the group
-    if (groupCreator !== userId) {
-      return res.status(403).json({
+    // Determine the action to take
+    let finalAction = action;
+
+    // If user is the creator and no action specified, ask for action
+    if (isCreator && !finalAction) {
+      return res.status(400).json({
         message:
-          "Only group owners can delete groups. You can leave the group instead.",
+          "You are the group owner. Do you want to leave the group (transfer ownership) or delete the group?",
+        actions: ["leave_group", "delete_group"],
       });
     }
 
-    // If user is the creator, check action
-    if (!action) {
-      return res.status(404).json({
-        message: "Action is required to proceed.",
-      });
+    // If user is admin (not creator) and no action specified, proceed with delete
+    if (!isCreator && !finalAction) {
+      // Admin can only delete, not transfer ownership
+      finalAction = "delete_group";
     }
 
-    if (action === "leave_group") {
-      // Transfer ownership to another member and remove creator
-      // Find another member (lowest userId, or random)
-      const membersRes = await pool.query(
-        `SELECT userId FROM GROUP_MEMBERS WHERE groupId = $1 AND userId != $2 LIMIT 1`,
-        [groupId, userId]
-      );
-      if (membersRes.rowCount === 0) {
-        return res.status(400).json({
+    if (finalAction === "leave_group") {
+      // Only creators can transfer ownership
+      if (!isCreator) {
+        return res.status(403).json({
           message:
-            "No other members to transfer ownership to. Cannot leave group.",
+            "Only group owners can transfer ownership. Admins can only delete the group.",
         });
       }
-      const newOwnerId = membersRes.rows[0].userid;
+
+      // Transfer ownership to another admin and remove current user
+      // Find another admin (preferably) or any member
+      const adminRes = await pool.query(
+        `SELECT userId FROM GROUP_MEMBERS WHERE groupId = $1 AND userId != $2 AND isAdmin = true LIMIT 1`,
+        [groupId, userId]
+      );
+
+      let newOwnerId;
+      if (adminRes.rowCount > 0) {
+        newOwnerId = adminRes.rows[0].userid;
+      } else {
+        // If no other admin, find any other member
+        const membersRes = await pool.query(
+          `SELECT userId FROM GROUP_MEMBERS WHERE groupId = $1 AND userId != $2 LIMIT 1`,
+          [groupId, userId]
+        );
+        if (membersRes.rowCount === 0) {
+          return res.status(400).json({
+            message:
+              "No other members to transfer ownership to. Cannot leave group.",
+          });
+        }
+        newOwnerId = membersRes.rows[0].userid;
+      }
+
       // Transfer ownership
       await pool.query(`UPDATE GROUPS SET createdBy = $1 WHERE groupId = $2`, [
         newOwnerId,
         groupId,
       ]);
-      // Remove creator from group
+      // Remove current user from group
       await pool.query(
         `DELETE FROM GROUP_MEMBERS WHERE groupId = $1 AND userId = $2`,
         [groupId, userId]
@@ -231,8 +269,8 @@ exports.deleteGroup = async (req, res) => {
         message: "Ownership transferred and you have left the group.",
         newOwnerId,
       });
-    } else if (action === "delete_group") {
-      // User is the creator, proceed with full group deletion
+    } else if (finalAction === "delete_group") {
+      // User is the creator or admin, proceed with full group deletion
       // Step 0: Delete from SETTLEMENTS
       await pool.query(`DELETE FROM SETTLEMENTS WHERE groupid = $1`, [groupId]);
       // Step 1: Delete from EXPENSES_SHARE (if foreign key not set to cascade)
@@ -266,7 +304,8 @@ exports.deleteGroup = async (req, res) => {
 };
 
 exports.leaveGroup = async (req, res) => {
-  const { groupId, userId } = req.body;
+  const groupId = req.groupId;
+  const userId = req.currentUserId;
 
   try {
     // 1. Check if group exists
@@ -489,6 +528,101 @@ exports.getUserGroupBalances = async (req, res) => {
     res.status(200).json({ owesMe, iOwe });
   } catch (err) {
     console.error("Error getting user group balances: ", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// Make a member an admin
+exports.makeAdmin = async (req, res) => {
+  const { targetUserId } = req.body;
+  const groupId = req.groupId;
+
+  try {
+    // Check if target user is a member of the group
+    const memberCheck = await pool.query(
+      `SELECT isAdmin FROM GROUP_MEMBERS WHERE groupId = $1 AND userId = $2`,
+      [groupId, targetUserId]
+    );
+
+    if (memberCheck.rowCount === 0) {
+      return res
+        .status(404)
+        .json({ message: "Target user not found in group" });
+    }
+
+    if (memberCheck.rows[0].isadmin) {
+      return res.status(400).json({ message: "User is already an admin" });
+    }
+
+    // Make the user an admin
+    await pool.query(
+      `UPDATE GROUP_MEMBERS SET isAdmin = true WHERE groupId = $1 AND userId = $2`,
+      [groupId, targetUserId]
+    );
+
+    res.status(200).json({ message: "User promoted to admin successfully" });
+  } catch (err) {
+    console.error("Error making user admin:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// Remove admin privileges from a user
+exports.removeAdmin = async (req, res) => {
+  const { targetUserId } = req.body;
+  const groupId = req.groupId;
+
+  try {
+    // Check if target user is an admin
+    const targetCheck = await pool.query(
+      `SELECT isAdmin FROM GROUP_MEMBERS WHERE groupId = $1 AND userId = $2`,
+      [groupId, targetUserId]
+    );
+
+    if (targetCheck.rowCount === 0) {
+      return res
+        .status(404)
+        .json({ message: "Target user not found in group" });
+    }
+
+    if (!targetCheck.rows[0].isadmin) {
+      return res.status(400).json({ message: "User is not an admin" });
+    }
+
+    // Remove admin privileges
+    await pool.query(
+      `UPDATE GROUP_MEMBERS SET isAdmin = false WHERE groupId = $1 AND userId = $2`,
+      [groupId, targetUserId]
+    );
+
+    res.status(200).json({ message: "Admin privileges removed successfully" });
+  } catch (err) {
+    console.error("Error removing admin privileges:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// Get all admins of a group
+exports.getGroupAdmins = async (req, res) => {
+  const { groupId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `SELECT gm.userId, u.username 
+       FROM GROUP_MEMBERS gm 
+       JOIN USERS u ON gm.userId = u.user_id 
+       WHERE gm.groupId = $1 AND gm.isAdmin = true`,
+      [groupId]
+    );
+
+    const admins = result.rows.map((row) => ({
+      userId: row.userid,
+      username: row.username,
+    }));
+
+    res.status(200).json(admins);
+  } catch (err) {
+    console.error("Error getting group admins:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };

@@ -29,6 +29,7 @@ exports.groupMembersTable = async () => {
     `CREATE TABLE IF NOT EXISTS GROUP_MEMBERS (
         groupId INT REFERENCES GROUPS(groupId),
         userId INT NOT NULL,
+        isAdmin BOOLEAN DEFAULT FALSE,
         PRIMARY KEY (groupId, userId),
         FOREIGN KEY (userId) REFERENCES users(user_id)
     );`,
