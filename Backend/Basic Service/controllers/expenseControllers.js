@@ -107,28 +107,48 @@ const deleteExpense = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const result = await pool.query(
+    // Fetch the expense first
+    const expenseResult = await pool.query(
+      "SELECT * FROM expense WHERE expenseid = $1",
+      [id]
+    );
+
+    if (expenseResult.rowCount === 0) {
+      return res.status(404).json({ message: "Expense not found" });
+    }
+
+    const expense = expenseResult.rows[0];
+
+    // Check if the expense is older than 1 month
+    const createdAt = new Date(expense.createdat);
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+    if (createdAt < oneMonthAgo) {
+      return res.status(403).json({
+        message: "Cannot delete expenses older than one month",
+      });
+    }
+
+    // Proceed to delete
+    const deleteResult = await pool.query(
       "DELETE FROM expense WHERE expenseid = $1 RETURNING *",
       [id]
     );
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({ message: "Expense not found" });
-    }
-
-    const amount = result.rows[0].amount;
+    const amount = deleteResult.rows[0].amount;
     await pool.query(
       `
         UPDATE account
         SET totalExpense = totalExpense - $1
         WHERE userId = $2
       `,
-      [amount, result.rows[0].userid]
+      [amount, deleteResult.rows[0].userid]
     );
 
     res.status(200).json({
       message: "Expense deleted successfully",
-      deletedExpense: result.rows[0],
+      deletedExpense: deleteResult.rows[0],
     });
   } catch (err) {
     console.error("❌ Error deleting expense:", err);
