@@ -28,17 +28,13 @@ import {
   View,
 } from "react-native";
 import { auth } from "../auth/firebase";
+import { storeUserId } from "../utils/storage";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 // Store backend userId
-const storeUserId = async (userId: string | number) => {
-  await SecureStore.setItemAsync("userId", String(userId));
-};
+
 // Retrieve backend userId
-export const getStoredUserId = async () => {
-  return await SecureStore.getItemAsync("userId");
-};
 
 const ExpenselyAuth = () => {
   const router = useRouter();
@@ -132,12 +128,8 @@ const ExpenselyAuth = () => {
           }
         );
         // Store userId from backend response (handle both possible structures)
-        if (signUpRes.data) {
-          if (signUpRes.data.userId) {
-            await storeUserId(signUpRes.data.userId);
-          } else if (signUpRes.data.user && signUpRes.data.user.user_id) {
-            await storeUserId(signUpRes.data.user.user_id);
-          }
+        if (signUpRes.data && signUpRes.data.user.user_id) {
+          await storeUserId(signUpRes.data.user.user_id);
         }
       } catch (signUpError: any) {
         console.warn(
@@ -155,12 +147,8 @@ const ExpenselyAuth = () => {
             }
           );
           // Store userId from backend response (handle both possible structures)
-          if (validTokenRes.data) {
-            if (validTokenRes.data.userId) {
-              await storeUserId(validTokenRes.data.userId);
-            } else if (validTokenRes.data.user && validTokenRes.data.user.user_id) {
-              await storeUserId(validTokenRes.data.user.user_id);
-            }
+          if (validTokenRes.data && validTokenRes.data.user.user_id) {
+            await storeUserId(validTokenRes.data.user.user_id);
           }
         } catch (validationError: any) {
           console.error(

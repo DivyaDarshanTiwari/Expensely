@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { auth } from "../auth/firebase";
-import { getStoredUserId } from "./auth";
+import { getStoredUserId } from "../utils/storage";
 
 const GroupBalances = () => {
   const router = useRouter();
