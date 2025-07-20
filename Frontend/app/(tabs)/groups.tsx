@@ -62,7 +62,7 @@ const ExpenselyGroups = () => {
               },
             }
           );
-          
+
           // Get current user ID from auth service
           const authRes = await axios.post(
             `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/validToken`,
@@ -73,20 +73,24 @@ const ExpenselyGroups = () => {
               },
             }
           );
-          
+
           const currentUserId = authRes.data.user.user_id;
-          
-          const mappedGroups = res.data.map((group: any, index: number) => ({
-            id: group.groupid,
-            name: group.name,
-            description: group.description,
-            members: Number.parseInt(group.member_count),
-            totalBudget: Number.parseFloat(group.groupbudget),
-            spent: Number.parseFloat(group.spent),
-            color: ["#8B5CF6", "#7C3AED"],
-            icon: "people",
-            isOwner: group.createdby === currentUserId, // Check if current user is the creator
-          }));
+
+          const mappedGroups = res.data.map((group: any, index: number) => {
+            console.log("Group data:", group); // Debug log
+            return {
+              id: group.groupid,
+              name: group.name,
+              description: group.description,
+              members: Number.parseInt(group.member_count),
+              totalBudget: Number.parseFloat(group.groupbudget),
+              spent: Number.parseFloat(group.spent),
+              color: ["#8B5CF6", "#7C3AED"],
+              icon: "people",
+              isOwner: group.createdby === currentUserId, // Check if current user is the creator
+              isAdmin: Boolean(group.isadmin), // Convert to boolean explicitly
+            };
+          });
           setGroups(mappedGroups);
         } catch (err) {
           console.error("Failed to fetch groups", err);
@@ -230,9 +234,9 @@ const ExpenselyGroups = () => {
     setDeletingGroupId(groupId);
     try {
       const response = await axios.delete(
-        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/deleteGroup`,
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/deleteGroup/${groupId}`,
         {
-          data: { groupId },
+          data: {},
           headers: {
             Authorization: `Bearer ${idToken}`,
           },
@@ -250,7 +254,8 @@ const ExpenselyGroups = () => {
         // Creator: show options to leave or delete
         Alert.alert(
           "Group Owner Options",
-          error.response.data.message || "You are the group owner. What would you like to do?",
+          error.response.data.message ||
+            "You are the group owner. What would you like to do?",
           [
             {
               text: "Cancel",
@@ -258,22 +263,27 @@ const ExpenselyGroups = () => {
             },
             {
               text: "Leave Group",
-              onPress: () => confirmDeleteGroupWithAction(groupId, "leave_group"),
+              onPress: () =>
+                confirmDeleteGroupWithAction(groupId, "leave_group"),
             },
             {
               text: "Delete Group",
               style: "destructive",
-              onPress: () => confirmDeleteGroupWithAction(groupId, "delete_group"),
+              onPress: () =>
+                confirmDeleteGroupWithAction(groupId, "delete_group"),
             },
           ]
         );
-      } else if (error.response?.data?.message === "No other members to transfer ownership to. Cannot leave group.") {
+      } else if (
+        error.response?.data?.message ===
+        "No other members to transfer ownership to. Cannot leave group."
+      ) {
         Alert.alert("Error", error.response.data.message);
-      } else if (error.response?.status === 403 && error.response?.data?.action === "leave_group") {
-        // User is not the owner, offer to leave the group instead
+      } else if (error.response?.status === 403) {
+        // User is not an admin, offer to leave the group instead
         Alert.alert(
           "Leave Group",
-          "Only group owners can delete groups. Would you like to leave this group instead?",
+          "Only group owners and admins can delete groups. Would you like to leave this group instead?",
           [
             {
               text: "Cancel",
@@ -294,13 +304,16 @@ const ExpenselyGroups = () => {
     }
   };
 
-  const confirmDeleteGroupWithAction = async (groupId: number, action: "leave_group" | "delete_group") => {
+  const confirmDeleteGroupWithAction = async (
+    groupId: number,
+    action: "leave_group" | "delete_group"
+  ) => {
     setDeletingGroupId(groupId);
     try {
       const response = await axios.delete(
-        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/deleteGroup`,
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/deleteGroup/${groupId}`,
         {
-          data: { groupId, action },
+          data: { action },
           headers: {
             Authorization: `Bearer ${idToken}`,
           },
@@ -310,7 +323,10 @@ const ExpenselyGroups = () => {
         prevGroups.filter((group) => group.id !== groupId)
       );
       if (action === "leave_group") {
-        Alert.alert("Success", "Ownership transferred and you have left the group.");
+        Alert.alert(
+          "Success",
+          "Ownership transferred and you have left the group."
+        );
       } else {
         Alert.alert("Success", "Group deleted successfully!");
       }
@@ -319,7 +335,10 @@ const ExpenselyGroups = () => {
       if (error.response?.data?.message) {
         Alert.alert("Error", error.response.data.message);
       } else {
-        Alert.alert("Error", "Failed to process your request. Please try again.");
+        Alert.alert(
+          "Error",
+          "Failed to process your request. Please try again."
+        );
       }
     } finally {
       setDeletingGroupId(null);
@@ -330,9 +349,9 @@ const ExpenselyGroups = () => {
     setDeletingGroupId(groupId);
     try {
       await axios.delete(
-        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/leaveGroup`,
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/leaveGroup/${groupId}`,
         {
-          data: { groupId },
+          data: {},
           headers: {
             Authorization: `Bearer ${idToken}`,
           },
@@ -344,9 +363,15 @@ const ExpenselyGroups = () => {
       Alert.alert("Success", "You have left the group successfully!");
     } catch (error: any) {
       console.error("Error leaving group:", error);
-      if (error.response?.data?.message === "You must settle all your balances before leaving the group.") {
+      if (
+        error.response?.data?.message ===
+        "You must settle all your balances before leaving the group."
+      ) {
         Alert.alert("Settle Up Required", error.response.data.message);
-      } else if (error.response?.status === 400 && error.response?.data?.action === "delete_group") {
+      } else if (
+        error.response?.status === 400 &&
+        error.response?.data?.action === "delete_group"
+      ) {
         // User is the owner, they need to delete instead
         Alert.alert(
           "Delete Group",
@@ -393,10 +418,14 @@ const ExpenselyGroups = () => {
   };
 
   const handleGroupLongPress = (group: any) => {
-    if (group.isOwner) {
-      // User is the owner - can delete the group
+    console.log("Group in long press:", group); // Debug log
+    console.log("isAdmin value:", group.isAdmin, "Type:", typeof group.isAdmin); // Debug log
+    console.log("isOwner value:", group.isOwner, "Type:", typeof group.isOwner); // Debug log
+    
+    if (group.isAdmin) {
+      // User is an admin (creator or admin) - can delete the group or leave
       Alert.alert(
-        "Group Options",
+        "Group Admin Options",
         `What would you like to do with "${group.name}"?`,
         [
           {
@@ -411,7 +440,7 @@ const ExpenselyGroups = () => {
         ]
       );
     } else {
-      // User is not the owner - can leave the group
+      // User is not an admin (regular member) - can only leave the group
       Alert.alert(
         "Group Options",
         `What would you like to do with "${group.name}"?`,
@@ -552,7 +581,7 @@ const ExpenselyGroups = () => {
                     <Ionicons name="trash" size={24} color="#EF4444" />
                   </Animated.View>
                   <Text style={styles.deleteLoadingText}>
-                    {item.isOwner ? "Deleting..." : "Leaving..."}
+                    {item.isAdmin ? "Deleting..." : "Leaving..."}
                   </Text>
                 </View>
               </View>
@@ -576,7 +605,7 @@ const ExpenselyGroups = () => {
                 </View>
                 <Text style={styles.groupDescription}>{item.description}</Text>
               </View>
-              {item.isOwner && (
+              {item.isAdmin && (
                 <TouchableOpacity
                   style={styles.deleteButton}
                   onPress={() => handleDeleteGroup(item)}
@@ -585,7 +614,7 @@ const ExpenselyGroups = () => {
                   <Ionicons name="trash-outline" size={18} color="#EF4444" />
                 </TouchableOpacity>
               )}
-              {!item.isOwner && (
+              {!item.isAdmin && (
                 <TouchableOpacity
                   style={styles.deleteButton}
                   onPress={() => handleLeaveGroup(item)}

@@ -1,26 +1,25 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Dimensions,
-  Animated,
-  StyleSheet,
-  StatusBar,
-  ScrollView,
-  TextInput,
-  Alert,
-  Modal,
-  FlatList,
-  RefreshControl,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import axios from "axios";
-import { auth } from "../auth/firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
 import Constants from "expo-constants";
+import { LinearGradient } from "expo-linear-gradient";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { onAuthStateChanged } from "firebase/auth";
+import React, { useCallback, useRef, useState } from "react";
+import {
+  Alert,
+  Animated,
+  Dimensions,
+  FlatList,
+  Modal,
+  RefreshControl,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { auth } from "../auth/firebase";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -28,17 +27,19 @@ const ManageMembers = () => {
   const router = useRouter();
   const { groupId, groupName } = useLocalSearchParams();
 
-  const [members, setMembers] = useState([]);
-  const [searchResults, setSearchResults] = useState([]);
+  const [members, setMembers] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
-  const [selectedMember, setSelectedMember] = useState(null);
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [addMemberQuery, setAddMemberQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null); // Replace with actual logged-in user ID
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [idToken, setIdToken] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -104,13 +105,33 @@ const ManageMembers = () => {
       );
       console.log(res.data);
       setMembers(res.data || []);
+
+      // Get current user ID and check admin status
+      const authRes = await axios.post(
+        `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/validToken`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        }
+      );
+
+      const currentUserId = authRes.data.user.user_id;
+      setCurrentUserId(currentUserId);
+
+      // Check if current user is admin
+      const currentUser = res.data.find(
+        (member: any) => member.userId === currentUserId
+      );
+      setIsAdmin(currentUser?.isAdmin || false);
     } catch (error) {
       console.error("Failed to fetch members", error);
       Alert.alert("Error", "Could not fetch group members");
     }
   };
 
-  const searchUsers = async (query) => {
+  const searchUsers = async (query: string) => {
     if (query.trim().length < 2) {
       setSearchResults([]);
       return;
@@ -128,7 +149,7 @@ const ManageMembers = () => {
       // Filter out users who are already members
       const existingMemberIds = members.map((member) => member.userId);
       const filteredResults = res.data.filter(
-        (user) => !existingMemberIds.includes(user.id)
+        (user: any) => !existingMemberIds.includes(user.user_id)
       );
       setSearchResults(filteredResults || []);
     } catch (error) {
@@ -137,15 +158,15 @@ const ManageMembers = () => {
     }
   };
 
-  const handleAddMember = async (user) => {
+  const handleAddMember = async (user: any) => {
     setLoading(true);
     try {
       console.log(user);
       const res = await axios.post(
-        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/addMember`,
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/addMember/${groupId}`,
         {
-          groupId: parseInt(groupId),
           add_userId: user.user_id,
+          currentUserId: currentUserId,
         },
         {
           headers: {
@@ -154,7 +175,7 @@ const ManageMembers = () => {
         }
       );
 
-      Alert.alert("Success", `${user.name} has been added to the group!`);
+      Alert.alert("Success", `${user.username} has been added to the group!`);
       setShowAddModal(false);
       setAddMemberQuery("");
       setSearchResults([]);
@@ -163,7 +184,7 @@ const ManageMembers = () => {
       setMembers((prevMembers) => [
         ...prevMembers,
         {
-          userId: user.userId,
+          userId: user.user_id,
         },
       ]);
     } catch (error) {
@@ -181,12 +202,11 @@ const ManageMembers = () => {
     try {
       console.log(selectedMember);
       const res = await axios.delete(
-        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/removeMember`,
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/removeMember/${groupId}`,
         {
           data: {
-            groupId: parseInt(groupId),
             delete_user_id: selectedMember?.userId,
-            removedBy: currentUserId,
+            currentUserId: currentUserId,
           },
           headers: {
             Authorization: `Bearer ${idToken}`,
@@ -199,7 +219,7 @@ const ManageMembers = () => {
 
       Alert.alert(
         "Success",
-        `${selectedMember.name} has been removed from the group.`
+        `${selectedMember.username} has been removed from the group.`
       );
       setShowRemoveModal(false);
       setSelectedMember(null);
@@ -207,6 +227,72 @@ const ManageMembers = () => {
     } catch (error) {
       console.error("Error removing member:", error);
       Alert.alert("Error", "Failed to remove member. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMakeAdmin = async () => {
+    if (!selectedMember) return;
+
+    setLoading(true);
+    try {
+      const res = await axios.post(
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/makeAdmin/${groupId}`,
+        {
+          targetUserId: selectedMember.userId,
+          currentUserId: currentUserId,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        }
+      );
+
+      Alert.alert("Success", `${selectedMember.username} is now an admin!`);
+      setShowAdminModal(false);
+      setSelectedMember(null);
+      fetchMembers(idToken); // Refresh the members list
+    } catch (error) {
+      console.error("Error making admin:", error);
+      Alert.alert("Error", "Failed to make user admin. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveAdmin = async () => {
+    if (!selectedMember) return;
+
+    setLoading(true);
+    try {
+      const res = await axios.post(
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/removeAdmin/${groupId}`,
+        {
+          targetUserId: selectedMember.userId,
+          currentUserId: currentUserId,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        }
+      );
+
+      Alert.alert(
+        "Success",
+        `${selectedMember.username} is no longer an admin.`
+      );
+      setShowAdminModal(false);
+      setSelectedMember(null);
+      fetchMembers(idToken); // Refresh the members list
+    } catch (error) {
+      console.error("Error removing admin:", error);
+      Alert.alert(
+        "Error",
+        "Failed to remove admin privileges. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -226,8 +312,7 @@ const ManageMembers = () => {
     return username.includes(query) || email.includes(query);
   });
 
-  const currentUser = members.find((member) => member.id === currentUserId);
-  const isOwner = true;
+  const currentUser = members.find((member) => member.userId === currentUserId);
 
   const getBalanceColor = (balance: any) => {
     if (balance > 0) return "#10B981"; // Green for positive
@@ -267,12 +352,12 @@ const ManageMembers = () => {
         <View style={styles.memberInfo}>
           <View style={styles.memberNameRow}>
             <Text style={styles.memberName}>{item.username}</Text>
-            {/* {item.role === "owner" && (
-              <View style={styles.ownerBadge}>
-                <Ionicons size={12} color="#F59E0B" />
-                <Text style={styles.ownerText}>Owner</Text>
+            {item.isAdmin && (
+              <View style={styles.adminBadge}>
+                <Ionicons name="shield-checkmark" size={12} color="#8B5CF6" />
+                <Text style={styles.adminText}>Admin</Text>
               </View>
-            )} */}
+            )}
           </View>
           <Text style={styles.memberEmail}>{item.email}</Text>
           <View style={styles.memberStats}>
@@ -293,12 +378,12 @@ const ManageMembers = () => {
             </Text>
           </View>
         </View>
-        {isOwner && item.userId && (
+        {isAdmin && item.userId !== currentUserId && (
           <TouchableOpacity
             style={styles.memberAction}
             onPress={() => {
               setSelectedMember(item);
-              setShowRemoveModal(true);
+              setShowAdminModal(true);
             }}
           >
             <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
@@ -430,7 +515,7 @@ const ManageMembers = () => {
             <View style={styles.confirmationContent}>
               <Ionicons name="warning" size={48} color="#F59E0B" />
               <Text style={styles.confirmationTitle}>
-                Remove {selectedMember?.name}?
+                Remove {selectedMember?.username}?
               </Text>
               <Text style={styles.confirmationText}>
                 This member will be removed from the group and will no longer
@@ -464,6 +549,98 @@ const ManageMembers = () => {
     </Modal>
   );
 
+  const renderAdminModal = () => (
+    <Modal
+      visible={showAdminModal}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setShowAdminModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <Animated.View
+          style={[styles.modalContent, { transform: [{ scale: cardScale }] }]}
+        >
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>
+              Manage {selectedMember?.username}
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                setShowAdminModal(false);
+                setSelectedMember(null);
+              }}
+              style={styles.modalCloseButton}
+            >
+              <Ionicons name="close" size={24} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.modalBody}>
+            <View style={styles.memberInfoCard}>
+              <View style={styles.memberAvatar}>
+                <Text style={styles.memberInitial}>
+                  {(selectedMember?.username?.charAt(0) || "?").toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.memberInfo}>
+                <Text style={styles.memberName}>
+                  {selectedMember?.username}
+                </Text>
+                <Text style={styles.memberEmail}>{selectedMember?.email}</Text>
+                {selectedMember?.isAdmin && (
+                  <View style={styles.adminBadge}>
+                    <Ionicons
+                      name="shield-checkmark"
+                      size={12}
+                      color="#8B5CF6"
+                    />
+                    <Text style={styles.adminText}>Admin</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.adminActions}>
+              {!selectedMember?.isAdmin ? (
+                <TouchableOpacity
+                  style={styles.adminActionButton}
+                  onPress={handleMakeAdmin}
+                  disabled={loading}
+                >
+                  <Ionicons name="shield-checkmark" size={20} color="#8B5CF6" />
+                  <Text style={styles.adminActionText}>Make Admin</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.adminActionButton}
+                  onPress={handleRemoveAdmin}
+                  disabled={loading}
+                >
+                  <Ionicons name="shield-outline" size={20} color="#EF4444" />
+                  <Text style={[styles.adminActionText, { color: "#EF4444" }]}>
+                    Remove Admin
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={styles.removeActionButton}
+                onPress={() => {
+                  setShowAdminModal(false);
+                  setShowRemoveModal(true);
+                }}
+                disabled={loading}
+              >
+                <Ionicons name="person-remove" size={20} color="#EF4444" />
+                <Text style={styles.removeActionText}>Remove from Group</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
@@ -488,7 +665,7 @@ const ManageMembers = () => {
           <Text style={styles.headerTitle}>Manage Members</Text>
           <Text style={styles.headerSubtitle}>{groupName}</Text>
         </View>
-        {isOwner && (
+        {isAdmin && (
           <TouchableOpacity
             style={styles.addButton}
             onPress={() => setShowAddModal(true)}
@@ -591,6 +768,7 @@ const ManageMembers = () => {
 
       {renderAddModal()}
       {renderRemoveModal()}
+      {renderAdminModal()}
     </View>
   );
 };
@@ -753,10 +931,19 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 8,
   },
-  ownerText: {
+  adminBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EDE9FE",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  adminText: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#F59E0B",
+    color: "#8B5CF6",
     marginLeft: 4,
   },
   memberEmail: {
@@ -936,6 +1123,47 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "white",
+  },
+  memberInfoCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  adminActions: {
+    gap: 12,
+  },
+  adminActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  adminActionText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#8B5CF6",
+    marginLeft: 12,
+  },
+  removeActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF2F2",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  removeActionText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#EF4444",
+    marginLeft: 12,
   },
 });
 
