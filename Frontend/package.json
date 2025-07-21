@@ -61,7 +61,8 @@
     "tesseract.js": "^6.0.1",
     "tslib": "^2.8.1",
     "yup": "^1.6.1",
-    "expo-secure-store": "~14.2.3"
+    "expo-secure-store": "~14.2.3",
+    "expo-dev-client": "~5.2.4"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
