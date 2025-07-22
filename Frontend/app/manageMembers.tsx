@@ -6,18 +6,18 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import React, { useCallback, useRef, useState } from "react";
 import {
-  Alert,
-  Animated,
-  Dimensions,
-  FlatList,
-  Modal,
-  RefreshControl,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Animated,
+    Dimensions,
+    FlatList,
+    Modal,
+    RefreshControl,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { auth } from "../auth/firebase";
 
@@ -916,12 +916,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 4,
+    flexWrap: "wrap",
+    gap: 4,
   },
   memberName: {
     fontSize: 18,
     fontWeight: "700",
     color: "#111827",
     marginRight: 8,
+    maxWidth: 160, // or adjust as needed
   },
   ownerBadge: {
     flexDirection: "row",
@@ -938,7 +941,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
-    marginLeft: 8,
+    marginLeft: 0, // remove marginLeft to allow wrapping
+    marginTop: 4, // add marginTop for spacing if wrapped
   },
   adminText: {
     fontSize: 10,
