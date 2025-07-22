@@ -1,26 +1,25 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  Image,
-  TouchableOpacity,
-  Dimensions,
-  Animated,
-  StyleSheet,
-  StatusBar,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
-import axios from "axios";
+import ExpenseChart from "@/components/Charts/ExpenseChart";
 import FinancialOverviewChart from "@/components/Charts/FinancialOverviewChart";
 import IncomeChart from "@/components/Charts/IncomeChart";
-import ExpenseChart from "@/components/Charts/ExpenseChart";
-import { useFocusEffect, useRouter } from "expo-router";
-import { auth } from "../../auth/firebase";
-import { getIdToken, onAuthStateChanged, User } from "firebase/auth";
-import { unsubscribe } from "diagnostics_channel";
+import { Ionicons } from "@expo/vector-icons";
+import axios from "axios";
 import Constants from "expo-constants";
+import { LinearGradient } from "expo-linear-gradient";
+import { useFocusEffect, useRouter } from "expo-router";
+import { onAuthStateChanged, User } from "firebase/auth";
+import React, { useCallback, useRef, useState } from "react";
+import {
+  Animated,
+  Dimensions,
+  Image,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { auth } from "../../auth/firebase";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 interface Transaction {
@@ -70,10 +69,11 @@ const ExpenselyDashboard = () => {
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
+      let unsubscribeAuth: (() => void) | null = null;
 
       const fetchDataOnFocus = async () => {
         try {
-          const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+          unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser && isActive) {
               try {
                 const idToken = await firebaseUser.getIdToken();
@@ -134,10 +134,6 @@ const ExpenselyDashboard = () => {
               useNativeDriver: true,
             }),
           ]).start();
-
-          return () => {
-            unsubscribe();
-          };
         } catch (err) {
           console.error("Error in fetchDataOnFocus:", err);
         }
@@ -147,6 +143,7 @@ const ExpenselyDashboard = () => {
 
       return () => {
         isActive = false;
+        if (unsubscribeAuth) unsubscribeAuth();
       };
     }, [])
   );

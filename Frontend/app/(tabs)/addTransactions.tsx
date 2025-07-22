@@ -50,33 +50,20 @@ export default function AddTransactions() {
 
   const expenseCategories = [
     { id: "Food", name: "Food & Dining", icon: "restaurant", color: "#F59E0B" },
-    { id: "transport", name: "Transportation", icon: "car", color: "#3B82F6" },
-    {
-      id: "Entertainment",
-      name: "Entertainment",
-      icon: "game-controller",
-      color: "#8B5CF6",
-    },
+    { id: "Transport", name: "Transport & Travel", icon: "car", color: "#3B82F6" },
+    { id: "Accommodation", name: "Accommodation", icon: "bed", color: "#7C3AED" },
+    { id: "Entertainment", name: "Entertainment", icon: "game-controller", color: "#8B5CF6" },
     { id: "Shopping", name: "Shopping", icon: "bag", color: "#EC4899" },
-    { id: "utilities", name: "Utilities", icon: "flash", color: "#10B981" },
-    {
-      id: "Health",
-      name: "Health & Medical",
-      icon: "medical",
-      color: "#EF4444",
-    },
+    { id: "Grocery", name: "Grocery", icon: "cart", color: "#22D3EE" },
+    { id: "Utilities", name: "Utilities", icon: "flash", color: "#10B981" },
+    { id: "Health", name: "Health & Medical", icon: "medical", color: "#EF4444" },
     { id: "General", name: "General", icon: "card", color: "#6B7280" },
   ];
 
   const incomeCategories = [
     { id: "Salary", name: "Salary", icon: "briefcase", color: "#10B981" },
     { id: "Freelance", name: "Freelance", icon: "laptop", color: "#3B82F6" },
-    {
-      id: "Investment",
-      name: "Investment",
-      icon: "trending-up",
-      color: "#8B5CF6",
-    },
+    { id: "Investment", name: "Investment", icon: "trending-up", color: "#8B5CF6" },
     { id: "Gift", name: "Gift", icon: "gift", color: "#EC4899" },
     { id: "Refund", name: "Refund", icon: "refresh", color: "#F59E0B" },
     { id: "Bonus", name: "Bonus", icon: "star", color: "#EF4444" },
@@ -85,6 +72,43 @@ export default function AddTransactions() {
 
   const categories =
     transactionType === "expense" ? expenseCategories : incomeCategories;
+
+  // Add keywordCategoryMap and detectCategory for auto-category (expense and income)
+  const keywordCategoryMapExpense = [
+    { keywords: ["petrol", "fuel", "gas"], categoryId: "Transport" },
+    { keywords: ["hotel", "stay", "accommodation"], categoryId: "Accommodation" },
+    { keywords: ["flight", "air", "train", "bus", "taxi"], categoryId: "Transport" },
+    { keywords: ["food", "dinner", "lunch", "breakfast", "snack", "restaurant"], categoryId: "Food" },
+    { keywords: ["ticket", "activity", "museum", "zoo", "park"], categoryId: "Entertainment" },
+    { keywords: ["shopping", "mall", "clothes", "gift"], categoryId: "Shopping" },
+    { keywords: ["medicine", "doctor", "pharmacy", "health"], categoryId: "Health" },
+    { keywords: ["utility", "electricity", "water", "wifi", "internet"], categoryId: "Utilities" },
+    { keywords: ["grocery", "groceries", "supermarket", "vegetable", "fruit"], categoryId: "Grocery" },
+  ];
+
+  const keywordCategoryMapIncome = [
+    { keywords: ["salary", "payroll", "paycheck", "pocket money"], categoryId: "Salary" },
+    { keywords: ["freelance", "contract", "project"], categoryId: "Freelance" },
+    { keywords: ["investment", "dividend", "interest", "stock", "mutual fund"], categoryId: "Investment" },
+    { keywords: ["gift", "present"], categoryId: "Gift" },
+    { keywords: ["refund", "return"], categoryId: "Refund" },
+    { keywords: ["bonus", "incentive", "award"], categoryId: "Bonus" },
+    { keywords: ["other", "misc"], categoryId: "Other" },
+  ];
+
+  function detectCategory(description: string, type: string) {
+    const desc = description.toLowerCase();
+    const map = type === "income" ? keywordCategoryMapIncome : keywordCategoryMapExpense;
+    for (const entry of map) {
+      if (entry.keywords.some((kw) => desc.includes(kw))) {
+        return entry.categoryId;
+      }
+    }
+    // fallback to first category for income if nothing matches
+    if (type === "income") return incomeCategories[0].id;
+    if (type === "expense") return expenseCategories[0].id;
+    return null;
+  }
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -126,27 +150,28 @@ export default function AddTransactions() {
     return () => unsubscribe();
   }, [transactionType]);
 
-  const handleTypeToggle = (
-    newType: React.SetStateAction<string | string[]>
-  ) => {
+  // Always set a default category when switching type
+  const handleTypeToggle = (newType: React.SetStateAction<string | string[]>) => {
     if (newType === transactionType) return;
-
     Animated.timing(toggleSlide, {
       toValue: newType === "expense" ? 0 : 1,
       duration: 300,
       useNativeDriver: true,
     }).start();
-
     setTransactionType(newType);
+    // Set default category for the new type
     setTransactionData((prev) => ({
       ...prev,
-      category: newType === "expense" ? "general" : "salary",
+      category: (newType === "expense" ? expenseCategories[0].id : incomeCategories[0].id),
+      description: "",
+      amount: "",
     }));
   };
 
+  // Fix selectedCategory logic and add debug log
   const selectedCategory = categories.find(
-    (cat) => cat.id === transactionData.category
-  );
+    (cat) => cat.id.toLowerCase() === transactionData.category.toLowerCase()
+  ) || categories[0];
 
   const handleSubmit = async () => {
     // Validation
@@ -222,8 +247,7 @@ export default function AddTransactions() {
               <TouchableOpacity
                 style={[
                   styles.categoryItem,
-                  transactionData.category === item.id &&
-                    styles.categoryItemSelected,
+                  transactionData.category.toLowerCase() === item.id.toLowerCase() && styles.categoryItemSelected,
                 ]}
                 onPress={() => {
                   setTransactionData((prev) => ({
@@ -288,6 +312,9 @@ export default function AddTransactions() {
     return transactionType === "expense" ? "-₹" : "+₹";
   };
 
+  // Define toggle button width for accurate slider
+  const TOGGLE_WIDTH = (screenWidth - 80) / 2;
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -322,37 +349,17 @@ export default function AddTransactions() {
       </Animated.View>
 
       {/* Type Toggle */}
-      <Animated.View
-        style={[
-          styles.toggleContainer,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          },
-        ]}
+      <View
+        style={styles.toggleContainer}
       >
         <View style={styles.toggleWrapper}>
-          <Animated.View
-            style={[
-              styles.toggleSlider,
-              {
-                transform: [
-                  {
-                    translateX: toggleSlide.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, (screenWidth - 80) / 2],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          />
           <TouchableOpacity
             style={[
               styles.toggleButton,
-              transactionType === "expense" && styles.toggleButtonActive,
+              transactionType === "expense" && styles.toggleButtonActiveExpense,
             ]}
             onPress={() => handleTypeToggle("expense")}
+            activeOpacity={0.8}
           >
             <Ionicons
               name="remove-circle"
@@ -362,7 +369,7 @@ export default function AddTransactions() {
             <Text
               style={[
                 styles.toggleText,
-                transactionType === "expense" && styles.toggleTextActive,
+                transactionType === "expense" && styles.toggleTextActiveExpense,
               ]}
             >
               Expense
@@ -371,9 +378,10 @@ export default function AddTransactions() {
           <TouchableOpacity
             style={[
               styles.toggleButton,
-              transactionType === "income" && styles.toggleButtonActive,
+              transactionType === "income" && styles.toggleButtonActiveIncome,
             ]}
             onPress={() => handleTypeToggle("income")}
+            activeOpacity={0.8}
           >
             <Ionicons
               name="add-circle"
@@ -383,14 +391,14 @@ export default function AddTransactions() {
             <Text
               style={[
                 styles.toggleText,
-                transactionType === "income" && styles.toggleTextActive,
+                transactionType === "income" && styles.toggleTextActiveIncome,
               ]}
             >
               Income
             </Text>
           </TouchableOpacity>
         </View>
-      </Animated.View>
+      </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Amount Input */}
@@ -454,16 +462,16 @@ export default function AddTransactions() {
                 <View
                   style={[
                     styles.categoryIcon,
-                    { backgroundColor: selectedCategory?.color + "20" }, // ✅ corrected string concat
+                    { backgroundColor: (selectedCategory?.color || "#E5E7EB") + "20" },
                   ]}
                 >
                   <Ionicons
-                    name={selectedCategory?.icon as any}
+                    name={(selectedCategory?.icon as any) || "help-circle"}
                     size={20}
-                    color={selectedCategory?.color}
+                    color={selectedCategory?.color || "#6B7280"}
                   />
                 </View>
-                <Text style={styles.selectText}>{selectedCategory?.name}</Text>
+                <Text style={styles.selectText}>{selectedCategory?.name || categories[0].name}</Text>
               </View>
               <Ionicons name="chevron-down" size={20} color="#6B7280" />
             </TouchableOpacity>
@@ -477,9 +485,16 @@ export default function AddTransactions() {
               placeholder={`What was this ${transactionType} for?`}
               placeholderTextColor="#9CA3AF"
               value={transactionData.description}
-              onChangeText={(text) =>
-                setTransactionData((prev) => ({ ...prev, description: text }))
-              }
+              onChangeText={(text) => {
+                setTransactionData((prev) => {
+                  const detected = detectCategory(text, String(transactionType));
+                  return {
+                    ...prev,
+                    description: text,
+                    category: detected || prev.category || categories[0].id,
+                  };
+                });
+              }}
             />
           </View>
         </Animated.View>
@@ -585,22 +600,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
     borderRadius: 12,
     padding: 4,
-    position: "relative",
-  },
-  toggleSlider: {
-    position: "absolute",
-    top: 4,
-    left: 4,
-    right: 4,
-    height: 40,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 8,
-    width: (screenWidth - 80) / 2,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    marginHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 8,
   },
   toggleButton: {
     flex: 1,
@@ -608,10 +610,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 12,
-    zIndex: 1,
+    borderRadius: 8,
+    backgroundColor: "transparent",
   },
-  toggleButtonActive: {
-    // Active styles handled by slider background
+  toggleButtonActiveExpense: {
+    backgroundColor: "#EF4444",
+  },
+  toggleButtonActiveIncome: {
+    backgroundColor: "#10B981",
   },
   toggleText: {
     fontSize: 16,
@@ -619,8 +625,11 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     marginLeft: 8,
   },
-  toggleTextActive: {
-    color: "#111827",
+  toggleTextActiveExpense: {
+    color: "white",
+  },
+  toggleTextActiveIncome: {
+    color: "white",
   },
   content: {
     flex: 1,

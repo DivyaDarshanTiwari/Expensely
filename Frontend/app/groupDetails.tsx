@@ -61,6 +61,19 @@ const GroupDetails = () => {
   const headerSlide = useRef(new Animated.Value(-50)).current;
   const cardScale = useRef(new Animated.Value(0.9)).current;
 
+  // Add a categoryIconMap for expense icons/colors
+  const categoryIconMap: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
+    Food: { icon: "restaurant", color: "#F59E0B" },
+    Transport: { icon: "car", color: "#3B82F6" },
+    Accommodation: { icon: "bed", color: "#7C3AED" },
+    Activities: { icon: "ticket", color: "#F472B6" },
+    Shopping: { icon: "bag", color: "#EC4899" },
+    Utilities: { icon: "flash", color: "#10B981" },
+    Health: { icon: "medical", color: "#EF4444" },
+    Miscellaneous: { icon: "ellipsis-horizontal", color: "#6B7280" },
+    General: { icon: "card", color: "#6B7280" },
+  };
+
   // ...
 
   // Update fetchGroupDetails to support pagination for expenses
@@ -359,6 +372,7 @@ const GroupDetails = () => {
   };
 
   const renderExpenseItem = ({ item, index }: { item: any; index: any }) => {
+    const iconInfo = categoryIconMap[item.category] || { icon: "card", color: group.color[0] };
     const isOwner = currentUsername && item.createdBy === currentUsername;
     return (
       <Animated.View
@@ -380,13 +394,16 @@ const GroupDetails = () => {
         <View style={styles.expenseHeader}>
           <View style={styles.expenseIconContainer}>
             <Ionicons
-              name={item.category === "food" ? "restaurant" : "card"}
+              name={iconInfo.icon}
               size={20}
-              color={group.color[0]}
+              color={iconInfo.color}
             />
           </View>
           <View style={styles.expenseInfo}>
             <Text style={styles.expenseTitle}>{item.category}</Text>
+            {item.description && (
+              <Text style={styles.expenseDescription}>{item.description}</Text>
+            )}
             <Text style={styles.expenseDate}>
               {new Date(item.createdat).toLocaleDateString("en-GB", {
                 day: "2-digit",
@@ -1342,6 +1359,11 @@ const styles = StyleSheet.create({
   expensePaidBy: {
     fontSize: 12,
     color: "#6B7280",
+  },
+  expenseDescription: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginTop: 2,
   },
   expenseSeparator: {
     height: 12,

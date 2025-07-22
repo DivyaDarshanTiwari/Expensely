@@ -1,27 +1,27 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Dimensions,
-  Animated,
-  StyleSheet,
-  StatusBar,
-  ScrollView,
-  TextInput,
-  Alert,
-  Modal,
-  FlatList,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
 import axios from "axios";
-import { auth } from "../auth/firebase";
-import { onAuthStateChanged, type User } from "firebase/auth";
 import Constants from "expo-constants";
+import { LinearGradient } from "expo-linear-gradient";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { onAuthStateChanged, type User } from "firebase/auth";
+import { useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Animated,
+  Dimensions,
+  FlatList,
+  Modal,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { auth } from "../auth/firebase";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -67,24 +67,36 @@ const AddExpense = () => {
   const formScale = useRef(new Animated.Value(0.95)).current;
 
   const categories = [
-    { id: "food", name: "Food & Dining", icon: "restaurant", color: "#F59E0B" },
-    { id: "transport", name: "Transportation", icon: "car", color: "#3B82F6" },
-    {
-      id: "entertainment",
-      name: "Entertainment",
-      icon: "game-controller",
-      color: "#8B5CF6",
-    },
-    { id: "shopping", name: "Shopping", icon: "bag", color: "#EC4899" },
-    { id: "utilities", name: "Utilities", icon: "flash", color: "#10B981" },
-    {
-      id: "health",
-      name: "Health & Medical",
-      icon: "medical",
-      color: "#EF4444",
-    },
-    { id: "general", name: "General", icon: "card", color: "#6B7280" },
+    { id: "Food", name: "Food & Dining", icon: "restaurant", color: "#F59E0B" },
+    { id: "Transport", name: "Transport & Travel", icon: "car", color: "#3B82F6" },
+    { id: "Accommodation", name: "Accommodation", icon: "bed", color: "#7C3AED" },
+    { id: "Activities", name: "Activities & Tickets", icon: "ticket", color: "#F472B6" },
+    { id: "Shopping", name: "Shopping", icon: "bag", color: "#EC4899" },
+    { id: "Utilities", name: "Utilities", icon: "flash", color: "#10B981" },
+    { id: "Health", name: "Health & Medical", icon: "medical", color: "#EF4444" },
+    { id: "Miscellaneous", name: "Miscellaneous", icon: "ellipsis-horizontal", color: "#6B7280" }
   ];
+
+  const keywordCategoryMap = [
+    { keywords: ["petrol", "fuel", "gas"], categoryId: "Transport" },
+    { keywords: ["hotel", "stay", "accommodation"], categoryId: "Accommodation" },
+    { keywords: ["flight", "air", "train", "bus", "taxi"], categoryId: "Transport" },
+    { keywords: ["food", "dinner", "lunch", "breakfast", "snack", "restaurant"], categoryId: "Food" },
+    { keywords: ["ticket", "activity", "museum", "zoo", "park"], categoryId: "Activities" },
+    { keywords: ["shopping", "mall", "clothes", "gift"], categoryId: "Shopping" },
+    { keywords: ["medicine", "doctor", "pharmacy", "health"], categoryId: "Health" },
+    { keywords: ["utility", "electricity", "water", "wifi", "internet"], categoryId: "Utilities" },
+  ];
+
+  function detectCategory(description: string) {
+    const desc = description.toLowerCase();
+    for (const entry of keywordCategoryMap) {
+      if (entry.keywords.some((kw) => desc.includes(kw))) {
+        return entry.categoryId;
+      }
+    }
+    return null;
+  }
 
   useEffect(() => {
     const fetchMembers = async (token: string) => {
@@ -398,7 +410,11 @@ const AddExpense = () => {
                     { backgroundColor: `${item.color}20` },
                   ]}
                 >
-                  <Ionicons name={item.icon} size={24} color={item.color} />
+                  <Ionicons
+                    name={item.icon as any}
+                    size={24}
+                    color={item.color}
+                  />
                 </View>
                 <Text style={styles.categoryName}>{item.name}</Text>
                 {expenseData.category === item.id && (
@@ -545,9 +561,16 @@ const AddExpense = () => {
               placeholder="What was this expense for?"
               placeholderTextColor="#9CA3AF"
               value={expenseData.description}
-              onChangeText={(text) =>
-                setExpenseData((prev) => ({ ...prev, description: text }))
-              }
+              onChangeText={(text) => {
+                setExpenseData((prev) => {
+                  const detected = detectCategory(text);
+                  return {
+                    ...prev,
+                    description: text,
+                    category: detected || prev.category,
+                  };
+                });
+              }}
             />
           </View>
 
