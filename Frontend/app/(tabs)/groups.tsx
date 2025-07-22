@@ -7,18 +7,18 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Alert,
-  Animated,
-  Dimensions,
-  FlatList,
-  Modal,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Animated,
+    Dimensions,
+    FlatList,
+    Modal,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { auth } from "../../auth/firebase";
 
@@ -784,41 +784,36 @@ const ExpenselyGroups = () => {
                 {/* Search Results with Enhanced Styling */}
                 {searchResults.length > 0 && (
                   <View style={styles.searchResultsContainer}>
-                    <FlatList
-                      data={searchResults}
-                      keyExtractor={(item) => item.user_id}
-                      renderItem={({ item }: { item: UserType }) => (
-                        <TouchableOpacity
-                          onPress={() => {
-                            setSelectedMembers([...selectedMembers, item]);
-                            setSearchResults([]);
-                            setMemberSearchQuery("");
-                          }}
-                          style={styles.searchResultItem}
-                        >
-                          <View style={styles.searchResultAvatar}>
-                            <Text style={styles.searchResultAvatarText}>
-                              {item.username.charAt(0).toUpperCase()}
-                            </Text>
-                          </View>
-                          <View style={styles.searchResultInfo}>
-                            <Text style={styles.searchResultName}>
-                              {item.username}
-                            </Text>
-                            <Text style={styles.searchResultEmail}>
-                              {item.email}
-                            </Text>
-                          </View>
-                          <Ionicons
-                            name="add-circle-outline"
-                            size={20}
-                            color="#8B5CF6"
-                          />
-                        </TouchableOpacity>
-                      )}
-                      style={styles.searchResultsList}
-                      showsVerticalScrollIndicator={false}
-                    />
+                    {searchResults.map((item) => (
+                      <TouchableOpacity
+                        key={item.user_id}
+                        onPress={() => {
+                          setSelectedMembers([...selectedMembers, item]);
+                          setSearchResults([]);
+                          setMemberSearchQuery("");
+                        }}
+                        style={styles.searchResultItem}
+                      >
+                        <View style={styles.searchResultAvatar}>
+                          <Text style={styles.searchResultAvatarText}>
+                            {item.username.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={styles.searchResultInfo}>
+                          <Text style={styles.searchResultName}>
+                            {item.username}
+                          </Text>
+                          <Text style={styles.searchResultEmail}>
+                            {item.email}
+                          </Text>
+                        </View>
+                        <Ionicons
+                          name="add-circle-outline"
+                          size={20}
+                          color="#8B5CF6"
+                        />
+                      </TouchableOpacity>
+                    ))}
                   </View>
                 )}
               </View>

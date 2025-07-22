@@ -46,6 +46,9 @@ exports.addGroupExpense = async (req, res) => {
 
 exports.getGroupExpenses = async (req, res) => {
   const { groupId } = req.params;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const offset = (page - 1) * limit;
   try {
     const result = await pool.query(
       `
@@ -60,8 +63,9 @@ exports.getGroupExpenses = async (req, res) => {
       JOIN USERS ON GROUP_EXPENSES.paidBy = USERS.user_id
       WHERE GROUP_EXPENSES.groupId = $1
       ORDER BY GROUP_EXPENSES.createdat DESC
+      LIMIT $2 OFFSET $3
       `,
-      [groupId]
+      [groupId, limit, offset]
     );
     res.status(200).json(result.rows);
   } catch (err) {
@@ -119,6 +123,30 @@ exports.getExpensesByUser = async (req, res) => {
     res.status(200).json(result.rows);
   } catch (err) {
     console.error("Error getting user expenses:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// Delete a group expense by expenseId (admin only, trust middleware)
+exports.deleteGroupExpense = async (req, res) => {
+  const { groupId, expenseId } = req.params;
+  try {
+    // Delete from EXPENSES_SHARE first (if exists)
+    await pool.query(
+      "DELETE FROM EXPENSES_SHARE WHERE expenseId = $1",
+      [expenseId]
+    );
+    // Delete the expense itself
+    const result = await pool.query(
+      "DELETE FROM GROUP_EXPENSES WHERE id = $1 RETURNING *",
+      [expenseId]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Expense not found" });
+    }
+    res.status(200).json({ message: "Expense deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting group expense:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };

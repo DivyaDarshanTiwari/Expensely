@@ -40,16 +40,16 @@ exports.createGroup = async (req, res) => {
   }
 };
 
-// Need to add to get the name from the USER table once USER table implemented
 exports.getGroupMembers = async (req, res) => {
   const { groupId } = req.params;
 
   try {
-    // Step 1: Get all userIds and admin status in this group
+    // Step 1: Get all members in this group
     const userIdResult = await pool.query(
       `SELECT userId, isAdmin FROM GROUP_MEMBERS WHERE groupId = $1`,
       [groupId]
     );
+
     const userIds = userIdResult.rows.map((row) => ({
       userId: row.userid,
       isAdmin: row.isadmin,
@@ -59,14 +59,16 @@ exports.getGroupMembers = async (req, res) => {
 
     for (let member of userIds) {
       const { userId, isAdmin } = member;
-      // Step 2: Get username
+
+      // Step 2: Get user details
       const userResult = await pool.query(
-        `SELECT username FROM USERS WHERE user_id = $1`,
+        `SELECT username, email FROM USERS WHERE user_id = $1`,
         [userId]
       );
-      const username = userResult.rows[0]?.username;
+      const username = userResult.rows[0]?.username || "Unknown";
+      const email = userResult.rows[0]?.email || "Unknown";
 
-      // Step 3: Get total amountOwned from all expenses in this group
+      // Step 3: Calculate total amount owed (based on split share)
       const amountResult = await pool.query(
         `
         SELECT COALESCE(SUM(es.amountOwned), 0) AS totalAmount
@@ -76,12 +78,28 @@ exports.getGroupMembers = async (req, res) => {
         `,
         [userId, groupId]
       );
-      const amountOwned = parseFloat(amountResult.rows[0]?.totalamount || 0);
+      const amountOwed = parseFloat(amountResult.rows[0]?.totalamount || 0);
 
+      // Step 4: Get how much the user has already paid in settlements
+      const settlementsRes = await pool.query(
+        `SELECT amount FROM SETTLEMENTS WHERE groupid = $1 AND fromuserid = $2`,
+        [groupId, userId]
+      );
+
+      let totalSettled = 0;
+      for (const settlement of settlementsRes.rows) {
+        totalSettled += parseFloat(settlement.amount);
+      }
+
+      // Step 5: Net balance = amountOwed - totalSettled
+      const finalBalance = Math.max(0, amountOwed - totalSettled);
+
+      // Step 6: Add member to response list
       memberData.push({
         userId,
         username,
-        balance: amountOwned,
+        email,
+        balance: finalBalance,
         isAdmin: isAdmin,
       });
     }
@@ -623,6 +641,63 @@ exports.getGroupAdmins = async (req, res) => {
     res.status(200).json(admins);
   } catch (err) {
     console.error("Error getting group admins:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// Update group info (name, description, budget) - only for admins
+exports.updateGroupInfo = async (req, res) => {
+  const groupId = req.groupId; // set by middleware
+  const { name, description, groupBudget } = req.body;
+
+  if (!name || !description || !groupBudget) {
+    return res.status(400).json({ message: "Missing required fields" });
+  }
+
+  try {
+    // No need to check admin again, already done in middleware
+    await pool.query(
+      `UPDATE GROUPS SET name = $1, description = $2, groupBudget = $3, updatedAt = NOW() WHERE groupId = $4`,
+      [name, description, groupBudget, groupId]
+    );
+    res.status(200).json({ message: "Group info updated successfully" });
+  } catch (err) {
+    console.error("Error updating group info:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// Get single group info by groupId
+exports.getGroupById = async (req, res) => {
+  const { groupId } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT
+        g.groupid,
+        g.name,
+        g.description,
+        g.groupbudget,
+        g.createdby,
+        (
+          SELECT COUNT(*)
+          FROM group_members gm2
+          WHERE gm2.groupid = g.groupid
+        ) AS member_count,
+        (
+          SELECT COALESCE(SUM(ge.amount), 0)
+          FROM group_expenses ge
+          WHERE ge.groupid = g.groupid
+        ) AS spent
+      FROM groups g
+      WHERE g.groupid = $1`,
+      [groupId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+    res.status(200).json(result.rows[0]);
+  } catch (err) {
+    console.error("Error getting group by id:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };

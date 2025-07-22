@@ -1,18 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  Animated,
-} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
-import { getAuth } from "firebase/auth"; // ensure Firebase is initialized
 import Constants from "expo-constants";
+import { getAuth } from "firebase/auth"; // ensure Firebase is initialized
+import { useState } from "react";
+import {
+  Alert,
+  Animated,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 interface Expense {
   expenseid?: number;
@@ -48,17 +48,17 @@ const ExpenseItem = ({ item, onDelete }: ExpenseItemProps) => {
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
-      food: "#D97706",
-      restaurant: "#D97706",
+      food: "#F59E42",
+      restaurant: "#F59E42",
       transport: "#2563EB",
-      entertainment: "#7C3AED",
-      shopping: "#DC2626",
-      utilities: "#059669",
-      health: "#EF4444",
-      general: "#4B5563",
-      other: "#4B5563",
+      entertainment: "#A78BFA",
+      shopping: "#F87171",
+      utilities: "#34D399",
+      health: "#F87171",
+      general: "#6B7280",
+      other: "#6B7280",
     };
-    return colors[category.toLowerCase()] || "#4B5563";
+    return colors[category.toLowerCase()] || "#6B7280";
   };
 
   const formatDate = (dateString: string) => {
@@ -99,7 +99,7 @@ const ExpenseItem = ({ item, onDelete }: ExpenseItemProps) => {
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.98,
+      toValue: 0.97,
       useNativeDriver: true,
     }).start();
   };
@@ -113,7 +113,6 @@ const ExpenseItem = ({ item, onDelete }: ExpenseItemProps) => {
 
   const handleDelete = async () => {
     if (!item.expenseid) return;
-
     Alert.alert(
       "Delete Expense",
       `Are you sure you want to delete this ${formatAmount(item.amount)} expense?`,
@@ -127,15 +126,12 @@ const ExpenseItem = ({ item, onDelete }: ExpenseItemProps) => {
             try {
               const auth = getAuth();
               const user = auth.currentUser;
-
               if (!user) {
                 Alert.alert("Error", "User not authenticated.");
                 setIsDeleting(false);
                 return;
               }
-
               const idToken = await user.getIdToken();
-
               await axios.delete(
                 `${Constants?.expoConfig?.extra?.Basic_URL}/api/v1/expense/delete/${item.expenseid}`,
                 {
@@ -144,7 +140,6 @@ const ExpenseItem = ({ item, onDelete }: ExpenseItemProps) => {
                   },
                 }
               );
-
               Animated.timing(scaleAnim, {
                 toValue: 0,
                 duration: 200,
@@ -152,7 +147,6 @@ const ExpenseItem = ({ item, onDelete }: ExpenseItemProps) => {
               }).start(() => {
                 if (onDelete) onDelete(item.expenseid!);
               });
-
               Alert.alert("Success", "Expense deleted successfully.");
             } catch (error) {
               console.error("Delete error:", error);
@@ -171,92 +165,79 @@ const ExpenseItem = ({ item, onDelete }: ExpenseItemProps) => {
   return (
     <Animated.View
       style={[
-        styles.container,
+        styles.card,
         { transform: [{ scale: scaleAnim }], opacity: isDeleting ? 0.5 : 1 },
       ]}
     >
-      <TouchableOpacity
-        style={styles.expenseItem}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={0.9}
-        disabled={isDeleting}
-      >
+      <View style={styles.row}>
+        {/* Icon and category */}
         <View style={styles.leftSection}>
           <View
-            style={[styles.iconContainer, { backgroundColor: `${color}15` }]}
+            style={[styles.iconContainer, { backgroundColor: color + "22" }]}
           >
-            <Ionicons name={iconName} size={24} color={color} />
-          </View>
-
-          <View style={styles.contentSection}>
-            <View style={styles.topRow}>
-              <Text style={styles.categoryText}>
-                {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
-              </Text>
-            </View>
-            <View style={styles.topRow}>
-              {item.description && (
-                <Text style={styles.descriptionText} numberOfLines={1}>
-                  {item.description}
-                </Text>
-              )}
-              <Text style={[styles.amountText, { color: "#EF4444" }]}>
-                -{formatAmount(item.amount)}
-              </Text>
-            </View>
-            <Text style={styles.dateText}>{formatDate(item.createdat)}</Text>
+            {/* More vibrant bg */}
+            <Ionicons name={iconName} size={28} color={color} />
           </View>
         </View>
-
-        {isCurrentMonth(item.createdat) && (
-          <TouchableOpacity
-            onPress={handleDelete}
-            style={[
-              styles.deleteButton,
-              isDeleting && styles.deleteButtonDisabled,
-            ]}
-            disabled={isDeleting}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons
-              name={isDeleting ? "hourglass-outline" : "trash-outline"}
-              size={20}
-              color={isDeleting ? "#9CA3AF" : "#EF4444"}
-            />
-          </TouchableOpacity>
-        )}
-      </TouchableOpacity>
+        {/* Description and date */}
+        <View style={styles.centerSection}>
+          <Text style={styles.categoryText} numberOfLines={1}>
+            {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
+          </Text>
+          {item.description ? (
+            <Text style={styles.descriptionText} numberOfLines={1}>
+              {item.description}
+            </Text>
+          ) : null}
+          <View style={styles.dateBadge}>
+            <Text style={styles.dateBadgeText}>
+              {formatDate(item.createdat)}
+            </Text>
+          </View>
+        </View>
+        {/* Amount and delete */}
+        <View style={styles.rightSection}>
+          <Text style={styles.amountText}>-{formatAmount(item.amount)}</Text>
+          {onDelete && isCurrentMonth(item.createdat) && (
+            <TouchableOpacity
+              onPress={handleDelete}
+              style={styles.deleteButton}
+              disabled={isDeleting}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons
+                name={isDeleting ? "hourglass-outline" : "trash-outline"}
+                size={20}
+                color={isDeleting ? "#9CA3AF" : "#EF4444"}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  card: {
     marginHorizontal: 16,
-    marginVertical: 6,
-    borderRadius: 16,
+    marginVertical: 10,
+    borderRadius: 18,
     backgroundColor: "#FFFFFF",
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+    padding: 0,
   },
-  expenseItem: {
+  row: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    padding: 20,
-    borderRadius: 16,
+    padding: 18,
   },
   leftSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
+    marginRight: 14,
   },
   iconContainer: {
     width: 48,
@@ -264,48 +245,52 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 16,
+    marginBottom: 2,
   },
-  contentSection: {
+  centerSection: {
     flex: 1,
-  },
-  topRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
+    justifyContent: "center",
   },
   categoryText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-    flex: 1,
-  },
-  amountText: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "700",
-    marginLeft: 12,
-    marginTop: 2,
+    color: "#22223B",
+    marginBottom: 2,
   },
   descriptionText: {
-    fontSize: 14,
+    fontSize: 15,
     color: "#6B7280",
-    marginBottom: 6,
-    lineHeight: 20,
+    marginBottom: 4,
   },
-  dateText: {
+  dateBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    marginTop: 2,
+  },
+  dateBadgeText: {
     fontSize: 12,
-    color: "#9CA3AF",
-    fontWeight: "500",
+    color: "#7C3AED",
+    fontWeight: "600",
+  },
+  rightSection: {
+    alignItems: "flex-end",
+    justifyContent: "center",
+    minWidth: 80,
+  },
+  amountText: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#EF4444",
+    marginBottom: 8,
   },
   deleteButton: {
-    padding: 12,
-    borderRadius: 12,
+    padding: 8,
+    borderRadius: 10,
     backgroundColor: "#FEF2F2",
-    marginLeft: 12,
-  },
-  deleteButtonDisabled: {
-    backgroundColor: "#F9FAFB",
+    marginTop: 2,
   },
 });
 

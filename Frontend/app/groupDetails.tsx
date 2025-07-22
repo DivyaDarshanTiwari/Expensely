@@ -6,18 +6,21 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import React, { useCallback, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   Dimensions,
   FlatList,
+  Modal,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { auth } from "../auth/firebase";
-import { getStoredUserId } from "./auth";
+import { getStoredUserId } from "../utils/storage";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -26,15 +29,23 @@ const GroupDetails = () => {
   const { groupId, groupName, groupData, refresh } = useLocalSearchParams();
 
   // Parse the group data
-  const group = JSON.parse(groupData as string);
+  const [group, setGroup] = useState(JSON.parse(groupData as string));
 
-  const [expenses, setExpenses] = useState([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [idToken, setIdToken] = useState("");
   const [showMembers, setShowMembers] = useState(false);
   const [backendUserId, setBackendUserId] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editName, setEditName] = useState(group.name);
+  const [editDescription, setEditDescription] = useState(group.description);
+  const [editBudget, setEditBudget] = useState(group.totalBudget);
+  const [saving, setSaving] = useState(false);
+  const [showAllExpenses, setShowAllExpenses] = useState(false);
+  const [expensesPage, setExpensesPage] = useState(1);
+  const [expensesHasMore, setExpensesHasMore] = useState(false);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -44,58 +55,83 @@ const GroupDetails = () => {
 
   // ...
 
+  // Update fetchGroupDetails to support pagination for expenses
+  const fetchGroupDetails = async (idToken: string, userId: number, page = 1, showAll = false) => {
+    try {
+      // Fetch latest group info
+      const groupRes = await axios.get(
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/getGroup/${groupId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        }
+      );
+      if (groupRes.data) {
+        setGroup((prev: any) => ({
+          ...prev,
+          ...groupRes.data,
+          totalBudget: groupRes.data.groupbudget,
+          spent: groupRes.data.spent,
+          members: groupRes.data.member_count,
+        }));
+      }
+
+      // Fetch expenses (paginated if showAll)
+      let expensesUrl = `${Constants.expoConfig?.extra?.Group_URL}/api/v1/groupExpense/getAll/${groupId}`;
+      let params = {};
+      if (showAll) {
+        params = { page, limit: 20 };
+      } else {
+        params = { page: 1, limit: 5 };
+      }
+      const expensesRes = await axios.get(expensesUrl, {
+        headers: { Authorization: `Bearer ${idToken}` },
+        params,
+      });
+      if (showAll && page > 1) {
+        setExpenses((prev: any) => [...prev, ...(expensesRes.data || [])]);
+      } else {
+        setExpenses(expensesRes.data || []);
+      }
+      setExpensesHasMore((expensesRes.data?.length || 0) === 20);
+      setExpensesPage(page);
+
+      // Fetch group members
+      const membersRes = await axios.get(
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/getMembers/${groupId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        }
+      );
+      setMembers(membersRes.data || []);
+
+      // Check if current user is admin
+      const currentUser = membersRes.data.find(
+        (member: any) => member.userId === userId
+      );
+      setIsAdmin(currentUser?.isAdmin || false);
+    } catch (error) {
+      console.error("Failed to fetch group details", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
-      const fetchGroupDetails = async (idToken: string, userId: number) => {
-        try {
-          // Fetch recent expenses
-          const expensesRes = await axios.get(
-            `${Constants.expoConfig?.extra?.Group_URL}/api/v1/groupExpense/getAll/${groupId}`,
-            {
-              headers: {
-                Authorization: `Bearer ${idToken}`,
-              },
-            }
-          );
-          setExpenses(expensesRes.data || []);
-
-          // Fetch group members
-          const membersRes = await axios.get(
-            `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/getMembers/${groupId}`,
-            {
-              headers: {
-                Authorization: `Bearer ${idToken}`,
-              },
-            }
-          );
-          setMembers(membersRes.data || []);
-          
-          // Check if current user is admin
-          const currentUser = membersRes.data.find(
-            (member: any) => member.userId === userId
-          );
-          console.log("Current user:", currentUser, "User ID:", userId);
-          setIsAdmin(currentUser?.isAdmin || false);
-        } catch (error) {
-          console.error("Failed to fetch group details", error);
-        } finally {
-          setLoading(false);
-        }
-      };
-
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         if (firebaseUser) {
           try {
             const idToken = await firebaseUser.getIdToken();
             setIdToken(idToken);
-            
-            // Get backend user ID first
             const storedUserId = await getStoredUserId();
             const userId = storedUserId ? Number(storedUserId) : null;
             setBackendUserId(userId);
-            
             if (userId) {
-              fetchGroupDetails(idToken, userId);
+              fetchGroupDetails(idToken, userId, 1, showAllExpenses);
             } else {
               console.error("Backend user ID not found");
               setLoading(false);
@@ -106,8 +142,6 @@ const GroupDetails = () => {
           }
         }
       });
-
-      // Start animations
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -132,9 +166,8 @@ const GroupDetails = () => {
           useNativeDriver: true,
         }),
       ]).start();
-
       return () => unsubscribe();
-    }, [refresh]) // Add dependencies if needed
+    }, [groupId, showAllExpenses])
   );
 
   const calculateProgress = (spent: any, total: any) => {
@@ -179,6 +212,83 @@ const GroupDetails = () => {
     });
   };
 
+  const handleSaveEdit = async () => {
+    setSaving(true);
+    try {
+      const res = await axios.put(
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/updateGroupInfo/${group.id}`,
+        {
+          name: editName,
+          description: editDescription,
+          groupBudget: editBudget,
+          userId: backendUserId,
+        },
+        {
+          headers: { Authorization: `Bearer ${idToken}` },
+        }
+      );
+      Alert.alert("Success", "Group info updated successfully");
+      setGroup((prev: any) => ({
+        ...prev,
+        name: editName,
+        description: editDescription,
+        totalBudget: editBudget,
+      }));
+      setEditModalVisible(false);
+    } catch (err: any) {
+      Alert.alert(
+        "Error",
+        err?.response?.data?.message || "Failed to update group info"
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleViewAllExpenses = () => {
+    setShowAllExpenses((prev) => !prev);
+    setExpensesPage(1);
+  };
+
+  const handleLoadMoreExpenses = async () => {
+    if (!idToken || !backendUserId) return;
+    await fetchGroupDetails(idToken, backendUserId, expensesPage + 1, true);
+  };
+
+  const handleDeleteExpense = async (expenseId: number) => {
+    if (!idToken || !backendUserId) return;
+    Alert.alert(
+      "Delete Expense",
+      "Are you sure you want to delete this expense? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await axios.delete(
+                `${Constants.expoConfig?.extra?.Group_URL}/api/v1/groupExpense/delete/${group.id}/${expenseId}`,
+                {
+                  headers: { Authorization: `Bearer ${idToken}` },
+                  data: { userId: backendUserId },
+                }
+              );
+              // Refresh expenses
+              fetchGroupDetails(idToken, backendUserId, 1, showAllExpenses);
+              Alert.alert("Success", "Expense deleted successfully");
+            } catch (err: any) {
+              Alert.alert(
+                "Error",
+                err?.response?.data?.message || "Failed to delete expense"
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderExpenseItem = ({ item, index }: { item: any; index: any }) => (
     <Animated.View
       style={[
@@ -215,11 +325,17 @@ const GroupDetails = () => {
           </Text>
         </View>
         <View style={styles.expenseAmount}>
-          <Text style={[styles.expenseValue, { color: group.color[0] }]}>
-            ₹{item.amount}
-          </Text>
+          <Text style={[styles.expenseValue, { color: group.color[0] }]}>₹{item.amount}</Text>
           <Text style={styles.expensePaidBy}>by {item.paidby}</Text>
         </View>
+        {isAdmin && (
+          <TouchableOpacity
+            style={{ marginLeft: 8, padding: 4 }}
+            onPress={() => handleDeleteExpense(item.id)}
+          >
+            <Ionicons name="trash" size={20} color="#EF4444" />
+          </TouchableOpacity>
+        )}
       </View>
     </Animated.View>
   );
@@ -275,7 +391,7 @@ const GroupDetails = () => {
       >
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => router.replace("/groups")}
         >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
@@ -283,9 +399,18 @@ const GroupDetails = () => {
           <Text style={styles.headerTitle}>{group.name}</Text>
           <Text style={styles.headerSubtitle}>Group Details</Text>
         </View>
-        <TouchableOpacity style={styles.headerAction}>
-          <Ionicons name="settings" size={24} color="#111827" />
-        </TouchableOpacity>
+        {isAdmin ? (
+          <TouchableOpacity
+            style={styles.headerAction}
+            onPress={() => setEditModalVisible(true)}
+          >
+            <Ionicons name="settings" size={24} color="#111827" />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerAction}>
+            <Ionicons name="settings" size={24} color="#D1D5DB" />
+          </View>
+        )}
       </Animated.View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -470,24 +595,201 @@ const GroupDetails = () => {
         >
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Expenses</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={handleViewAllExpenses}>
               <Text style={[styles.sectionAction, { color: group.color[0] }]}>
-                View All
+                {showAllExpenses ? "Show Less" : "View All"}
               </Text>
             </TouchableOpacity>
           </View>
 
           <FlatList
-            data={expenses.slice(0, 5)} // Show first 5 expenses
+            data={showAllExpenses ? expenses : expenses.slice(0, 3)}
             renderItem={renderExpenseItem}
             keyExtractor={(item) => item.id}
             scrollEnabled={false}
             ItemSeparatorComponent={() => (
               <View style={styles.expenseSeparator} />
             )}
+            ListFooterComponent={
+              showAllExpenses && expensesHasMore ? (
+                <TouchableOpacity onPress={handleLoadMoreExpenses} style={{ padding: 16, alignItems: 'center' }}>
+                  <Text style={{ color: group.color[0], fontWeight: '600' }}>Load More</Text>
+                </TouchableOpacity>
+              ) : null
+            }
           />
         </Animated.View>
       </ScrollView>
+
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "rgba(0,0,0,0.3)",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: "#fff",
+              padding: 24,
+              borderRadius: 20,
+              width: "92%",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.12,
+              shadowRadius: 8,
+              elevation: 8,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 22,
+                fontWeight: "700",
+                color: "#7C3AED",
+                marginBottom: 18,
+                textAlign: "center",
+              }}
+            >
+              Edit Group Info
+            </Text>
+            <View style={{ marginBottom: 14 }}>
+              <Text
+                style={{
+                  fontSize: 15,
+                  color: "#6B7280",
+                  marginBottom: 6,
+                  fontWeight: "600",
+                }}
+              >
+                Group Name
+              </Text>
+              <TextInput
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="Group Name"
+                style={{
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  borderRadius: 10,
+                  padding: 10,
+                  fontSize: 16,
+                  color: "#111827",
+                  backgroundColor: "#F9FAFB",
+                }}
+              />
+            </View>
+            <View style={{ marginBottom: 14 }}>
+              <Text
+                style={{
+                  fontSize: 15,
+                  color: "#6B7280",
+                  marginBottom: 6,
+                  fontWeight: "600",
+                }}
+              >
+                Description
+              </Text>
+              <TextInput
+                value={editDescription}
+                onChangeText={setEditDescription}
+                placeholder="Description"
+                style={{
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  borderRadius: 10,
+                  padding: 10,
+                  fontSize: 16,
+                  color: "#111827",
+                  backgroundColor: "#F9FAFB",
+                }}
+                multiline
+                numberOfLines={2}
+              />
+            </View>
+            <View style={{ marginBottom: 22 }}>
+              <Text
+                style={{
+                  fontSize: 15,
+                  color: "#6B7280",
+                  marginBottom: 6,
+                  fontWeight: "600",
+                }}
+              >
+                Budget
+              </Text>
+              <TextInput
+                value={String(editBudget)}
+                onChangeText={(text) => setEditBudget(Number(text))}
+                placeholder="Budget"
+                keyboardType="numeric"
+                style={{
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  borderRadius: 10,
+                  padding: 10,
+                  fontSize: 16,
+                  color: "#111827",
+                  backgroundColor: "#F9FAFB",
+                }}
+              />
+            </View>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "flex-end",
+                alignItems: "center",
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => setEditModalVisible(false)}
+                disabled={saving}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 22,
+                  borderRadius: 10,
+                  backgroundColor: "#E5E7EB",
+                  marginRight: 10,
+                }}
+              >
+                <Text
+                  style={{ color: "#6B7280", fontWeight: "600", fontSize: 16 }}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSaveEdit}
+                disabled={saving}
+                style={{ borderRadius: 10, overflow: "hidden" }}
+              >
+                <LinearGradient
+                  colors={["#8B5CF6", "#7C3AED"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{
+                    paddingVertical: 10,
+                    paddingHorizontal: 28,
+                    borderRadius: 10,
+                  }}
+                >
+                  <Text
+                    style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}
+                  >
+                    {saving ? "Saving..." : "Save"}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
