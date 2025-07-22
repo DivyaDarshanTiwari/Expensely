@@ -255,6 +255,40 @@ const GroupDetails = () => {
     await fetchGroupDetails(idToken, backendUserId, expensesPage + 1, true);
   };
 
+  const handleDeleteExpense = async (expenseId: number) => {
+    if (!idToken || !backendUserId) return;
+    Alert.alert(
+      "Delete Expense",
+      "Are you sure you want to delete this expense? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await axios.delete(
+                `${Constants.expoConfig?.extra?.Group_URL}/api/v1/groupExpense/delete/${group.id}/${expenseId}`,
+                {
+                  headers: { Authorization: `Bearer ${idToken}` },
+                  data: { userId: backendUserId },
+                }
+              );
+              // Refresh expenses
+              fetchGroupDetails(idToken, backendUserId, 1, showAllExpenses);
+              Alert.alert("Success", "Expense deleted successfully");
+            } catch (err: any) {
+              Alert.alert(
+                "Error",
+                err?.response?.data?.message || "Failed to delete expense"
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderExpenseItem = ({ item, index }: { item: any; index: any }) => (
     <Animated.View
       style={[
@@ -291,11 +325,17 @@ const GroupDetails = () => {
           </Text>
         </View>
         <View style={styles.expenseAmount}>
-          <Text style={[styles.expenseValue, { color: group.color[0] }]}>
-            ₹{item.amount}
-          </Text>
+          <Text style={[styles.expenseValue, { color: group.color[0] }]}>₹{item.amount}</Text>
           <Text style={styles.expensePaidBy}>by {item.paidby}</Text>
         </View>
+        {isAdmin && (
+          <TouchableOpacity
+            style={{ marginLeft: 8, padding: 4 }}
+            onPress={() => handleDeleteExpense(item.id)}
+          >
+            <Ionicons name="trash" size={20} color="#EF4444" />
+          </TouchableOpacity>
+        )}
       </View>
     </Animated.View>
   );

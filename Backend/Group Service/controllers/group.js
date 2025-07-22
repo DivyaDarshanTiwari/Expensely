@@ -40,16 +40,16 @@ exports.createGroup = async (req, res) => {
   }
 };
 
-// Need to add to get the name from the USER table once USER table implemented
 exports.getGroupMembers = async (req, res) => {
   const { groupId } = req.params;
 
   try {
-    // Step 1: Get all userIds and admin status in this group
+    // Step 1: Get all members in this group
     const userIdResult = await pool.query(
       `SELECT userId, isAdmin FROM GROUP_MEMBERS WHERE groupId = $1`,
       [groupId]
     );
+
     const userIds = userIdResult.rows.map((row) => ({
       userId: row.userid,
       isAdmin: row.isadmin,
@@ -59,14 +59,16 @@ exports.getGroupMembers = async (req, res) => {
 
     for (let member of userIds) {
       const { userId, isAdmin } = member;
-      // Step 2: Get username
+
+      // Step 2: Get user details
       const userResult = await pool.query(
-        `SELECT username FROM USERS WHERE user_id = $1`,
+        `SELECT username, email FROM USERS WHERE user_id = $1`,
         [userId]
       );
-      const username = userResult.rows[0]?.username;
+      const username = userResult.rows[0]?.username || "Unknown";
+      const email = userResult.rows[0]?.email || "Unknown";
 
-      // Step 3: Get total amountOwned from all expenses in this group
+      // Step 3: Calculate total amount owed (based on split share)
       const amountResult = await pool.query(
         `
         SELECT COALESCE(SUM(es.amountOwned), 0) AS totalAmount
@@ -76,12 +78,28 @@ exports.getGroupMembers = async (req, res) => {
         `,
         [userId, groupId]
       );
-      const amountOwned = parseFloat(amountResult.rows[0]?.totalamount || 0);
+      const amountOwed = parseFloat(amountResult.rows[0]?.totalamount || 0);
 
+      // Step 4: Get how much the user has already paid in settlements
+      const settlementsRes = await pool.query(
+        `SELECT amount FROM SETTLEMENTS WHERE groupid = $1 AND fromuserid = $2`,
+        [groupId, userId]
+      );
+
+      let totalSettled = 0;
+      for (const settlement of settlementsRes.rows) {
+        totalSettled += parseFloat(settlement.amount);
+      }
+
+      // Step 5: Net balance = amountOwed - totalSettled
+      const finalBalance = Math.max(0, amountOwed - totalSettled);
+
+      // Step 6: Add member to response list
       memberData.push({
         userId,
         username,
-        balance: amountOwned,
+        email,
+        balance: finalBalance,
         isAdmin: isAdmin,
       });
     }
