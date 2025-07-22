@@ -46,6 +46,9 @@ exports.addGroupExpense = async (req, res) => {
 
 exports.getGroupExpenses = async (req, res) => {
   const { groupId } = req.params;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const offset = (page - 1) * limit;
   try {
     const result = await pool.query(
       `
@@ -60,8 +63,9 @@ exports.getGroupExpenses = async (req, res) => {
       JOIN USERS ON GROUP_EXPENSES.paidBy = USERS.user_id
       WHERE GROUP_EXPENSES.groupId = $1
       ORDER BY GROUP_EXPENSES.createdat DESC
+      LIMIT $2 OFFSET $3
       `,
-      [groupId]
+      [groupId, limit, offset]
     );
     res.status(200).json(result.rows);
   } catch (err) {

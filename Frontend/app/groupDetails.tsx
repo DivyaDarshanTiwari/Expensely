@@ -31,7 +31,7 @@ const GroupDetails = () => {
   // Parse the group data
   const [group, setGroup] = useState(JSON.parse(groupData as string));
 
-  const [expenses, setExpenses] = useState([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [idToken, setIdToken] = useState("");
@@ -43,6 +43,9 @@ const GroupDetails = () => {
   const [editDescription, setEditDescription] = useState(group.description);
   const [editBudget, setEditBudget] = useState(group.totalBudget);
   const [saving, setSaving] = useState(false);
+  const [showAllExpenses, setShowAllExpenses] = useState(false);
+  const [expensesPage, setExpensesPage] = useState(1);
+  const [expensesHasMore, setExpensesHasMore] = useState(false);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -52,76 +55,83 @@ const GroupDetails = () => {
 
   // ...
 
+  // Update fetchGroupDetails to support pagination for expenses
+  const fetchGroupDetails = async (idToken: string, userId: number, page = 1, showAll = false) => {
+    try {
+      // Fetch latest group info
+      const groupRes = await axios.get(
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/getGroup/${groupId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        }
+      );
+      if (groupRes.data) {
+        setGroup((prev: any) => ({
+          ...prev,
+          ...groupRes.data,
+          totalBudget: groupRes.data.groupbudget,
+          spent: groupRes.data.spent,
+          members: groupRes.data.member_count,
+        }));
+      }
+
+      // Fetch expenses (paginated if showAll)
+      let expensesUrl = `${Constants.expoConfig?.extra?.Group_URL}/api/v1/groupExpense/getAll/${groupId}`;
+      let params = {};
+      if (showAll) {
+        params = { page, limit: 20 };
+      } else {
+        params = { page: 1, limit: 5 };
+      }
+      const expensesRes = await axios.get(expensesUrl, {
+        headers: { Authorization: `Bearer ${idToken}` },
+        params,
+      });
+      if (showAll && page > 1) {
+        setExpenses((prev: any) => [...prev, ...(expensesRes.data || [])]);
+      } else {
+        setExpenses(expensesRes.data || []);
+      }
+      setExpensesHasMore((expensesRes.data?.length || 0) === 20);
+      setExpensesPage(page);
+
+      // Fetch group members
+      const membersRes = await axios.get(
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/getMembers/${groupId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        }
+      );
+      setMembers(membersRes.data || []);
+
+      // Check if current user is admin
+      const currentUser = membersRes.data.find(
+        (member: any) => member.userId === userId
+      );
+      setIsAdmin(currentUser?.isAdmin || false);
+    } catch (error) {
+      console.error("Failed to fetch group details", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
-      const fetchGroupDetails = async (idToken: string, userId: number) => {
-        try {
-          // Fetch latest group info
-          const groupRes = await axios.get(
-            `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/getGroup/${groupId}`,
-            {
-              headers: {
-                Authorization: `Bearer ${idToken}`,
-              },
-            }
-          );
-          if (groupRes.data) {
-            setGroup((prev: any) => ({
-              ...prev,
-              ...groupRes.data,
-              totalBudget: groupRes.data.groupbudget,
-              spent: groupRes.data.spent,
-              members: groupRes.data.member_count,
-            }));
-          }
-
-          // Fetch recent expenses
-          const expensesRes = await axios.get(
-            `${Constants.expoConfig?.extra?.Group_URL}/api/v1/groupExpense/getAll/${groupId}`,
-            {
-              headers: {
-                Authorization: `Bearer ${idToken}`,
-              },
-            }
-          );
-          setExpenses(expensesRes.data || []);
-
-          // Fetch group members
-          const membersRes = await axios.get(
-            `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/getMembers/${groupId}`,
-            {
-              headers: {
-                Authorization: `Bearer ${idToken}`,
-              },
-            }
-          );
-          setMembers(membersRes.data || []);
-
-          // Check if current user is admin
-          const currentUser = membersRes.data.find(
-            (member: any) => member.userId === userId
-          );
-          setIsAdmin(currentUser?.isAdmin || false);
-        } catch (error) {
-          console.error("Failed to fetch group details", error);
-        } finally {
-          setLoading(false);
-        }
-      };
-
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         if (firebaseUser) {
           try {
             const idToken = await firebaseUser.getIdToken();
             setIdToken(idToken);
-
-            // Get backend user ID first
             const storedUserId = await getStoredUserId();
             const userId = storedUserId ? Number(storedUserId) : null;
             setBackendUserId(userId);
-
             if (userId) {
-              fetchGroupDetails(idToken, userId);
+              fetchGroupDetails(idToken, userId, 1, showAllExpenses);
             } else {
               console.error("Backend user ID not found");
               setLoading(false);
@@ -132,8 +142,6 @@ const GroupDetails = () => {
           }
         }
       });
-
-      // Start animations
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -158,9 +166,8 @@ const GroupDetails = () => {
           useNativeDriver: true,
         }),
       ]).start();
-
       return () => unsubscribe();
-    }, [groupId])
+    }, [groupId, showAllExpenses])
   );
 
   const calculateProgress = (spent: any, total: any) => {
@@ -236,6 +243,16 @@ const GroupDetails = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleViewAllExpenses = () => {
+    setShowAllExpenses((prev) => !prev);
+    setExpensesPage(1);
+  };
+
+  const handleLoadMoreExpenses = async () => {
+    if (!idToken || !backendUserId) return;
+    await fetchGroupDetails(idToken, backendUserId, expensesPage + 1, true);
   };
 
   const renderExpenseItem = ({ item, index }: { item: any; index: any }) => (
@@ -538,21 +555,28 @@ const GroupDetails = () => {
         >
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Expenses</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={handleViewAllExpenses}>
               <Text style={[styles.sectionAction, { color: group.color[0] }]}>
-                View All
+                {showAllExpenses ? "Show Less" : "View All"}
               </Text>
             </TouchableOpacity>
           </View>
 
           <FlatList
-            data={expenses.slice(0, 5)} // Show first 5 expenses
+            data={showAllExpenses ? expenses : expenses.slice(0, 3)}
             renderItem={renderExpenseItem}
             keyExtractor={(item) => item.id}
             scrollEnabled={false}
             ItemSeparatorComponent={() => (
               <View style={styles.expenseSeparator} />
             )}
+            ListFooterComponent={
+              showAllExpenses && expensesHasMore ? (
+                <TouchableOpacity onPress={handleLoadMoreExpenses} style={{ padding: 16, alignItems: 'center' }}>
+                  <Text style={{ color: group.color[0], fontWeight: '600' }}>Load More</Text>
+                </TouchableOpacity>
+              ) : null
+            }
           />
         </Animated.View>
       </ScrollView>
