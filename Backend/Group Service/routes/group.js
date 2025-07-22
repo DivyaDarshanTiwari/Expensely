@@ -51,4 +51,14 @@ Router.post(
 );
 Router.get("/getAdmins/:groupId", groupControllers.getGroupAdmins);
 
+// Update group info (name, description, budget) - only for admins
+Router.put(
+  "/updateGroupInfo/:groupId",
+  requireAdmin,
+  groupControllers.updateGroupInfo
+);
+
+// Get single group info by groupId
+Router.get("/getGroup/:groupId", groupControllers.getGroupById);
+
 module.exports = Router;

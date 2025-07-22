@@ -626,3 +626,60 @@ exports.getGroupAdmins = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+// Update group info (name, description, budget) - only for admins
+exports.updateGroupInfo = async (req, res) => {
+  const groupId = req.groupId; // set by middleware
+  const { name, description, groupBudget } = req.body;
+
+  if (!name || !description || !groupBudget) {
+    return res.status(400).json({ message: "Missing required fields" });
+  }
+
+  try {
+    // No need to check admin again, already done in middleware
+    await pool.query(
+      `UPDATE GROUPS SET name = $1, description = $2, groupBudget = $3, updatedAt = NOW() WHERE groupId = $4`,
+      [name, description, groupBudget, groupId]
+    );
+    res.status(200).json({ message: "Group info updated successfully" });
+  } catch (err) {
+    console.error("Error updating group info:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// Get single group info by groupId
+exports.getGroupById = async (req, res) => {
+  const { groupId } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT
+        g.groupid,
+        g.name,
+        g.description,
+        g.groupbudget,
+        g.createdby,
+        (
+          SELECT COUNT(*)
+          FROM group_members gm2
+          WHERE gm2.groupid = g.groupid
+        ) AS member_count,
+        (
+          SELECT COALESCE(SUM(ge.amount), 0)
+          FROM group_expenses ge
+          WHERE ge.groupid = g.groupid
+        ) AS spent
+      FROM groups g
+      WHERE g.groupid = $1`,
+      [groupId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+    res.status(200).json(result.rows[0]);
+  } catch (err) {
+    console.error("Error getting group by id:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
