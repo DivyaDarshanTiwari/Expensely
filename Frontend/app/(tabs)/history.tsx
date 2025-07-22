@@ -1,26 +1,26 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import axios from "axios";
+import Constants from "expo-constants";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { onAuthStateChanged } from "firebase/auth";
+import { useCallback, useRef, useState } from "react";
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
+  FlatList,
+  StatusBar,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  Dimensions,
-  Animated,
-  StyleSheet,
-  StatusBar,
-  Alert,
-  ActivityIndicator,
-  FlatList,
+  View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import axios from "axios";
 import { auth } from "../../auth/firebase";
-import { onAuthStateChanged } from "firebase/auth";
 import ExpenseItem from "../../components/Expense/ExpenseList";
 import IncomeItem from "../../components/Income/IncomeList";
-import Constants from "expo-constants";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -48,13 +48,15 @@ const FinancialOverview = () => {
   const { groupId, groupName } = useLocalSearchParams();
 
   const [currentView, setCurrentView] = useState<ViewType>("expenses");
-  const [expenseData, setExpenseData] = useState([]);
-  const [incomeData, setIncomeData] = useState([]);
+  const [expenseData, setExpenseData] = useState<any[]>([]);
+  const [incomeData, setIncomeData] = useState<any[]>([]);
   const [idToken, setIdToken] = useState("");
   const [pagination, setPagination] = useState<PaginationState>({
     expenses: { page: 1, hasMore: true, loading: false, showAll: false },
     income: { page: 1, hasMore: true, loading: false, showAll: false },
   });
+
+  const PAGE_SIZE = 20;
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -113,7 +115,7 @@ const FinancialOverview = () => {
   const fetchExpenses = async (
     token: string,
     page: number,
-    limit: number,
+    limit: number = PAGE_SIZE,
     isInitial = false
   ) => {
     setPagination((prev) => ({
@@ -128,9 +130,13 @@ const FinancialOverview = () => {
           params: { page, limit },
         }
       );
+      const mappedData = data.data.map((item: any) => ({
+        ...item,
+        id: item.expenseid,
+      }));
       const hasMore = data.pagination.next_page !== null;
       setExpenseData((prev) =>
-        isInitial ? data.data : [...prev, ...data.data]
+        isInitial ? mappedData : [...prev, ...mappedData]
       );
       setPagination((prev) => ({
         ...prev,
@@ -155,7 +161,7 @@ const FinancialOverview = () => {
   const fetchIncome = async (
     token: string,
     page: number,
-    limit: number,
+    limit: number = PAGE_SIZE,
     isInitial = false
   ) => {
     setPagination((prev) => ({
@@ -204,13 +210,11 @@ const FinancialOverview = () => {
   const handleViewAll = async () => {
     const currentType = currentView;
     const typePagination = pagination[currentType];
-    const limit = typePagination.total_records || 100;
-
     if (!typePagination.showAll) {
       if (currentType === "expenses") {
-        fetchExpenses(idToken, 1, limit, true);
+        fetchExpenses(idToken, 1, PAGE_SIZE, true);
       } else {
-        fetchIncome(idToken, 1, limit, true);
+        fetchIncome(idToken, 1, PAGE_SIZE, true);
       }
       setPagination((prev) => ({
         ...prev,
@@ -233,11 +237,10 @@ const FinancialOverview = () => {
     const currentType = currentView;
     const currentPagination = pagination[currentType];
     const nextPage = currentPagination.page + 1;
-
     if (currentType === "expenses") {
-      fetchExpenses(idToken, nextPage, 20);
+      fetchExpenses(idToken, nextPage, PAGE_SIZE);
     } else {
-      fetchIncome(idToken, nextPage, 20);
+      fetchIncome(idToken, nextPage, PAGE_SIZE);
     }
   };
 
@@ -410,12 +413,12 @@ const FinancialOverview = () => {
 
       <FlatList
         data={currentView === "expenses" ? expenseData : incomeData}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) =>
           currentView === "expenses" ? (
-            <ExpenseItem item={item} type={"expense"} />
+            <ExpenseItem item={item} onDelete={() => fetchExpenses(idToken, 1, PAGE_SIZE, true)} />
           ) : (
-            <IncomeItem item={item} />
+            <IncomeItem item={item} onDelete={() => fetchIncome(idToken, 1, PAGE_SIZE, true)} />
           )
         }
         ListHeaderComponent={
