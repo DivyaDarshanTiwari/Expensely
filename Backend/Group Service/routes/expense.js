@@ -3,7 +3,6 @@ const express = require("express");
 const Router = express.Router();
 
 const expenseControllers = require("../controllers/expense");
-const { requireAdmin } = require("../middlewares/adminMiddleware");
 
 Router.post("/add", expenseControllers.addGroupExpense);
 
@@ -15,7 +14,9 @@ Router.get("/getExpenseShare/:expenseId", expenseControllers.getExpenseShares);
 
 Router.get("/getUserExpenses", expenseControllers.getExpensesByUser);
 
-// Delete a group expense by groupId and expenseId
-Router.delete("/delete/:groupId/:expenseId", requireAdmin, expenseControllers.deleteGroupExpense);
+// Edit a group expense (only by creator)
+Router.put("/edit/:groupId/:expenseId", expenseControllers.editGroupExpense);
+// Delete a group expense by groupId and expenseId (only by creator)
+Router.delete("/delete/:groupId/:expenseId", expenseControllers.deleteGroupExpense);
 
 module.exports = Router;

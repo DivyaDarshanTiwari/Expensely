@@ -1,5 +1,3 @@
-"use client";
-
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import Constants from "expo-constants";
@@ -30,31 +28,19 @@ interface Member {
   username: string;
 }
 
-interface ExpenseData {
-  amount: string;
-  description: string;
-  category: string;
-  date: string;
-  paidBy: Member | string;
-  splitAmong: Member[]; // Changed from splitType and shares
-}
-
-const AddExpense = () => {
+const EditExpense = () => {
   const router = useRouter();
-  const { groupId, groupName, groupData } = useLocalSearchParams();
+  const { groupId, groupName, groupData, expenseId } = useLocalSearchParams();
 
-  const [expenseData, setExpenseData] = useState<ExpenseData>({
+  const [expenseData, setExpenseData] = useState({
     amount: "",
     description: "",
     category: "general",
-    date: new Date().toISOString().split("T")[0],
     paidBy: "",
-    splitAmong: [], // Initialize as empty array
+    splitAmong: [] as Member[],
   });
-
   const [members, setMembers] = useState<Member[]>([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [showMemberModal, setShowMemberModal] = useState(false);
   const [showSplitMemberModal, setShowSplitMemberModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [idToken, setIdToken] = useState("");
@@ -67,36 +53,24 @@ const AddExpense = () => {
   const formScale = useRef(new Animated.Value(0.95)).current;
 
   const categories = [
-    { id: "Food", name: "Food & Dining", icon: "restaurant", color: "#F59E0B" },
-    { id: "Transport", name: "Transport & Travel", icon: "car", color: "#3B82F6" },
-    { id: "Accommodation", name: "Accommodation", icon: "bed", color: "#7C3AED" },
-    { id: "Activities", name: "Activities & Tickets", icon: "ticket", color: "#F472B6" },
-    { id: "Shopping", name: "Shopping", icon: "bag", color: "#EC4899" },
-    { id: "Utilities", name: "Utilities", icon: "flash", color: "#10B981" },
-    { id: "Health", name: "Health & Medical", icon: "medical", color: "#EF4444" },
-    { id: "Miscellaneous", name: "Miscellaneous", icon: "ellipsis-horizontal", color: "#6B7280" }
+    { id: "food", name: "Food & Dining", icon: "restaurant", color: "#F59E0B" },
+    { id: "transport", name: "Transportation", icon: "car", color: "#3B82F6" },
+    {
+      id: "entertainment",
+      name: "Entertainment",
+      icon: "game-controller",
+      color: "#8B5CF6",
+    },
+    { id: "shopping", name: "Shopping", icon: "bag", color: "#EC4899" },
+    { id: "utilities", name: "Utilities", icon: "flash", color: "#10B981" },
+    {
+      id: "health",
+      name: "Health & Medical",
+      icon: "medical",
+      color: "#EF4444",
+    },
+    { id: "general", name: "General", icon: "card", color: "#6B7280" },
   ];
-
-  const keywordCategoryMap = [
-    { keywords: ["petrol", "fuel", "gas"], categoryId: "Transport" },
-    { keywords: ["hotel", "stay", "accommodation"], categoryId: "Accommodation" },
-    { keywords: ["flight", "air", "train", "bus", "taxi"], categoryId: "Transport" },
-    { keywords: ["food", "dinner", "lunch", "breakfast", "snack", "restaurant"], categoryId: "Food" },
-    { keywords: ["ticket", "activity", "museum", "zoo", "park"], categoryId: "Activities" },
-    { keywords: ["shopping", "mall", "clothes", "gift"], categoryId: "Shopping" },
-    { keywords: ["medicine", "doctor", "pharmacy", "health"], categoryId: "Health" },
-    { keywords: ["utility", "electricity", "water", "wifi", "internet"], categoryId: "Utilities" },
-  ];
-
-  function detectCategory(description: string) {
-    const desc = description.toLowerCase();
-    for (const entry of keywordCategoryMap) {
-      if (entry.keywords.some((kw) => desc.includes(kw))) {
-        return entry.categoryId;
-      }
-    }
-    return null;
-  }
 
   useEffect(() => {
     const fetchMembers = async (token: string) => {
@@ -109,20 +83,30 @@ const AddExpense = () => {
             },
           }
         );
-
-        const membersData = res.data || [];
-        setMembers(membersData);
-
-        // Set current user as default payer if available
-        if (membersData.length > 0) {
-          setExpenseData((prev) => ({
-            ...prev,
-            paidBy: membersData[0],
-          }));
-        }
+        setMembers(res.data || []);
       } catch (error) {
-        console.error("Failed to fetch members", error);
         Alert.alert("Error", "Could not fetch group members");
+      }
+    };
+
+    const fetchExpense = async (token: string) => {
+      try {
+        const res = await axios.get(
+          `${Constants.expoConfig?.extra?.Group_URL}/api/v1/groupExpense/getExpense/${expenseId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const data = res.data;
+        setExpenseData({
+          amount: String(data.amount),
+          description: data.description,
+          category: data.category,
+          paidBy: data.paidBy,
+          splitAmong:
+            data.shares?.map((s: any) => ({ username: s.username, id: 0 })) ||
+            [],
+        });
+      } catch (error) {
+        Alert.alert("Error", "Could not fetch expense details");
       }
     };
 
@@ -132,9 +116,9 @@ const AddExpense = () => {
         try {
           const token = await firebaseUser.getIdToken();
           setIdToken(token);
-          fetchMembers(token);
+          await fetchMembers(token);
+          await fetchExpense(token);
         } catch (error) {
-          console.error("Error getting ID token:", error);
           Alert.alert("Error", "Authentication failed");
         }
       } else {
@@ -143,7 +127,6 @@ const AddExpense = () => {
       }
     });
 
-    // Start animations
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -170,7 +153,7 @@ const AddExpense = () => {
     ]).start();
 
     return () => unsubscribe();
-  }, [groupId]);
+  }, [groupId, expenseId]);
 
   const selectedCategory =
     categories.find((cat) => cat.id === expenseData.category) ||
@@ -184,43 +167,30 @@ const AddExpense = () => {
       Alert.alert("Error", "Please enter a valid amount");
       return false;
     }
-
     if (!expenseData.description.trim()) {
       Alert.alert("Error", "Please enter a description");
       return false;
     }
-
     if (!expenseData.paidBy) {
-      Alert.alert("Error", "Please select who paid");
+      Alert.alert("Error", "Paid by info missing");
       return false;
     }
-
     if (expenseData.splitAmong.length === 0) {
       Alert.alert("Error", "Please select members to split the expense among");
       return false;
     }
-
     return true;
   };
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
-
     setLoading(true);
-
     try {
-      const paidById =
-        typeof expenseData.paidBy === "object"
-          ? expenseData.paidBy.username
-          : expenseData.paidBy;
-
       const payload = {
-        groupId: Number.parseInt(groupId as string),
-        paidBy: paidById,
+        userId: currentUser?.uid, // Backend expects userId
         amount: Number.parseFloat(expenseData.amount),
         category: expenseData.category,
         description: expenseData.description,
-        date: expenseData.date,
         shares: expenseData.splitAmong.map((member) => ({
           username: member.username,
           amountOwned:
@@ -228,11 +198,8 @@ const AddExpense = () => {
             expenseData.splitAmong.length,
         })),
       };
-
-      console.log(payload);
-
-      await axios.post(
-        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/groupExpense/add`,
+      await axios.put(
+        `${Constants.expoConfig?.extra?.Group_URL}/api/v1/groupExpense/edit/${groupId}/${expenseId}`,
         payload,
         {
           headers: {
@@ -240,8 +207,7 @@ const AddExpense = () => {
           },
         }
       );
-
-      Alert.alert("Success", "Expense added successfully!", [
+      Alert.alert("Success", "Expense updated successfully!", [
         {
           text: "OK",
           onPress: () =>
@@ -250,30 +216,21 @@ const AddExpense = () => {
               params: {
                 groupId: groupId,
                 groupName: groupName,
-                groupData: groupData, // for complex objects
+                groupData: groupData,
                 refresh: "true",
               },
             }),
         },
       ]);
-    } catch (err) {
-      console.error("Error creating expense:", err);
-      Alert.alert("Error", "Failed to create expense. Please try again.");
+    } catch (err: any) {
+      Alert.alert(
+        "Error",
+        err?.response?.data?.message ||
+          "Failed to update expense. Please try again."
+      );
     } finally {
       setLoading(false);
     }
-  };
-
-  const getPaidByDisplayName = () => {
-    if (typeof expenseData.paidBy === "object") {
-      return expenseData.paidBy.username;
-    }
-    return expenseData.paidBy || "Select who paid";
-  };
-
-  const getPaidByInitial = () => {
-    const name = getPaidByDisplayName();
-    return name.charAt(0).toUpperCase();
   };
 
   const renderSplitMemberModal = () => (
@@ -296,7 +253,6 @@ const AddExpense = () => {
               <Ionicons name="close" size={24} color="#6B7280" />
             </TouchableOpacity>
           </View>
-
           {/* All Members Option */}
           <TouchableOpacity
             style={[
@@ -316,7 +272,6 @@ const AddExpense = () => {
               <Ionicons name="checkmark" size={24} color="#10B981" />
             )}
           </TouchableOpacity>
-
           <FlatList
             data={members}
             keyExtractor={(item) => item.username}
@@ -324,7 +279,6 @@ const AddExpense = () => {
               const isSelected = expenseData.splitAmong.some(
                 (member) => member.username === item.username
               );
-
               return (
                 <TouchableOpacity
                   style={[
@@ -336,7 +290,7 @@ const AddExpense = () => {
                       ...prev,
                       splitAmong: isSelected
                         ? prev.splitAmong.filter(
-                            (member) => member.id !== item.id
+                            (member) => member.username !== item.username
                           )
                         : [...prev.splitAmong, item],
                     }));
@@ -355,7 +309,6 @@ const AddExpense = () => {
               );
             }}
           />
-
           <View style={styles.modalFooter}>
             <TouchableOpacity
               style={styles.modalDoneButton}
@@ -369,124 +322,9 @@ const AddExpense = () => {
     </Modal>
   );
 
-  const renderCategoryModal = () => (
-    <Modal
-      visible={showCategoryModal}
-      transparent
-      animationType="fade"
-      onRequestClose={() => setShowCategoryModal(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <Animated.View
-          style={[styles.modalContent, { transform: [{ scale: formScale }] }]}
-        >
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Category</Text>
-            <TouchableOpacity
-              onPress={() => setShowCategoryModal(false)}
-              style={styles.modalCloseButton}
-            >
-              <Ionicons name="close" size={24} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={categories}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[
-                  styles.categoryItem,
-                  expenseData.category === item.id &&
-                    styles.categoryItemSelected,
-                ]}
-                onPress={() => {
-                  setExpenseData((prev) => ({ ...prev, category: item.id }));
-                  setShowCategoryModal(false);
-                }}
-              >
-                <View
-                  style={[
-                    styles.categoryIcon,
-                    { backgroundColor: `${item.color}20` },
-                  ]}
-                >
-                  <Ionicons
-                    name={item.icon as any}
-                    size={24}
-                    color={item.color}
-                  />
-                </View>
-                <Text style={styles.categoryName}>{item.name}</Text>
-                {expenseData.category === item.id && (
-                  <Ionicons name="checkmark" size={24} color="#10B981" />
-                )}
-              </TouchableOpacity>
-            )}
-          />
-        </Animated.View>
-      </View>
-    </Modal>
-  );
-
-  const renderMemberModal = () => (
-    <Modal
-      visible={showMemberModal}
-      transparent
-      animationType="fade"
-      onRequestClose={() => setShowMemberModal(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <Animated.View
-          style={[styles.modalContent, { transform: [{ scale: formScale }] }]}
-        >
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Who Paid?</Text>
-            <TouchableOpacity
-              onPress={() => setShowMemberModal(false)}
-              style={styles.modalCloseButton}
-            >
-              <Ionicons name="close" size={24} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={members}
-            keyExtractor={(item) => item.username}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[
-                  styles.memberItem,
-                  expenseData.paidBy === item.username &&
-                    styles.memberItemSelected,
-                ]}
-                onPress={() => {
-                  setExpenseData((prev) => ({
-                    ...prev,
-                    paidBy: item.username,
-                  }));
-                  setShowMemberModal(false);
-                }}
-              >
-                <View style={styles.memberAvatar}>
-                  <Text style={styles.memberInitial}>
-                    {(item.username.charAt(0) || "?").toUpperCase()}
-                  </Text>
-                </View>
-                <Text style={styles.memberName}>{item.username}</Text>
-                {expenseData.paidBy === item.username && (
-                  <Ionicons name="checkmark" size={24} color="#10B981" />
-                )}
-              </TouchableOpacity>
-            )}
-          />
-        </Animated.View>
-      </View>
-    </Modal>
-  );
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
-
       {/* Header */}
       <Animated.View
         style={[
@@ -504,12 +342,11 @@ const AddExpense = () => {
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Add Expense</Text>
+          <Text style={styles.headerTitle}>Edit Expense</Text>
           <Text style={styles.headerSubtitle}>{groupName}</Text>
         </View>
         <View style={styles.headerRight} />
       </Animated.View>
-
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Amount Input */}
         <Animated.View
@@ -542,7 +379,6 @@ const AddExpense = () => {
             </View>
           </LinearGradient>
         </Animated.View>
-
         {/* Form Fields */}
         <Animated.View
           style={[
@@ -561,19 +397,11 @@ const AddExpense = () => {
               placeholder="What was this expense for?"
               placeholderTextColor="#9CA3AF"
               value={expenseData.description}
-              onChangeText={(text) => {
-                setExpenseData((prev) => {
-                  const detected = detectCategory(text);
-                  return {
-                    ...prev,
-                    description: text,
-                    category: detected || prev.category,
-                  };
-                });
-              }}
+              onChangeText={(text) =>
+                setExpenseData((prev) => ({ ...prev, description: text }))
+              }
             />
           </View>
-
           {/* Category */}
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Category</Text>
@@ -599,50 +427,13 @@ const AddExpense = () => {
               <Ionicons name="chevron-down" size={20} color="#6B7280" />
             </TouchableOpacity>
           </View>
-
-          {/* Date */}
+          {/* Who Paid (read-only) */}
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Date</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#9CA3AF"
-              value={expenseData.date}
-              onChangeText={(text) =>
-                setExpenseData((prev) => ({ ...prev, date: text }))
-              }
-            />
+            <Text style={styles.inputLabel}>Paid By</Text>
+            <View style={styles.selectButton}>
+              <Text style={styles.selectText}>{expenseData.paidBy}</Text>
+            </View>
           </View>
-
-          {/* Who Paid */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Who Paid?</Text>
-            <TouchableOpacity
-              style={styles.selectButton}
-              onPress={() => setShowMemberModal(true)}
-            >
-              <View style={styles.selectContent}>
-                {expenseData.paidBy ? (
-                  <>
-                    <View style={styles.memberAvatar}>
-                      <Text style={styles.memberInitial}>
-                        {getPaidByInitial()}
-                      </Text>
-                    </View>
-                    <Text style={styles.selectText}>
-                      {getPaidByDisplayName()}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={[styles.selectText, { color: "#9CA3AF" }]}>
-                    Select who paid
-                  </Text>
-                )}
-              </View>
-              <Ionicons name="chevron-down" size={20} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
-
           {/* Split Among */}
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Split Among</Text>
@@ -673,7 +464,6 @@ const AddExpense = () => {
             </TouchableOpacity>
           </View>
         </Animated.View>
-
         {/* Submit Button */}
         <Animated.View
           style={[
@@ -697,20 +487,75 @@ const AddExpense = () => {
               style={styles.submitGradient}
             >
               {loading ? (
-                <Text style={styles.submitText}>Adding Expense...</Text>
+                <Text style={styles.submitText}>Updating...</Text>
               ) : (
                 <>
-                  <Ionicons name="add" size={24} color="white" />
-                  <Text style={styles.submitText}>Add Expense</Text>
+                  <Ionicons name="save" size={24} color="white" />
+                  <Text style={styles.submitText}>Update Expense</Text>
                 </>
               )}
             </LinearGradient>
           </TouchableOpacity>
         </Animated.View>
       </ScrollView>
-
-      {renderCategoryModal()}
-      {renderMemberModal()}
+      {/* Modals */}
+      {/* Category Modal */}
+      <Modal
+        visible={showCategoryModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCategoryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View
+            style={[styles.modalContent, { transform: [{ scale: formScale }] }]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Category</Text>
+              <TouchableOpacity
+                onPress={() => setShowCategoryModal(false)}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={categories}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.categoryItem,
+                    expenseData.category === item.id &&
+                      styles.categoryItemSelected,
+                  ]}
+                  onPress={() => {
+                    setExpenseData((prev) => ({ ...prev, category: item.id }));
+                    setShowCategoryModal(false);
+                  }}
+                >
+                  <View
+                    style={[
+                      styles.categoryIcon,
+                      { backgroundColor: `${item.color}20` },
+                    ]}
+                  >
+                    <Ionicons
+                      name={item.icon as any}
+                      size={24}
+                      color={item.color}
+                    />
+                  </View>
+                  <Text style={styles.categoryName}>{item.name}</Text>
+                  {expenseData.category === item.id && (
+                    <Ionicons name="checkmark" size={24} color="#10B981" />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </Animated.View>
+        </View>
+      </Modal>
       {renderSplitMemberModal()}
     </View>
   );
@@ -982,4 +827,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AddExpense;
+export default EditExpense;

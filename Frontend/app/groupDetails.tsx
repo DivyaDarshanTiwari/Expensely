@@ -11,6 +11,7 @@ import {
   Dimensions,
   FlatList,
   Modal,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -36,7 +37,7 @@ const GroupDetails = () => {
   const [loading, setLoading] = useState(true);
   const [idToken, setIdToken] = useState("");
   const [showMembers, setShowMembers] = useState(false);
-  const [backendUserId, setBackendUserId] = useState<number | null>(null);
+  const [backendUserId, setBackendUserId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editName, setEditName] = useState(group.name);
@@ -46,6 +47,13 @@ const GroupDetails = () => {
   const [showAllExpenses, setShowAllExpenses] = useState(false);
   const [expensesPage, setExpensesPage] = useState(1);
   const [expensesHasMore, setExpensesHasMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
+  const [expenseMenuVisible, setExpenseMenuVisible] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<any>(null);
+  const [expenseDetailsModalVisible, setExpenseDetailsModalVisible] =
+    useState(false);
+  const [expenseDetails, setExpenseDetails] = useState<any>(null);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -53,10 +61,28 @@ const GroupDetails = () => {
   const headerSlide = useRef(new Animated.Value(-50)).current;
   const cardScale = useRef(new Animated.Value(0.9)).current;
 
+  // Add a categoryIconMap for expense icons/colors
+  const categoryIconMap: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
+    Food: { icon: "restaurant", color: "#F59E0B" },
+    Transport: { icon: "car", color: "#3B82F6" },
+    Accommodation: { icon: "bed", color: "#7C3AED" },
+    Activities: { icon: "ticket", color: "#F472B6" },
+    Shopping: { icon: "bag", color: "#EC4899" },
+    Utilities: { icon: "flash", color: "#10B981" },
+    Health: { icon: "medical", color: "#EF4444" },
+    Miscellaneous: { icon: "ellipsis-horizontal", color: "#6B7280" },
+    General: { icon: "card", color: "#6B7280" },
+  };
+
   // ...
 
   // Update fetchGroupDetails to support pagination for expenses
-  const fetchGroupDetails = async (idToken: string, userId: number, page = 1, showAll = false) => {
+  const fetchGroupDetails = async (
+    idToken: string,
+    userId: string | null,
+    page = 1,
+    showAll = false
+  ) => {
     try {
       // Fetch latest group info
       const groupRes = await axios.get(
@@ -89,10 +115,20 @@ const GroupDetails = () => {
         headers: { Authorization: `Bearer ${idToken}` },
         params,
       });
+      // Fetch createdBy for each expense
+      const expensesWithCreator = await Promise.all(
+        (expensesRes.data || []).map(async (expense: any) => {
+          const detailsRes = await axios.get(
+            `${Constants.expoConfig?.extra?.Group_URL}/api/v1/groupExpense/getExpense/${expense.id}`,
+            { headers: { Authorization: `Bearer ${idToken}` } }
+          );
+          return { ...expense, createdBy: String(detailsRes.data.createdBy) };
+        })
+      );
       if (showAll && page > 1) {
-        setExpenses((prev: any) => [...prev, ...(expensesRes.data || [])]);
+        setExpenses((prev: any) => [...prev, ...expensesWithCreator]);
       } else {
-        setExpenses(expensesRes.data || []);
+        setExpenses(expensesWithCreator);
       }
       setExpensesHasMore((expensesRes.data?.length || 0) === 20);
       setExpensesPage(page);
@@ -110,7 +146,7 @@ const GroupDetails = () => {
 
       // Check if current user is admin
       const currentUser = membersRes.data.find(
-        (member: any) => member.userId === userId
+        (member: any) => String(member.userId) === String(userId)
       );
       setIsAdmin(currentUser?.isAdmin || false);
     } catch (error) {
@@ -128,8 +164,11 @@ const GroupDetails = () => {
             const idToken = await firebaseUser.getIdToken();
             setIdToken(idToken);
             const storedUserId = await getStoredUserId();
-            const userId = storedUserId ? Number(storedUserId) : null;
+            const userId = storedUserId ? String(storedUserId) : null;
             setBackendUserId(userId);
+            setCurrentUsername(
+              firebaseUser.displayName || firebaseUser.email || null
+            );
             if (userId) {
               fetchGroupDetails(idToken, userId, 1, showAllExpenses);
             } else {
@@ -289,56 +328,106 @@ const GroupDetails = () => {
     );
   };
 
-  const renderExpenseItem = ({ item, index }: { item: any; index: any }) => (
-    <Animated.View
-      style={[
-        styles.expenseCard,
-        {
-          opacity: fadeAnim,
-          transform: [
-            {
-              translateY: slideAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, index * 5],
-              }),
-            },
-          ],
+  const onRefresh = async () => {
+    setRefreshing(true);
+    if (idToken && backendUserId) {
+      await fetchGroupDetails(idToken, backendUserId, 1, showAllExpenses);
+    }
+    setRefreshing(false);
+  };
+
+  const handleExpenseMenu = (expense: any) => {
+    setSelectedExpense(expense);
+    setExpenseMenuVisible(true);
+  };
+
+  const handleExpenseMenuOption = async (option: string) => {
+    if (!selectedExpense) return;
+    if (option === "edit") {
+      router.push({
+        pathname: "/editExpense",
+        params: {
+          expenseId: selectedExpense.id,
+          groupId: group.id,
+          groupName: group.name,
+          groupData: JSON.stringify(group),
         },
-      ]}
-    >
-      <View style={styles.expenseHeader}>
-        <View style={styles.expenseIconContainer}>
-          <Ionicons
-            name={item.category === "food" ? "restaurant" : "card"}
-            size={20}
-            color={group.color[0]}
-          />
-        </View>
-        <View style={styles.expenseInfo}>
-          <Text style={styles.expenseTitle}>{item.category}</Text>
-          <Text style={styles.expenseDate}>
-            {new Date(item.createdat).toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })}
-          </Text>
-        </View>
-        <View style={styles.expenseAmount}>
-          <Text style={[styles.expenseValue, { color: group.color[0] }]}>₹{item.amount}</Text>
-          <Text style={styles.expensePaidBy}>by {item.paidby}</Text>
-        </View>
-        {isAdmin && (
+      });
+    } else if (option === "delete") {
+      await handleDeleteExpense(selectedExpense.id);
+    } else if (option === "details") {
+      // Fetch details from backend
+      try {
+        const res = await axios.get(
+          `${Constants.expoConfig?.extra?.Group_URL}/api/v1/groupExpense/getExpense/${selectedExpense.id}`,
+          { headers: { Authorization: `Bearer ${idToken}` } }
+        );
+        setExpenseDetails(res.data);
+        setExpenseDetailsModalVisible(true);
+      } catch (err) {
+        Alert.alert("Error", "Failed to fetch expense details");
+      }
+    }
+    setExpenseMenuVisible(false);
+  };
+
+  const renderExpenseItem = ({ item, index }: { item: any; index: any }) => {
+    const iconInfo = categoryIconMap[item.category] || { icon: "card", color: group.color[0] };
+    const isOwner = currentUsername && item.createdBy === currentUsername;
+    return (
+      <Animated.View
+        style={[
+          styles.expenseCard,
+          {
+            opacity: fadeAnim,
+            transform: [
+              {
+                translateY: slideAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, index * 5],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <View style={styles.expenseHeader}>
+          <View style={styles.expenseIconContainer}>
+            <Ionicons
+              name={iconInfo.icon}
+              size={20}
+              color={iconInfo.color}
+            />
+          </View>
+          <View style={styles.expenseInfo}>
+            <Text style={styles.expenseTitle}>{item.category}</Text>
+            {item.description && (
+              <Text style={styles.expenseDescription}>{item.description}</Text>
+            )}
+            <Text style={styles.expenseDate}>
+              {new Date(item.createdat).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}
+            </Text>
+          </View>
+          <View style={styles.expenseAmount}>
+            <Text style={[styles.expenseValue, { color: group.color[0] }]}>
+              ₹{item.amount}
+            </Text>
+            <Text style={styles.expensePaidBy}>by {item.paidby}</Text>
+          </View>
           <TouchableOpacity
             style={{ marginLeft: 8, padding: 4 }}
-            onPress={() => handleDeleteExpense(item.id)}
+            onPress={() => handleExpenseMenu(item)}
           >
-            <Ionicons name="trash" size={20} color="#EF4444" />
+            <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
           </TouchableOpacity>
-        )}
-      </View>
-    </Animated.View>
-  );
+        </View>
+      </Animated.View>
+    );
+  };
 
   const renderMemberItem = ({ item, index }: { item: any; index: any }) => (
     <Animated.View
@@ -413,7 +502,13 @@ const GroupDetails = () => {
         )}
       </Animated.View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {/* Group Summary Card */}
         <Animated.View
           style={[
@@ -612,8 +707,13 @@ const GroupDetails = () => {
             )}
             ListFooterComponent={
               showAllExpenses && expensesHasMore ? (
-                <TouchableOpacity onPress={handleLoadMoreExpenses} style={{ padding: 16, alignItems: 'center' }}>
-                  <Text style={{ color: group.color[0], fontWeight: '600' }}>Load More</Text>
+                <TouchableOpacity
+                  onPress={handleLoadMoreExpenses}
+                  style={{ padding: 16, alignItems: "center" }}
+                >
+                  <Text style={{ color: group.color[0], fontWeight: "600" }}>
+                    Load More
+                  </Text>
                 </TouchableOpacity>
               ) : null
             }
@@ -787,6 +887,196 @@ const GroupDetails = () => {
                 </LinearGradient>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+      {/* Expense Menu Modal */}
+      <Modal
+        visible={expenseMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setExpenseMenuVisible(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "rgba(0,0,0,0.2)",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: 16,
+              padding: 20,
+              width: 260,
+              alignItems: "stretch",
+            }}
+          >
+            {selectedExpense && (() => {
+              const isOwnerOrAdmin = (backendUserId && selectedExpense && String(selectedExpense.createdBy) === String(backendUserId)) || isAdmin;
+              return (
+                <>
+                  <TouchableOpacity
+                    disabled={!isOwnerOrAdmin}
+                    onPress={() => handleExpenseMenuOption("edit")}
+                    style={{ paddingVertical: 12, opacity: isOwnerOrAdmin ? 1 : 0.5 }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        color: "#7C3AED",
+                        fontWeight: "600",
+                      }}
+                    >
+                      Edit
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    disabled={!isOwnerOrAdmin}
+                    onPress={() => handleExpenseMenuOption("delete")}
+                    style={{ paddingVertical: 12, opacity: isOwnerOrAdmin ? 1 : 0.5 }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        color: "#EF4444",
+                        fontWeight: "600",
+                      }}
+                    >
+                      Delete
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleExpenseMenuOption("details")}
+                    style={{ paddingVertical: 12 }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        color: "#111827",
+                        fontWeight: "600",
+                      }}
+                    >
+                      Details
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              );
+            })()}
+            <TouchableOpacity
+              onPress={() => setExpenseMenuVisible(false)}
+              style={{ paddingVertical: 10, alignItems: "center" }}
+            >
+              <Text style={{ color: "#6B7280", fontWeight: "500" }}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      {/* Expense Details Modal */}
+      <Modal
+        visible={expenseDetailsModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setExpenseDetailsModalVisible(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "rgba(0,0,0,0.3)",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: "#fff",
+              padding: 24,
+              borderRadius: 20,
+              width: "92%",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.12,
+              shadowRadius: 8,
+              elevation: 8,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 22,
+                fontWeight: "700",
+                color: group.color[0],
+                marginBottom: 18,
+                textAlign: "center",
+              }}
+            >
+              Expense Details
+            </Text>
+            {expenseDetails ? (
+              <>
+                <Text style={{ fontSize: 16, marginBottom: 8 }}>
+                  <Text style={{ fontWeight: "600" }}>Amount:</Text> ₹
+                  {expenseDetails.amount}
+                </Text>
+                <Text style={{ fontSize: 16, marginBottom: 8 }}>
+                  <Text style={{ fontWeight: "600" }}>Category:</Text> {expenseDetails.category}
+                </Text>
+                <Text style={{ fontSize: 16, marginBottom: 8 }}>
+                  <Text style={{ fontWeight: "600" }}>Paid By:</Text> {expenseDetails.paidBy}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "600",
+                    marginTop: 12,
+                    marginBottom: 4,
+                  }}
+                >
+                  Split Among:
+                </Text>
+                {expenseDetails.shares && expenseDetails.shares.length > 0 ? (
+                  expenseDetails.shares.map((share: any, idx: number) => (
+                    <Text
+                      key={idx}
+                      style={{ fontSize: 15, marginLeft: 8, marginBottom: 2 }}
+                    >
+                      - {share.username}: ₹{share.amountOwned}
+                    </Text>
+                  ))
+                ) : (
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      marginLeft: 8,
+                      marginBottom: 2,
+                      fontStyle: "italic",
+                    }}
+                  >
+                    No split info
+                  </Text>
+                )}
+              </>
+            ) : (
+              <Text>Loading...</Text>
+            )}
+            <TouchableOpacity
+              onPress={() => setExpenseDetailsModalVisible(false)}
+              style={{
+                marginTop: 18,
+                alignSelf: "center",
+                paddingVertical: 10,
+                paddingHorizontal: 28,
+                borderRadius: 10,
+                backgroundColor: group.color[0],
+              }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>
+                Close
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1069,6 +1359,11 @@ const styles = StyleSheet.create({
   expensePaidBy: {
     fontSize: 12,
     color: "#6B7280",
+  },
+  expenseDescription: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginTop: 2,
   },
   expenseSeparator: {
     height: 12,
