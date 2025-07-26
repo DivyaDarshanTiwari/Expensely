@@ -25,6 +25,7 @@ import {
   View,
 } from "react-native";
 import { auth } from "../auth/firebase";
+import { getStoredUser } from "../utils/storage"; // adjust path as needed
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -66,16 +67,17 @@ export default function ProfileScreen() {
   const slideAnim = useRef(new Animated.Value(50)).current;
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (!firebaseUser) {
+    (async () => {
+      const storedUser = await getStoredUser();
+      if (!storedUser) {
         router.replace("/auth");
       } else {
-        setUser(firebaseUser);
+        setUser(storedUser);
         const userProfile = {
-          displayName: firebaseUser.displayName || "",
-          email: firebaseUser.email || "",
-          photoURL: firebaseUser.photoURL || "",
-          phoneNumber: firebaseUser.phoneNumber || "",
+          displayName: storedUser.displayName || "",
+          email: storedUser.email || "",
+          photoURL: storedUser.photoURL || "",
+          phoneNumber: storedUser.phoneNumber || "",
           bio: "", // This would come from your database
         };
         setProfile(userProfile);
@@ -96,9 +98,7 @@ export default function ProfileScreen() {
           }),
         ]).start();
       }
-    });
-
-    return unsubscribe;
+    })();
   }, []);
 
   const handleImagePicker = async () => {
@@ -387,7 +387,7 @@ export default function ProfileScreen() {
               }}
               style={styles.avatar}
             />
-            {(
+            {
               <TouchableOpacity
                 style={styles.cameraButton}
                 onPress={async () => {
@@ -397,7 +397,7 @@ export default function ProfileScreen() {
               >
                 <Ionicons name="camera" size={20} color="#FFFFFF" />
               </TouchableOpacity>
-            )}
+            }
           </View>
         </Animated.View>
 

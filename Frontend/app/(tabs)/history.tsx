@@ -21,6 +21,7 @@ import {
 import { auth } from "../../auth/firebase";
 import ExpenseItem from "../../components/Expense/ExpenseList";
 import IncomeItem from "../../components/Income/IncomeList";
+import { getStoredToken } from "../../utils/storage";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -68,23 +69,20 @@ const FinancialOverview = () => {
     useCallback(() => {
       let isActive = true;
 
-      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        if (firebaseUser && isActive) {
-          try {
-            const token = await firebaseUser.getIdToken();
-            setIdToken(token);
-            // Load initial data (last 5 entries)
-            fetchExpenses(token, 1, 5, true);
-            fetchIncome(token, 1, 5, true);
-          } catch (error) {
-            console.error("Error getting ID token:", error);
-            Alert.alert("Error", "Authentication failed");
-          }
+      const checkAndFetchData = async () => {
+        const token = await getStoredToken();
+        if (token && isActive) {
+          setIdToken(token);
+          // Load initial data (last 5 entries)
+          fetchExpenses(token, 1, 5, true);
+          fetchIncome(token, 1, 5, true);
         } else if (isActive) {
           Alert.alert("Error", "Please log in to continue");
           router.back();
         }
-      });
+      };
+
+      checkAndFetchData();
 
       // Start animations
       Animated.parallel([
@@ -107,7 +105,6 @@ const FinancialOverview = () => {
 
       return () => {
         isActive = false;
-        unsubscribe();
       };
     }, [groupId])
   );
@@ -416,9 +413,15 @@ const FinancialOverview = () => {
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) =>
           currentView === "expenses" ? (
-            <ExpenseItem item={item} onDelete={() => fetchExpenses(idToken, 1, PAGE_SIZE, true)} />
+            <ExpenseItem
+              item={item}
+              onDelete={() => fetchExpenses(idToken, 1, PAGE_SIZE, true)}
+            />
           ) : (
-            <IncomeItem item={item} onDelete={() => fetchIncome(idToken, 1, PAGE_SIZE, true)} />
+            <IncomeItem
+              item={item}
+              onDelete={() => fetchIncome(idToken, 1, PAGE_SIZE, true)}
+            />
           )
         }
         ListHeaderComponent={

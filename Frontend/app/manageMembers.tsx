@@ -6,20 +6,21 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import React, { useCallback, useRef, useState } from "react";
 import {
-    Alert,
-    Animated,
-    Dimensions,
-    FlatList,
-    Modal,
-    RefreshControl,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Animated,
+  Dimensions,
+  FlatList,
+  Modal,
+  RefreshControl,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { auth } from "../auth/firebase";
+import { getStoredToken } from "../utils/storage";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -51,17 +52,17 @@ const ManageMembers = () => {
 
   useFocusEffect(
     useCallback(() => {
-      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        if (firebaseUser) {
-          try {
-            const idToken = await firebaseUser.getIdToken();
-            setIdToken(idToken);
-            fetchMembers(idToken);
-          } catch (error) {
-            console.error("Error getting ID token:", error);
+      (async () => {
+        try {
+          const token = await getStoredToken();
+          if (token) {
+            setIdToken(token);
+            fetchMembers(token);
           }
+        } catch (error) {
+          console.error("Error getting stored token:", error);
         }
-      });
+      })();
 
       // Start animations
       Animated.parallel([
@@ -88,8 +89,6 @@ const ManageMembers = () => {
           useNativeDriver: true,
         }),
       ]).start();
-
-      return () => unsubscribe();
     }, [])
   );
 

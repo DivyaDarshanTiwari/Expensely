@@ -21,7 +21,11 @@ import {
   View,
 } from "react-native";
 import { auth } from "../auth/firebase";
-import { getStoredUserId } from "../utils/storage";
+import {
+  getStoredUserId,
+  getStoredUser,
+  getStoredToken,
+} from "../utils/storage";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -62,7 +66,10 @@ const GroupDetails = () => {
   const cardScale = useRef(new Animated.Value(0.9)).current;
 
   // Add a categoryIconMap for expense icons/colors
-  const categoryIconMap: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
+  const categoryIconMap: Record<
+    string,
+    { icon: keyof typeof Ionicons.glyphMap; color: string }
+  > = {
     Food: { icon: "restaurant", color: "#F59E0B" },
     Transport: { icon: "car", color: "#3B82F6" },
     Accommodation: { icon: "bed", color: "#7C3AED" },
@@ -158,29 +165,29 @@ const GroupDetails = () => {
 
   useFocusEffect(
     useCallback(() => {
-      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        if (firebaseUser) {
-          try {
-            const idToken = await firebaseUser.getIdToken();
-            setIdToken(idToken);
-            const storedUserId = await getStoredUserId();
-            const userId = storedUserId ? String(storedUserId) : null;
-            setBackendUserId(userId);
-            setCurrentUsername(
-              firebaseUser.displayName || firebaseUser.email || null
-            );
-            if (userId) {
-              fetchGroupDetails(idToken, userId, 1, showAllExpenses);
-            } else {
-              console.error("Backend user ID not found");
-              setLoading(false);
-            }
-          } catch (error) {
-            console.error("Error getting ID token:", error);
+      // Use getStoredUserId and getStoredUser directly instead of onAuthStateChanged
+      (async () => {
+        setLoading(true);
+        try {
+          const storedUser = await getStoredUser();
+          const storedUserId = await getStoredUserId();
+          const userId = storedUserId ? String(storedUserId) : null;
+          setBackendUserId(userId);
+          setCurrentUsername(storedUser?.username || storedUser?.email || null);
+          // Use getStoredToken to get the idToken
+          const idToken = (await getStoredToken()) || storedUser?.idToken || "";
+          setIdToken(idToken);
+          if (userId && idToken) {
+            await fetchGroupDetails(idToken, userId, 1, showAllExpenses);
+          } else {
+            console.error("Backend user ID or idToken not found");
             setLoading(false);
           }
+        } catch (error) {
+          console.error("Error loading user info:", error);
+          setLoading(false);
         }
-      });
+      })();
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -205,7 +212,6 @@ const GroupDetails = () => {
           useNativeDriver: true,
         }),
       ]).start();
-      return () => unsubscribe();
     }, [groupId, showAllExpenses])
   );
 
@@ -372,7 +378,10 @@ const GroupDetails = () => {
   };
 
   const renderExpenseItem = ({ item, index }: { item: any; index: any }) => {
-    const iconInfo = categoryIconMap[item.category] || { icon: "card", color: group.color[0] };
+    const iconInfo = categoryIconMap[item.category] || {
+      icon: "card",
+      color: group.color[0],
+    };
     const isOwner = currentUsername && item.createdBy === currentUsername;
     return (
       <Animated.View
@@ -393,11 +402,7 @@ const GroupDetails = () => {
       >
         <View style={styles.expenseHeader}>
           <View style={styles.expenseIconContainer}>
-            <Ionicons
-              name={iconInfo.icon}
-              size={20}
-              color={iconInfo.color}
-            />
+            <Ionicons name={iconInfo.icon} size={20} color={iconInfo.color} />
           </View>
           <View style={styles.expenseInfo}>
             <Text style={styles.expenseTitle}>{item.category}</Text>
@@ -914,57 +919,69 @@ const GroupDetails = () => {
               alignItems: "stretch",
             }}
           >
-            {selectedExpense && (() => {
-              const isOwnerOrAdmin = (backendUserId && selectedExpense && String(selectedExpense.createdBy) === String(backendUserId)) || isAdmin;
-              return (
-                <>
-                  <TouchableOpacity
-                    disabled={!isOwnerOrAdmin}
-                    onPress={() => handleExpenseMenuOption("edit")}
-                    style={{ paddingVertical: 12, opacity: isOwnerOrAdmin ? 1 : 0.5 }}
-                  >
-                    <Text
+            {selectedExpense &&
+              (() => {
+                const isOwnerOrAdmin =
+                  (backendUserId &&
+                    selectedExpense &&
+                    String(selectedExpense.createdBy) ===
+                      String(backendUserId)) ||
+                  isAdmin;
+                return (
+                  <>
+                    <TouchableOpacity
+                      disabled={!isOwnerOrAdmin}
+                      onPress={() => handleExpenseMenuOption("edit")}
                       style={{
-                        fontSize: 16,
-                        color: "#7C3AED",
-                        fontWeight: "600",
+                        paddingVertical: 12,
+                        opacity: isOwnerOrAdmin ? 1 : 0.5,
                       }}
                     >
-                      Edit
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    disabled={!isOwnerOrAdmin}
-                    onPress={() => handleExpenseMenuOption("delete")}
-                    style={{ paddingVertical: 12, opacity: isOwnerOrAdmin ? 1 : 0.5 }}
-                  >
-                    <Text
+                      <Text
+                        style={{
+                          fontSize: 16,
+                          color: "#7C3AED",
+                          fontWeight: "600",
+                        }}
+                      >
+                        Edit
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      disabled={!isOwnerOrAdmin}
+                      onPress={() => handleExpenseMenuOption("delete")}
                       style={{
-                        fontSize: 16,
-                        color: "#EF4444",
-                        fontWeight: "600",
+                        paddingVertical: 12,
+                        opacity: isOwnerOrAdmin ? 1 : 0.5,
                       }}
                     >
-                      Delete
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleExpenseMenuOption("details")}
-                    style={{ paddingVertical: 12 }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 16,
-                        color: "#111827",
-                        fontWeight: "600",
-                      }}
+                      <Text
+                        style={{
+                          fontSize: 16,
+                          color: "#EF4444",
+                          fontWeight: "600",
+                        }}
+                      >
+                        Delete
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleExpenseMenuOption("details")}
+                      style={{ paddingVertical: 12 }}
                     >
-                      Details
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              );
-            })()}
+                      <Text
+                        style={{
+                          fontSize: 16,
+                          color: "#111827",
+                          fontWeight: "600",
+                        }}
+                      >
+                        Details
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                );
+              })()}
             <TouchableOpacity
               onPress={() => setExpenseMenuVisible(false)}
               style={{ paddingVertical: 10, alignItems: "center" }}
@@ -1022,10 +1039,12 @@ const GroupDetails = () => {
                   {expenseDetails.amount}
                 </Text>
                 <Text style={{ fontSize: 16, marginBottom: 8 }}>
-                  <Text style={{ fontWeight: "600" }}>Category:</Text> {expenseDetails.category}
+                  <Text style={{ fontWeight: "600" }}>Category:</Text>{" "}
+                  {expenseDetails.category}
                 </Text>
                 <Text style={{ fontSize: 16, marginBottom: 8 }}>
-                  <Text style={{ fontWeight: "600" }}>Paid By:</Text> {expenseDetails.paidBy}
+                  <Text style={{ fontWeight: "600" }}>Paid By:</Text>{" "}
+                  {expenseDetails.paidBy}
                 </Text>
                 <Text
                   style={{

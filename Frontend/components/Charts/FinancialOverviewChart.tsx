@@ -6,6 +6,7 @@ import { auth } from "../../auth/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { useFocusEffect } from "expo-router";
 import Constants from "expo-constants";
+import { getStoredToken } from "@/utils/storage";
 
 // Default color map based on known labels
 const colorMap: Record<string, string> = {
@@ -66,19 +67,15 @@ export default function FinancialOverviewChart() {
       };
 
       const checkAndFetch = async () => {
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-          if (firebaseUser) {
-            try {
-              const token = await firebaseUser.getIdToken();
-              setIdToken(token);
-              fetchData(token);
-            } catch (error) {
-              console.error("Error getting ID token:", error);
-            }
-          }
-        });
-
-        return unsubscribe;
+        const token = await getStoredToken();
+        if (token) {
+          setIdToken(token);
+          fetchData(token);
+        } else {
+          setError("No token found. Please log in.");
+          setLoading(false);
+        }
+        return () => {};
       };
 
       const unsubscribePromise = checkAndFetch();

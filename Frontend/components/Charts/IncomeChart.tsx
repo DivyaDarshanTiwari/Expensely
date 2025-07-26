@@ -13,6 +13,7 @@ import { auth } from "../../auth/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { useFocusEffect } from "expo-router";
 import Constants from "expo-constants";
+import { getStoredToken } from "@/utils/storage";
 
 const screenWidth = Dimensions.get("window").width - 32;
 
@@ -65,21 +66,29 @@ export default function IncomeChart() {
         }
       };
 
-      const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          const idToken = await user.getIdToken();
-          fetchData(idToken);
-        } else {
-          if (isMounted) {
+      // Remove onAuthStateChanged and unsubscribe logic
+      const fetchChart = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          const idToken = await getStoredToken();
+          if (!idToken) {
             setError("User not logged in.");
             setLoading(false);
+            return;
           }
+          await fetchData(idToken);
+        } catch (err: any) {
+          setError(err.message || "Error fetching income data.");
+        } finally {
+          setLoading(false);
         }
-      });
+      };
+
+      fetchChart();
 
       return () => {
         isMounted = false;
-        unsubscribe();
       };
     }, [])
   );
