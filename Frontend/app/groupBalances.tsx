@@ -12,8 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth } from "../auth/firebase";
-import { getStoredUserId } from "../utils/storage";
+import { getStoredToken, getStoredUserId } from "../utils/storage";
 
 const GroupBalances = () => {
   const router = useRouter();
@@ -31,8 +30,8 @@ const GroupBalances = () => {
       const storedUserId = await getStoredUserId();
       console.log("Stored userId:", storedUserId);
       if (storedUserId) setBackendUserId(Number(storedUserId));
-      if (auth.currentUser) {
-        const token = await auth.currentUser.getIdToken();
+      const token = await getStoredToken();
+      if (token) {
         setIdToken(token);
       }
     };
@@ -63,12 +62,16 @@ const GroupBalances = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [backendUserId, idToken]);
 
-  const handleSettleUp = async (otherUserId: string, amount: number, type: 'owesMe' | 'iOwe') => {
-    setSettlingUserId(otherUserId + '-' + type);
+  const handleSettleUp = async (
+    otherUserId: string,
+    amount: number,
+    type: "owesMe" | "iOwe"
+  ) => {
+    setSettlingUserId(otherUserId + "-" + type);
     try {
       if (!backendUserId) return;
-      const fromUserId = type === 'owesMe' ? otherUserId : backendUserId;
-      const toUserId = type === 'owesMe' ? backendUserId : otherUserId;
+      const fromUserId = type === "owesMe" ? otherUserId : backendUserId;
+      const toUserId = type === "owesMe" ? backendUserId : otherUserId;
       await axios.post(
         `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/settleUpWithUser/${groupId}`,
         { fromUserId, toUserId, amount },
@@ -87,7 +90,10 @@ const GroupBalances = () => {
       <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -96,31 +102,44 @@ const GroupBalances = () => {
         </View>
         <View style={{ width: 40 }} />
       </View>
-      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={{ paddingBottom: 40 }}
+      >
         {/* People who owe you */}
         <View style={styles.balanceSection}>
           <Text style={styles.balanceSectionTitle}>People who owe you</Text>
           {balancesLoading ? (
-            <ActivityIndicator size="small" color="#2563EB" style={{ marginVertical: 20 }} />
+            <ActivityIndicator
+              size="small"
+              color="#2563EB"
+              style={{ marginVertical: 20 }}
+            />
           ) : balances.owesMe.length > 0 ? (
             balances.owesMe.map((item: any, index: number) => (
               <View key={index} style={styles.balanceItem}>
                 <View style={styles.balanceRow}>
                   <Text style={styles.balanceName}>{item.username}</Text>
-                  <Text style={[styles.balanceAmount, { color: "#10B981" }]}>+₹{item.amount}</Text>
+                  <Text style={[styles.balanceAmount, { color: "#10B981" }]}>
+                    +₹{item.amount}
+                  </Text>
                 </View>
                 <View style={styles.buttonRow}>
                   <TouchableOpacity
                     style={styles.settleButton}
-                    disabled={settlingUserId === item.userId + '-owesMe'}
-                    onPress={() => handleSettleUp(item.userId, item.amount, 'owesMe')}
+                    disabled={settlingUserId === item.userId + "-owesMe"}
+                    onPress={() =>
+                      handleSettleUp(item.userId, item.amount, "owesMe")
+                    }
                   >
-                    <Text style={{ color: '#2563EB', fontWeight: '600' }}>
-                      {settlingUserId === item.userId + '-owesMe' ? 'Settling...' : 'Settle Up'}
+                    <Text style={{ color: "#2563EB", fontWeight: "600" }}>
+                      {settlingUserId === item.userId + "-owesMe"
+                        ? "Settling..."
+                        : "Settle Up"}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.remindButton} disabled>
-                    <Text style={{ color: '#9CA3AF' }}>Remind</Text>
+                    <Text style={{ color: "#9CA3AF" }}>Remind</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -133,32 +152,44 @@ const GroupBalances = () => {
         <View style={styles.balanceSection}>
           <Text style={styles.balanceSectionTitle}>People you owe</Text>
           {balancesLoading ? (
-            <ActivityIndicator size="small" color="#2563EB" style={{ marginVertical: 20 }} />
+            <ActivityIndicator
+              size="small"
+              color="#2563EB"
+              style={{ marginVertical: 20 }}
+            />
           ) : balances.iOwe.length > 0 ? (
             balances.iOwe.map((item: any, index: number) => (
               <View key={index} style={styles.balanceItem}>
                 <View style={styles.balanceRow}>
                   <Text style={styles.balanceName}>{item.username}</Text>
-                  <Text style={[styles.balanceAmount, { color: "#EF4444" }]}>-₹{item.amount}</Text>
+                  <Text style={[styles.balanceAmount, { color: "#EF4444" }]}>
+                    -₹{item.amount}
+                  </Text>
                 </View>
                 <View style={styles.buttonRow}>
                   <TouchableOpacity
                     style={styles.settleButton}
-                    disabled={settlingUserId === item.userId + '-iOwe'}
-                    onPress={() => handleSettleUp(item.userId, item.amount, 'iOwe')}
+                    disabled={settlingUserId === item.userId + "-iOwe"}
+                    onPress={() =>
+                      handleSettleUp(item.userId, item.amount, "iOwe")
+                    }
                   >
-                    <Text style={{ color: '#2563EB', fontWeight: '600' }}>
-                      {settlingUserId === item.userId + '-iOwe' ? 'Settling...' : 'Settle Up'}
+                    <Text style={{ color: "#2563EB", fontWeight: "600" }}>
+                      {settlingUserId === item.userId + "-iOwe"
+                        ? "Settling..."
+                        : "Settle Up"}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.remindButton} disabled>
-                    <Text style={{ color: '#9CA3AF' }}>Remind</Text>
+                    <Text style={{ color: "#9CA3AF" }}>Remind</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ))
           ) : (
-            <Text style={styles.noBalanceText}>You don't owe anyone money</Text>
+            <Text style={styles.noBalanceText}>
+              You do not owe anyone money
+            </Text>
           )}
         </View>
       </ScrollView>
@@ -251,13 +282,13 @@ const styles = StyleSheet.create({
     marginRight: 12,
     paddingVertical: 8,
     paddingHorizontal: 18,
-    backgroundColor: '#E0E7FF',
+    backgroundColor: "#E0E7FF",
     borderRadius: 8,
   },
   remindButton: {
     paddingVertical: 8,
     paddingHorizontal: 18,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
     borderRadius: 8,
   },
   noBalanceText: {
@@ -269,4 +300,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default GroupBalances; 
+export default GroupBalances;

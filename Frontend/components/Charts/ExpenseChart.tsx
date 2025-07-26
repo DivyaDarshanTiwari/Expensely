@@ -13,6 +13,7 @@ import axios from "axios";
 import { auth } from "../../auth/firebase";
 import { useFocusEffect } from "expo-router";
 import Constants from "expo-constants";
+import { getStoredToken } from "@/utils/storage";
 
 const screenWidth = Dimensions.get("window").width - 32;
 
@@ -56,16 +57,20 @@ export default function ExpenseChart() {
         }
       };
 
-      const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          const idToken = await user.getIdToken();
+      const fetchTokenAndData = async () => {
+        const idToken = await getStoredToken();
+        if (idToken) {
           fetchData(idToken);
+        } else {
+          setError("No token found");
+          setLoading(false);
         }
-      });
+      };
+
+      fetchTokenAndData();
 
       return () => {
         isMounted = false;
-        unsubscribe();
       };
     }, [])
   );
