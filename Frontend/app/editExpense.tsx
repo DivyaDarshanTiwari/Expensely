@@ -20,6 +20,7 @@ import {
   View,
 } from "react-native";
 import { auth } from "../auth/firebase";
+import { getStoredToken, getStoredUser } from "../utils/storage";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -110,22 +111,24 @@ const EditExpense = () => {
       }
     };
 
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setCurrentUser(firebaseUser);
-        try {
-          const token = await firebaseUser.getIdToken();
+    (async () => {
+      try {
+        const token = await getStoredToken();
+        const user = await getStoredUser();
+        if (token && user) {
           setIdToken(token);
+          setCurrentUser(user);
           await fetchMembers(token);
           await fetchExpense(token);
-        } catch (error) {
-          Alert.alert("Error", "Authentication failed");
+        } else {
+          Alert.alert("Error", "Please log in to continue");
+          router.back();
         }
-      } else {
-        Alert.alert("Error", "Please log in to continue");
+      } catch (error) {
+        Alert.alert("Error", "Authentication failed");
         router.back();
       }
-    });
+    })();
 
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -151,8 +154,6 @@ const EditExpense = () => {
         useNativeDriver: true,
       }),
     ]).start();
-
-    return () => unsubscribe();
   }, [groupId, expenseId]);
 
   const selectedCategory =

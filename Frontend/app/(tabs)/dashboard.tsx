@@ -96,12 +96,10 @@ const ExpenselyDashboard = () => {
           // Get idToken from storage instead of Firebase
           const storedToken = await getStoredToken();
           const storedUser = await getStoredUser();
-
-          if (storedToken && isActive) {
+          if (storedToken && isActive && storedUser) {
             try {
               setIdToken(storedToken);
               setUser(storedUser);
-
               // Fetch dashboard data
               const dashboardRes = await axios.get(
                 `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getDashboard`,
@@ -140,7 +138,7 @@ const ExpenselyDashboard = () => {
             }
           }
 
-          // Set up auth listener as fallback for user info updates
+          // Set up auth listener for user info (but not for token)
           unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser && isActive && !storedUser) {
               setUser(firebaseUser);

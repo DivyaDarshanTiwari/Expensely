@@ -1,10 +1,6 @@
 // auth/firebase.ts
 import { getApp, getApps, initializeApp } from "firebase/app";
-import {
-  browserLocalPersistence,
-  getAuth,
-  setPersistence,
-} from "firebase/auth";
+import { getAuth } from "firebase/auth";
 
 // Your Firebase config from Firebase Console
 const firebaseConfig = {
@@ -19,10 +15,5 @@ const firebaseConfig = {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
-
-// Explicitly set persistence for reliability in React Native/Expo
-setPersistence(auth, browserLocalPersistence).catch((err) => {
-  console.warn("Failed to set Firebase Auth persistence:", err);
-});
 
 export { auth };

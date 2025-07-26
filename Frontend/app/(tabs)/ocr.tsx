@@ -10,29 +10,28 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../../auth/firebase";
 import { useFocusEffect } from "expo-router";
 import Constants from "expo-constants";
+import { getStoredToken } from "../../utils/storage";
 
 export default function CameraUploadScreen() {
   useFocusEffect(
     useCallback(() => {
-      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        if (firebaseUser) {
-          try {
-            const token = await firebaseUser.getIdToken();
+      // Try to get the stored token on focus
+      (async () => {
+        try {
+          const token = await getStoredToken();
+          if (token) {
             setIdToken(token);
-          } catch (error) {
-            console.error("Error fetching ID token:", error);
-            Alert.alert("Error", "Could not retrieve authentication token.");
+          } else {
+            setIdToken(null);
           }
-        } else {
+        } catch (error) {
+          console.error("Error fetching stored token:", error);
+          Alert.alert("Error", "Could not retrieve authentication token.");
           setIdToken(null);
         }
-      });
-
-      return () => unsubscribe();
+      })();
     }, [])
   );
 

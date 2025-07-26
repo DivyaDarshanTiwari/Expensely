@@ -7,20 +7,21 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    Alert,
-    Animated,
-    Dimensions,
-    FlatList,
-    Modal,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Animated,
+  Dimensions,
+  FlatList,
+  Modal,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { auth } from "../../auth/firebase";
+import { getStoredToken } from "../../utils/storage";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -98,17 +99,19 @@ const ExpenselyGroups = () => {
         }
       };
 
-      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        if (firebaseUser) {
-          try {
-            const idToken = await firebaseUser.getIdToken();
-            setIdToken(idToken);
-            fetchGroups(idToken);
-          } catch (error) {
-            console.error("Error getting ID token:", error);
+      // Fetch idToken directly from storage and then fetch groups
+      const fetchTokenAndGroups = async () => {
+        try {
+          const token = await getStoredToken();
+          if (token) {
+            setIdToken(token);
+            await fetchGroups(token);
           }
+        } catch (error) {
+          console.error("Error getting stored ID token:", error);
         }
-      });
+      };
+      fetchTokenAndGroups();
 
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -134,8 +137,6 @@ const ExpenselyGroups = () => {
           useNativeDriver: true,
         }),
       ]).start();
-
-      return () => unsubscribe();
     }, [refreshFlag])
   );
 
@@ -421,7 +422,7 @@ const ExpenselyGroups = () => {
     console.log("Group in long press:", group); // Debug log
     console.log("isAdmin value:", group.isAdmin, "Type:", typeof group.isAdmin); // Debug log
     console.log("isOwner value:", group.isOwner, "Type:", typeof group.isOwner); // Debug log
-    
+
     if (group.isAdmin) {
       // User is an admin (creator or admin) - can delete the group or leave
       Alert.alert(

@@ -1,46 +1,55 @@
 import { useRouter } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
-import { useEffect } from "react";
-import { auth } from "../auth/firebase";
+import { useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { getStoredToken, getStoredUser } from "../utils/storage";
+import axios from "axios";
+import Constants from "expo-constants";
+
+// Example API call to validate token using axios
+async function validateToken(token: string): Promise<boolean> {
+  try {
+    await axios.post(
+      `${Constants.expoConfig?.extra?.apiUrl}api/v1//auth/validToken`,
+      {},
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export default function Index() {
   const router = useRouter();
 
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      try {
-        // Check for stored token first
-        const storedToken = await getStoredToken();
-        const storedUser = await getStoredUser();
-
-        if (storedToken && storedUser) {
-          // If token exists, navigate to dashboard
-          router.replace("/(tabs)/dashboard");
-        } else {
-          // If no token or user, check Firebase auth state as fallback
-          const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user) {
+  useFocusEffect(
+    useCallback(() => {
+      const checkAuthStatus = async () => {
+        try {
+          const storedToken = await getStoredToken();
+          const storedUser = await getStoredUser();
+          if (storedToken && storedUser) {
+            const isValid = await validateToken(storedToken);
+            if (isValid) {
               router.replace("/(tabs)/dashboard");
-            } else {
-              router.replace("/auth");
+              return;
             }
-          });
-
-          // Clean up the listener after a short delay to avoid memory leaks
-          setTimeout(() => {
-            unsubscribe();
-          }, 1000);
+          }
+          router.replace("/auth");
+        } catch (error) {
+          console.error("Error checking auth status:", error);
+          router.replace("/auth");
         }
-      } catch (error) {
-        console.error("Error checking auth status:", error);
-        // Fallback to auth screen if there's an error
-        router.replace("/auth");
-      }
-    };
+      };
 
-    checkAuthStatus();
-  }, []);
+      checkAuthStatus();
+    }, [])
+  );
 
   return null;
 }

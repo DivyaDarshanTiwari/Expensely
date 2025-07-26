@@ -21,7 +21,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth } from "../auth/firebase";
+import { getStoredToken } from "../utils/storage";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -68,24 +68,70 @@ const AddExpense = () => {
 
   const categories = [
     { id: "Food", name: "Food & Dining", icon: "restaurant", color: "#F59E0B" },
-    { id: "Transport", name: "Transport & Travel", icon: "car", color: "#3B82F6" },
-    { id: "Accommodation", name: "Accommodation", icon: "bed", color: "#7C3AED" },
-    { id: "Activities", name: "Activities & Tickets", icon: "ticket", color: "#F472B6" },
+    {
+      id: "Transport",
+      name: "Transport & Travel",
+      icon: "car",
+      color: "#3B82F6",
+    },
+    {
+      id: "Accommodation",
+      name: "Accommodation",
+      icon: "bed",
+      color: "#7C3AED",
+    },
+    {
+      id: "Activities",
+      name: "Activities & Tickets",
+      icon: "ticket",
+      color: "#F472B6",
+    },
     { id: "Shopping", name: "Shopping", icon: "bag", color: "#EC4899" },
     { id: "Utilities", name: "Utilities", icon: "flash", color: "#10B981" },
-    { id: "Health", name: "Health & Medical", icon: "medical", color: "#EF4444" },
-    { id: "Miscellaneous", name: "Miscellaneous", icon: "ellipsis-horizontal", color: "#6B7280" }
+    {
+      id: "Health",
+      name: "Health & Medical",
+      icon: "medical",
+      color: "#EF4444",
+    },
+    {
+      id: "Miscellaneous",
+      name: "Miscellaneous",
+      icon: "ellipsis-horizontal",
+      color: "#6B7280",
+    },
   ];
 
   const keywordCategoryMap = [
     { keywords: ["petrol", "fuel", "gas"], categoryId: "Transport" },
-    { keywords: ["hotel", "stay", "accommodation"], categoryId: "Accommodation" },
-    { keywords: ["flight", "air", "train", "bus", "taxi"], categoryId: "Transport" },
-    { keywords: ["food", "dinner", "lunch", "breakfast", "snack", "restaurant"], categoryId: "Food" },
-    { keywords: ["ticket", "activity", "museum", "zoo", "park"], categoryId: "Activities" },
-    { keywords: ["shopping", "mall", "clothes", "gift"], categoryId: "Shopping" },
-    { keywords: ["medicine", "doctor", "pharmacy", "health"], categoryId: "Health" },
-    { keywords: ["utility", "electricity", "water", "wifi", "internet"], categoryId: "Utilities" },
+    {
+      keywords: ["hotel", "stay", "accommodation"],
+      categoryId: "Accommodation",
+    },
+    {
+      keywords: ["flight", "air", "train", "bus", "taxi"],
+      categoryId: "Transport",
+    },
+    {
+      keywords: ["food", "dinner", "lunch", "breakfast", "snack", "restaurant"],
+      categoryId: "Food",
+    },
+    {
+      keywords: ["ticket", "activity", "museum", "zoo", "park"],
+      categoryId: "Activities",
+    },
+    {
+      keywords: ["shopping", "mall", "clothes", "gift"],
+      categoryId: "Shopping",
+    },
+    {
+      keywords: ["medicine", "doctor", "pharmacy", "health"],
+      categoryId: "Health",
+    },
+    {
+      keywords: ["utility", "electricity", "water", "wifi", "internet"],
+      categoryId: "Utilities",
+    },
   ];
 
   function detectCategory(description: string) {
@@ -126,22 +172,25 @@ const AddExpense = () => {
       }
     };
 
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setCurrentUser(firebaseUser);
-        try {
-          const token = await firebaseUser.getIdToken();
-          setIdToken(token);
-          fetchMembers(token);
-        } catch (error) {
-          console.error("Error getting ID token:", error);
-          Alert.alert("Error", "Authentication failed");
+    // Remove onAuthStateChanged, use getStoredToken from utils/storage
+    const fetchTokenAndMembers = async () => {
+      try {
+        const token = await getStoredToken();
+        if (!token) {
+          Alert.alert("Error", "Please log in to continue");
+          router.back();
+          return;
         }
-      } else {
-        Alert.alert("Error", "Please log in to continue");
+        setIdToken(token);
+        fetchMembers(token);
+      } catch (error) {
+        console.error("Error getting stored token:", error);
+        Alert.alert("Error", "Authentication failed");
         router.back();
       }
-    });
+    };
+
+    fetchTokenAndMembers();
 
     // Start animations
     Animated.parallel([
@@ -168,8 +217,6 @@ const AddExpense = () => {
         useNativeDriver: true,
       }),
     ]).start();
-
-    return () => unsubscribe();
   }, [groupId]);
 
   const selectedCategory =

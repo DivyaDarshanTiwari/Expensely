@@ -28,7 +28,7 @@ import {
   View,
 } from "react-native";
 import { auth } from "../auth/firebase";
-import { storeUser, storeUserId } from "../utils/storage";
+import { storeUserId, storeUser } from "../utils/storage";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -164,15 +164,12 @@ const ExpenselyAuth = () => {
         }
       }
       await storeToken(idToken);
-
-      // Store user information for persistent login
       await storeUser({
         displayName: userCredential.user.displayName,
         email: userCredential.user.email,
         photoURL: userCredential.user.photoURL,
         uid: userCredential.user.uid,
       });
-
       Alert.alert("Login Successful", "Welcome back!");
       return userCredential;
     } catch (firebaseError: any) {

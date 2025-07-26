@@ -22,6 +22,7 @@ import {
   View,
 } from "react-native";
 import { auth } from "../../auth/firebase";
+import { getStoredToken } from "../../utils/storage";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -50,20 +51,45 @@ export default function AddTransactions() {
 
   const expenseCategories = [
     { id: "Food", name: "Food & Dining", icon: "restaurant", color: "#F59E0B" },
-    { id: "Transport", name: "Transport & Travel", icon: "car", color: "#3B82F6" },
-    { id: "Accommodation", name: "Accommodation", icon: "bed", color: "#7C3AED" },
-    { id: "Entertainment", name: "Entertainment", icon: "game-controller", color: "#8B5CF6" },
+    {
+      id: "Transport",
+      name: "Transport & Travel",
+      icon: "car",
+      color: "#3B82F6",
+    },
+    {
+      id: "Accommodation",
+      name: "Accommodation",
+      icon: "bed",
+      color: "#7C3AED",
+    },
+    {
+      id: "Entertainment",
+      name: "Entertainment",
+      icon: "game-controller",
+      color: "#8B5CF6",
+    },
     { id: "Shopping", name: "Shopping", icon: "bag", color: "#EC4899" },
     { id: "Grocery", name: "Grocery", icon: "cart", color: "#22D3EE" },
     { id: "Utilities", name: "Utilities", icon: "flash", color: "#10B981" },
-    { id: "Health", name: "Health & Medical", icon: "medical", color: "#EF4444" },
+    {
+      id: "Health",
+      name: "Health & Medical",
+      icon: "medical",
+      color: "#EF4444",
+    },
     { id: "General", name: "General", icon: "card", color: "#6B7280" },
   ];
 
   const incomeCategories = [
     { id: "Salary", name: "Salary", icon: "briefcase", color: "#10B981" },
     { id: "Freelance", name: "Freelance", icon: "laptop", color: "#3B82F6" },
-    { id: "Investment", name: "Investment", icon: "trending-up", color: "#8B5CF6" },
+    {
+      id: "Investment",
+      name: "Investment",
+      icon: "trending-up",
+      color: "#8B5CF6",
+    },
     { id: "Gift", name: "Gift", icon: "gift", color: "#EC4899" },
     { id: "Refund", name: "Refund", icon: "refresh", color: "#F59E0B" },
     { id: "Bonus", name: "Bonus", icon: "star", color: "#EF4444" },
@@ -76,20 +102,50 @@ export default function AddTransactions() {
   // Add keywordCategoryMap and detectCategory for auto-category (expense and income)
   const keywordCategoryMapExpense = [
     { keywords: ["petrol", "fuel", "gas"], categoryId: "Transport" },
-    { keywords: ["hotel", "stay", "accommodation"], categoryId: "Accommodation" },
-    { keywords: ["flight", "air", "train", "bus", "taxi"], categoryId: "Transport" },
-    { keywords: ["food", "dinner", "lunch", "breakfast", "snack", "restaurant"], categoryId: "Food" },
-    { keywords: ["ticket", "activity", "museum", "zoo", "park"], categoryId: "Entertainment" },
-    { keywords: ["shopping", "mall", "clothes", "gift"], categoryId: "Shopping" },
-    { keywords: ["medicine", "doctor", "pharmacy", "health"], categoryId: "Health" },
-    { keywords: ["utility", "electricity", "water", "wifi", "internet"], categoryId: "Utilities" },
-    { keywords: ["grocery", "groceries", "supermarket", "vegetable", "fruit"], categoryId: "Grocery" },
+    {
+      keywords: ["hotel", "stay", "accommodation"],
+      categoryId: "Accommodation",
+    },
+    {
+      keywords: ["flight", "air", "train", "bus", "taxi"],
+      categoryId: "Transport",
+    },
+    {
+      keywords: ["food", "dinner", "lunch", "breakfast", "snack", "restaurant"],
+      categoryId: "Food",
+    },
+    {
+      keywords: ["ticket", "activity", "museum", "zoo", "park"],
+      categoryId: "Entertainment",
+    },
+    {
+      keywords: ["shopping", "mall", "clothes", "gift"],
+      categoryId: "Shopping",
+    },
+    {
+      keywords: ["medicine", "doctor", "pharmacy", "health"],
+      categoryId: "Health",
+    },
+    {
+      keywords: ["utility", "electricity", "water", "wifi", "internet"],
+      categoryId: "Utilities",
+    },
+    {
+      keywords: ["grocery", "groceries", "supermarket", "vegetable", "fruit"],
+      categoryId: "Grocery",
+    },
   ];
 
   const keywordCategoryMapIncome = [
-    { keywords: ["salary", "payroll", "paycheck", "pocket money"], categoryId: "Salary" },
+    {
+      keywords: ["salary", "payroll", "paycheck", "pocket money"],
+      categoryId: "Salary",
+    },
     { keywords: ["freelance", "contract", "project"], categoryId: "Freelance" },
-    { keywords: ["investment", "dividend", "interest", "stock", "mutual fund"], categoryId: "Investment" },
+    {
+      keywords: ["investment", "dividend", "interest", "stock", "mutual fund"],
+      categoryId: "Investment",
+    },
     { keywords: ["gift", "present"], categoryId: "Gift" },
     { keywords: ["refund", "return"], categoryId: "Refund" },
     { keywords: ["bonus", "incentive", "award"], categoryId: "Bonus" },
@@ -98,7 +154,8 @@ export default function AddTransactions() {
 
   function detectCategory(description: string, type: string) {
     const desc = description.toLowerCase();
-    const map = type === "income" ? keywordCategoryMapIncome : keywordCategoryMapExpense;
+    const map =
+      type === "income" ? keywordCategoryMapIncome : keywordCategoryMapExpense;
     for (const entry of map) {
       if (entry.keywords.some((kw) => desc.includes(kw))) {
         return entry.categoryId;
@@ -111,16 +168,18 @@ export default function AddTransactions() {
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          const idToken = await firebaseUser?.getIdToken();
-          setIdToken(idToken);
-        } catch (error) {
-          console.error("Error getting ID token:", error);
+    // Get idToken using getStoredToken utility
+    getStoredToken()
+      .then((token) => {
+        if (token) {
+          setIdToken(token);
+        } else {
+          console.warn("No idToken found in storage");
         }
-      }
-    });
+      })
+      .catch((error) => {
+        console.error("Error getting idToken from storage:", error);
+      });
     // Start animations
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -146,12 +205,12 @@ export default function AddTransactions() {
         useNativeDriver: true,
       }),
     ]).start();
-
-    return () => unsubscribe();
   }, [transactionType]);
 
   // Always set a default category when switching type
-  const handleTypeToggle = (newType: React.SetStateAction<string | string[]>) => {
+  const handleTypeToggle = (
+    newType: React.SetStateAction<string | string[]>
+  ) => {
     if (newType === transactionType) return;
     Animated.timing(toggleSlide, {
       toValue: newType === "expense" ? 0 : 1,
@@ -162,16 +221,20 @@ export default function AddTransactions() {
     // Set default category for the new type
     setTransactionData((prev) => ({
       ...prev,
-      category: (newType === "expense" ? expenseCategories[0].id : incomeCategories[0].id),
+      category:
+        newType === "expense"
+          ? expenseCategories[0].id
+          : incomeCategories[0].id,
       description: "",
       amount: "",
     }));
   };
 
   // Fix selectedCategory logic and add debug log
-  const selectedCategory = categories.find(
-    (cat) => cat.id.toLowerCase() === transactionData.category.toLowerCase()
-  ) || categories[0];
+  const selectedCategory =
+    categories.find(
+      (cat) => cat.id.toLowerCase() === transactionData.category.toLowerCase()
+    ) || categories[0];
 
   const handleSubmit = async () => {
     // Validation
@@ -184,7 +247,9 @@ export default function AddTransactions() {
     try {
       const payload = {
         amount: parseFloat(transactionData.amount),
-        description: transactionData.description.trim() ? transactionData.description : "No description",
+        description: transactionData.description.trim()
+          ? transactionData.description
+          : "No description",
         category: transactionData.category,
       };
 
@@ -247,7 +312,8 @@ export default function AddTransactions() {
               <TouchableOpacity
                 style={[
                   styles.categoryItem,
-                  transactionData.category.toLowerCase() === item.id.toLowerCase() && styles.categoryItemSelected,
+                  transactionData.category.toLowerCase() ===
+                    item.id.toLowerCase() && styles.categoryItemSelected,
                 ]}
                 onPress={() => {
                   setTransactionData((prev) => ({
@@ -263,7 +329,11 @@ export default function AddTransactions() {
                     { backgroundColor: `${item.color}20` },
                   ]}
                 >
-                  <Ionicons name={item.icon as any} size={24} color={item.color} />
+                  <Ionicons
+                    name={item.icon as any}
+                    size={24}
+                    color={item.color}
+                  />
                 </View>
                 <Text style={styles.categoryName}>{item.name}</Text>
                 {transactionData.category === item.id && (
@@ -349,9 +419,7 @@ export default function AddTransactions() {
       </Animated.View>
 
       {/* Type Toggle */}
-      <View
-        style={styles.toggleContainer}
-      >
+      <View style={styles.toggleContainer}>
         <View style={styles.toggleWrapper}>
           <TouchableOpacity
             style={[
@@ -462,7 +530,10 @@ export default function AddTransactions() {
                 <View
                   style={[
                     styles.categoryIcon,
-                    { backgroundColor: (selectedCategory?.color || "#E5E7EB") + "20" },
+                    {
+                      backgroundColor:
+                        (selectedCategory?.color || "#E5E7EB") + "20",
+                    },
                   ]}
                 >
                   <Ionicons
@@ -471,7 +542,9 @@ export default function AddTransactions() {
                     color={selectedCategory?.color || "#6B7280"}
                   />
                 </View>
-                <Text style={styles.selectText}>{selectedCategory?.name || categories[0].name}</Text>
+                <Text style={styles.selectText}>
+                  {selectedCategory?.name || categories[0].name}
+                </Text>
               </View>
               <Ionicons name="chevron-down" size={20} color="#6B7280" />
             </TouchableOpacity>
@@ -487,7 +560,10 @@ export default function AddTransactions() {
               value={transactionData.description}
               onChangeText={(text) => {
                 setTransactionData((prev) => {
-                  const detected = detectCategory(text, String(transactionType));
+                  const detected = detectCategory(
+                    text,
+                    String(transactionType)
+                  );
                   return {
                     ...prev,
                     description: text,
