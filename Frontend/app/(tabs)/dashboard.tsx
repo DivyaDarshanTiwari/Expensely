@@ -20,6 +20,7 @@ import {
   View,
 } from "react-native";
 import { auth } from "../../auth/firebase";
+import { getStoredToken, getStoredUser } from "../../utils/storage";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 interface Transaction {
@@ -73,51 +74,57 @@ const ExpenselyDashboard = () => {
 
       const fetchDataOnFocus = async () => {
         try {
-          unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-            if (firebaseUser && isActive) {
-              try {
-                const idToken = await firebaseUser.getIdToken();
-                setUser(firebaseUser);
-                setIdToken(idToken);
+          // Get idToken from storage instead of Firebase
+          const storedToken = await getStoredToken();
+          const storedUser = await getStoredUser();
 
-                // Fetch dashboard data
-                const dashboardRes = await axios.get(
-                  `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getDashboard`,
-                  {
-                    headers: {
-                      Authorization: `Bearer ${idToken}`,
-                    },
-                  }
-                );
+          if (storedToken && isActive) {
+            try {
+              setIdToken(storedToken);
+              setUser(storedUser);
 
-                if (dashboardRes?.data?.data) {
-                  setTotalExpense(dashboardRes.data.data.totalExpense || 0);
-                  setTotalIncome(dashboardRes.data.data.totalIncome || 0);
+              // Fetch dashboard data
+              const dashboardRes = await axios.get(
+                `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getDashboard`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${storedToken}`,
+                  },
                 }
+              );
 
-                // Fetch merged transactions
-                const transactionsRes = await axios.get(
-                  `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getMergedTransactions?page=1&limit=5`,
-                  {
-                    headers: {
-                      Authorization: `Bearer ${idToken}`,
-                    },
-                  }
-                );
-
-                if (transactionsRes?.data?.data) {
-                  setRecentTransactions(
-                    transactionsRes.data.data as Transaction[]
-                  );
-                } else {
-                  console.error(
-                    "No data returned from merged transactions API."
-                  );
-                  setRecentTransactions([]);
-                }
-              } catch (err) {
-                console.error("Error during data fetch:", err);
+              if (dashboardRes?.data?.data) {
+                setTotalExpense(dashboardRes.data.data.totalExpense || 0);
+                setTotalIncome(dashboardRes.data.data.totalIncome || 0);
               }
+
+              // Fetch merged transactions
+              const transactionsRes = await axios.get(
+                `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getMergedTransactions?page=1&limit=5`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${storedToken}`,
+                  },
+                }
+              );
+
+              if (transactionsRes?.data?.data) {
+                setRecentTransactions(
+                  transactionsRes.data.data as Transaction[]
+                );
+              } else {
+                console.error("No data returned from merged transactions API.");
+                setRecentTransactions([]);
+              }
+            } catch (err) {
+              console.error("Error during data fetch:", err);
+            }
+          }
+
+          // Set up auth listener as fallback for user info updates
+          unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+            if (firebaseUser && isActive && !storedUser) {
+              setUser(firebaseUser);
             }
           });
 
