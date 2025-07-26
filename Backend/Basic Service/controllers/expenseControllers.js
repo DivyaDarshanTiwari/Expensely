@@ -54,6 +54,57 @@ const addExpense = async (req, res) => {
   }
 };
 
+//Add expense
+const addExpense2 = async (req, res) => {
+  const { user_id, amount, category, description } = req.body;
+  const validatedData = expenseSchema.safeParse(req.body);
+
+  if (!validatedData.success) {
+    console.error(validatedData.error.issues);
+    return res.status(400).json({
+      error: "Validation failed",
+      details: validatedData.error.issues,
+    });
+  }
+
+  try {
+    if (!user_id || !amount || !category) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+    const result = await pool.query(
+      `
+        INSERT INTO expense (userId, amount, category,description) 
+       VALUES ($1, $2, $3,$4) RETURNING *
+        `,
+      [user_id, amount, category, description]
+    );
+
+    await pool.query(
+      `
+        UPDATE account
+        SET totalExpense = totalExpense + $1
+        WHERE userId = $2
+      `,
+      [amount, user_id]
+    );
+
+    const expense = result.rows[0];
+
+    res.status(201).json({
+      message: "Expense added",
+      expense: {
+        expenseId: expense.expenseid,
+        amount: expense.amount,
+        category: expense.category,
+        description: expense.description || null,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Error adding expense:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 //Getting all the expense/spenditure
 const getAllExpense = async (req, res) => {
   const { userId } = req.body;
@@ -156,4 +207,4 @@ const deleteExpense = async (req, res) => {
   }
 };
 
-module.exports = { addExpense, getAllExpense, deleteExpense };
+module.exports = { addExpense, addExpense2, getAllExpense, deleteExpense };

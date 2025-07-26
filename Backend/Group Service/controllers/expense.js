@@ -1,7 +1,9 @@
 const { pool } = require("../config/db");
+const axios = require("axios");
 
 exports.addGroupExpense = async (req, res) => {
-  const { groupId, paidBy, amount, description, shares, category, userId } = req.body;
+  const { groupId, paidBy, amount, description, shares, category, userId } =
+    req.body;
   // shares = [{ userId: 1, amountOwed: 400 }, { userId: 2, amountOwed: 400 }, ...]
   try {
     const payerResult = await pool.query(
@@ -12,6 +14,20 @@ exports.addGroupExpense = async (req, res) => {
       return res.status(400).json({ message: `Payer ${paidBy} not found` });
     }
     const paidById = payerResult.rows[0].user_id;
+
+    // Fetch group name for description
+    let groupName = "Group";
+    try {
+      const groupResult = await pool.query(
+        "SELECT name FROM GROUPS WHERE groupid = $1",
+        [groupId]
+      );
+      if (groupResult.rows.length > 0) {
+        groupName = groupResult.rows[0].name;
+      }
+    } catch (err) {
+      console.error("Failed to fetch group name:", err.message);
+    }
 
     // userId is the creator (adder)
     const expenseResult = await pool.query(
@@ -38,6 +54,42 @@ exports.addGroupExpense = async (req, res) => {
         [expenseId, shareUserId, share.amountOwned]
       );
     }
+
+    // Add to payer's personal expense via Basic Service API
+    try {
+      const basicServiceUrl = process.env.BASIC_SERVICE_URL;
+      if (!basicServiceUrl) {
+        console.error("BASIC_SERVICE_URL not set in environment variables");
+      } else {
+        // Get bearer token from request headers
+        const authHeader = req.headers.authorization;
+        if (!authHeader) {
+          console.error("No authorization header found");
+        } else {
+          await axios.post(
+            `${basicServiceUrl}/expense/add2`,
+            {
+              user_id: paidById,
+              amount,
+              category: "Group Expense",
+              description: `${groupName} - ${description}`,
+            },
+            {
+              headers: {
+                Authorization: authHeader,
+              },
+            }
+          );
+        }
+      }
+    } catch (err) {
+      console.error(
+        "Failed to add personal expense for payer:",
+        err.response?.data || err.message
+      );
+      // Do not fail the group expense if this fails
+    }
+
     res.status(201).json({ message: "Expense added", expenseId });
   } catch (err) {
     console.error(err);
@@ -81,36 +133,39 @@ exports.getExpenseById = async (req, res) => {
   const { expenseId } = req.params;
   try {
     const expenseResult = await pool.query(
-      'SELECT amount, category, description, paidBy, createdBy FROM group_expenses WHERE id = $1',
+      "SELECT amount, category, description, paidBy, createdBy FROM group_expenses WHERE id = $1",
       [expenseId]
     );
     if (expenseResult.rows.length === 0) {
-      return res.status(404).json({ message: 'Expense not found' });
+      return res.status(404).json({ message: "Expense not found" });
     }
     const expense = expenseResult.rows[0];
     // Get paidBy username
     const payerResult = await pool.query(
-      'SELECT username FROM USERS WHERE user_id = $1',
+      "SELECT username FROM USERS WHERE user_id = $1",
       [expense.paidby]
     );
     const paidByUsername = payerResult.rows[0]?.username || null;
     // Get shares with usernames
     const sharesResult = await pool.query(
-      'SELECT es.amountOwned, u.username FROM expenses_share es JOIN users u ON es.userId = u.user_id WHERE es.expenseId = $1',
+      "SELECT es.amountOwned, u.username FROM expenses_share es JOIN users u ON es.userId = u.user_id WHERE es.expenseId = $1",
       [expenseId]
     );
-    const shares = sharesResult.rows.map(row => ({ username: row.username, amountOwned: row.amountowned }));
+    const shares = sharesResult.rows.map((row) => ({
+      username: row.username,
+      amountOwned: row.amountowned,
+    }));
     res.status(200).json({
       amount: expense.amount,
       category: expense.category,
       description: expense.description,
       paidBy: paidByUsername,
       createdBy: expense.createdby, // userId
-      shares
+      shares,
     });
   } catch (err) {
-    console.error('Error getting expense details:', err);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error getting expense details:", err);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
@@ -150,7 +205,7 @@ exports.getExpensesByUser = async (req, res) => {
 // Helper to check if user is admin in group
 async function isUserAdmin(groupId, userId) {
   const adminRes = await pool.query(
-    'SELECT isAdmin FROM GROUP_MEMBERS WHERE groupId = $1 AND userId = $2',
+    "SELECT isAdmin FROM GROUP_MEMBERS WHERE groupId = $1 AND userId = $2",
     [groupId, userId]
   );
   return adminRes.rows.length > 0 && adminRes.rows[0].isadmin === true;
@@ -163,44 +218,50 @@ exports.editGroupExpense = async (req, res) => {
   try {
     // Check if the user is the creator (adder) or admin of the group
     const expenseResult = await pool.query(
-      'SELECT createdBy FROM GROUP_EXPENSES WHERE id = $1 AND groupId = $2',
+      "SELECT createdBy FROM GROUP_EXPENSES WHERE id = $1 AND groupId = $2",
       [expenseId, groupId]
     );
     if (expenseResult.rowCount === 0) {
-      return res.status(404).json({ message: 'Expense not found' });
+      return res.status(404).json({ message: "Expense not found" });
     }
     const isCreator = expenseResult.rows[0].createdby === userId;
     const isAdmin = await isUserAdmin(groupId, userId);
     if (!isCreator && !isAdmin) {
-      return res.status(403).json({ message: 'Only the creator or a group admin can edit this expense' });
+      return res.status(403).json({
+        message: "Only the creator or a group admin can edit this expense",
+      });
     }
     // Update the expense
     await pool.query(
-      'UPDATE GROUP_EXPENSES SET amount = $1, description = $2, category = $3 WHERE id = $4',
+      "UPDATE GROUP_EXPENSES SET amount = $1, description = $2, category = $3 WHERE id = $4",
       [amount, description, category, expenseId]
     );
     // Remove old shares
-    await pool.query('DELETE FROM EXPENSES_SHARE WHERE expenseId = $1', [expenseId]);
+    await pool.query("DELETE FROM EXPENSES_SHARE WHERE expenseId = $1", [
+      expenseId,
+    ]);
     // Insert new shares
     for (let share of shares) {
       // Get userId from username
       const userResult = await pool.query(
-        'SELECT user_id FROM USERS WHERE username = $1',
+        "SELECT user_id FROM USERS WHERE username = $1",
         [share.username]
       );
       if (userResult.rows.length === 0) {
-        return res.status(400).json({ message: `User ${share.username} not found` });
+        return res
+          .status(400)
+          .json({ message: `User ${share.username} not found` });
       }
       const shareUserId = userResult.rows[0].user_id;
       await pool.query(
-        'INSERT INTO EXPENSES_SHARE (expenseId, userId, amountOwned) VALUES ($1, $2, $3)',
+        "INSERT INTO EXPENSES_SHARE (expenseId, userId, amountOwned) VALUES ($1, $2, $3)",
         [expenseId, shareUserId, share.amountOwned]
       );
     }
-    res.status(200).json({ message: 'Expense updated successfully' });
+    res.status(200).json({ message: "Expense updated successfully" });
   } catch (err) {
-    console.error('Error editing group expense:', err);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error editing group expense:", err);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
@@ -211,27 +272,34 @@ exports.deleteGroupExpense = async (req, res) => {
   try {
     // Check if the user is the creator (adder) or admin of the group
     const expenseResult = await pool.query(
-      'SELECT createdBy FROM GROUP_EXPENSES WHERE id = $1 AND groupId = $2',
+      "SELECT createdBy FROM GROUP_EXPENSES WHERE id = $1 AND groupId = $2",
       [expenseId, groupId]
     );
     if (expenseResult.rowCount === 0) {
-      return res.status(404).json({ message: 'Expense not found' });
+      return res.status(404).json({ message: "Expense not found" });
     }
     const isCreator = expenseResult.rows[0].createdby === userId;
     const isAdmin = await isUserAdmin(groupId, userId);
     if (!isCreator && !isAdmin) {
-      return res.status(403).json({ message: 'Only the creator or a group admin can delete this expense' });
+      return res.status(403).json({
+        message: "Only the creator or a group admin can delete this expense",
+      });
     }
     // Delete from EXPENSES_SHARE first (if exists)
-    await pool.query('DELETE FROM EXPENSES_SHARE WHERE expenseId = $1', [expenseId]);
+    await pool.query("DELETE FROM EXPENSES_SHARE WHERE expenseId = $1", [
+      expenseId,
+    ]);
     // Delete the expense itself
-    const result = await pool.query('DELETE FROM GROUP_EXPENSES WHERE id = $1 RETURNING *', [expenseId]);
+    const result = await pool.query(
+      "DELETE FROM GROUP_EXPENSES WHERE id = $1 RETURNING *",
+      [expenseId]
+    );
     if (result.rowCount === 0) {
-      return res.status(404).json({ message: 'Expense not found' });
+      return res.status(404).json({ message: "Expense not found" });
     }
-    res.status(200).json({ message: 'Expense deleted successfully' });
+    res.status(200).json({ message: "Expense deleted successfully" });
   } catch (err) {
-    console.error('Error deleting group expense:', err);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error deleting group expense:", err);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };

@@ -51,6 +51,55 @@ exports.addIncome = async (req, res) => {
   }
 };
 
+exports.addIncome2 = async (req, res) => {
+  const { user_id, amount, category, description } = req.body;
+  console.log(user_id, amount, category, description);
+
+  const validatedData = inputValidation.safeParse(req.body);
+
+  if (!validatedData.success) {
+    return res.status(400).json({
+      error: "Validation failed",
+      details: validatedData.error.issues,
+    });
+  }
+
+  try {
+    if (!user_id || !amount || !category) {
+      return res.status(400).json({ error: "Missing require fields!" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO INCOME (userId, amount, category, description) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [user_id, amount, category, description]
+    );
+
+    await pool.query(
+      `
+        UPDATE account
+        SET totalIncome = totalIncome + $1
+        WHERE userId = $2
+      `,
+      [amount, user_id]
+    );
+
+    const income = result.rows[0];
+
+    res.status(201).json({
+      message: "Income added",
+      income: {
+        incomeId: income.incomeid,
+        amount: income.amount,
+        category: income.category,
+        description: income.description || null,
+      },
+    });
+  } catch (err) {
+    console.error("Error adding income : ", err);
+    return res.status(500).json({ error: "Internal Server Error!" });
+  }
+};
+
 exports.getAllIncome = async (req, res) => {
   const { userId } = req.body;
   const limit = parseInt(req.query.limit) || 5;

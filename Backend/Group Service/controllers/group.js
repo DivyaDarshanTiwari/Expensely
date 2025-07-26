@@ -1,4 +1,5 @@
 const { pool } = require("../config/db");
+const axios = require("axios");
 
 exports.createGroup = async (req, res) => {
   const { name, groupBudget, description, groupMembers } = req.body; //groupMembers = [userIds] Array of userIds
@@ -433,6 +434,7 @@ exports.leaveGroup = async (req, res) => {
 exports.settleUpWithUser = async (req, res) => {
   const { groupId } = req.params;
   const { fromUserId, toUserId, amount } = req.body;
+  console.log(fromUserId, toUserId, amount);
 
   if (!groupId || !fromUserId || !toUserId || !amount) {
     return res.status(400).json({ message: "Missing required fields" });
@@ -444,6 +446,94 @@ exports.settleUpWithUser = async (req, res) => {
       `INSERT INTO SETTLEMENTS (groupid, fromuserid, touserid, amount) VALUES ($1, $2, $3, $4)`,
       [groupId, fromUserId, toUserId, amount]
     );
+
+    // Fetch group name
+    let groupName = "Group";
+    try {
+      const groupResult = await pool.query(
+        "SELECT name FROM GROUPS WHERE groupid = $1",
+        [groupId]
+      );
+      if (groupResult.rows.length > 0) {
+        groupName = groupResult.rows[0].name;
+      }
+    } catch (err) {
+      console.error("Failed to fetch group name:", err.message);
+    }
+
+    // Fetch usernames
+    let fromUsername = "Payer";
+    let toUsername = "Receiver";
+    try {
+      const fromUserResult = await pool.query(
+        "SELECT username FROM USERS WHERE user_id = $1",
+        [fromUserId]
+      );
+      if (fromUserResult.rows.length > 0) {
+        fromUsername = fromUserResult.rows[0].username;
+      }
+      const toUserResult = await pool.query(
+        "SELECT username FROM USERS WHERE user_id = $1",
+        [toUserId]
+      );
+      if (toUserResult.rows.length > 0) {
+        toUsername = toUserResult.rows[0].username;
+      }
+    } catch (err) {
+      console.error("Failed to fetch usernames:", err.message);
+    }
+
+    // Add to payer's personal expense and receiver's personal income via Basic Service API
+    try {
+      const basicServiceUrl = process.env.BASIC_SERVICE_URL;
+      if (!basicServiceUrl) {
+        console.error("BASIC_SERVICE_URL not set in environment variables");
+      } else {
+        // Get bearer token from request headers
+        const authHeader = req.headers.authorization;
+        if (!authHeader) {
+          console.error("No authorization header found");
+        } else {
+          // Expense for payer
+          await axios.post(
+            `${basicServiceUrl}/expense/add2`,
+            {
+              user_id: fromUserId,
+              amount,
+              category: "Group Settlement",
+              description: `${groupName} - Settlement with ${toUsername}`,
+            },
+            {
+              headers: {
+                Authorization: authHeader,
+              },
+            }
+          );
+          // Income for receiver
+          await axios.post(
+            `${basicServiceUrl}/income/add2`,
+            {
+              user_id: toUserId,
+              amount,
+              category: "Group Settlement",
+              description: `${groupName} - Settlement from ${fromUsername}`,
+            },
+            {
+              headers: {
+                Authorization: authHeader,
+              },
+            }
+          );
+        }
+      }
+    } catch (err) {
+      console.error(
+        "Failed to add personal expense/income for settlement:",
+        err.response?.data || err.message
+      );
+      // Do not fail the settlement if this fails
+    }
+
     res.status(201).json({ message: "Settlement recorded successfully" });
   } catch (err) {
     console.error("Error recording settlement:", err);
