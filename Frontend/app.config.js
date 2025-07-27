@@ -14,7 +14,10 @@ export default ({ config }) => {
         User_URL: process.env.User_URL,
         OCR_URL: process.env.OCR_URL,
       },
-      plugins: ["expo-secure-store"],
+      android: {
+        package: "com.divya1611.expenselyexpo",
+      },
+      plugins: ["expo-secure-store", "expo-router"],
     },
   };
 };
