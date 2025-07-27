@@ -122,4 +122,31 @@ const getMe = async (req, res) => {
   }
 };
 
-module.exports = { authController, signUpController, getMe };
+const createCustomToken = async (req, res) => {
+  const { uid } = req.body;
+
+  const { rows } = await pool.query(
+    "SELECT 1 FROM users WHERE firebase_uid = $1",
+    [uid]
+  );
+
+  if (rows.length === 0) {
+    return res.status(404).json({ message: "User not found in database" });
+  }
+
+  if (!uid) {
+    return res.status(400).json({ message: "Bad Request: UID is required" });
+  }
+
+  try {
+    const customToken = await admin.auth().createCustomToken(uid);
+    res.status(200).json({ customToken });
+  } catch (error) {
+    console.error("Error creating custom token:", error);
+    res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
+  }
+};
+
+module.exports = { authController, signUpController, getMe, createCustomToken };
