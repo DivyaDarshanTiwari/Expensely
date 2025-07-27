@@ -3,7 +3,6 @@ import axios from "axios";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -21,7 +20,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth } from "../../auth/firebase";
 import { getStoredToken } from "../../utils/storage";
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -29,14 +27,12 @@ const { width: screenWidth } = Dimensions.get("window");
 export default function AddTransactions() {
   const router = useRouter();
   const { groupId, groupName, type = "expense" } = useLocalSearchParams();
-
   const [transactionType, setTransactionType] = useState(type); // 'expense' or 'income'
   const [transactionData, setTransactionData] = useState({
     amount: "",
     description: "",
     category: "general",
   });
-
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -180,6 +176,7 @@ export default function AddTransactions() {
       .catch((error) => {
         console.error("Error getting idToken from storage:", error);
       });
+
     // Start animations
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -285,6 +282,16 @@ export default function AddTransactions() {
     }
   };
 
+  // Dummy data for demonstration
+  const recentCategories = categories.slice(0, 3); // Replace with real recent logic
+  const userCategories = [
+    // Example user categories
+    { id: "Custom1", name: "Custom Cat 1", icon: "star", color: "#FFB300" },
+    { id: "Custom2", name: "Custom Cat 2", icon: "star", color: "#00BFAE" },
+  ];
+
+  const allCategories = [...categories, ...userCategories];
+
   const renderCategoryModal = () => (
     <Modal
       visible={showCategoryModal}
@@ -292,9 +299,12 @@ export default function AddTransactions() {
       animationType="fade"
       onRequestClose={() => setShowCategoryModal(false)}
     >
-      <View style={styles.modalOverlay}>
+      <View style={styles.improvedModalOverlay}>
         <Animated.View
-          style={[styles.modalContent, { transform: [{ scale: formScale }] }]}
+          style={[
+            styles.improvedModalContent,
+            { transform: [{ scale: formScale }] },
+          ]}
         >
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select Category</Text>
@@ -305,15 +315,19 @@ export default function AddTransactions() {
               <Ionicons name="close" size={24} color="#6B7280" />
             </TouchableOpacity>
           </View>
+          {/* Recent section */}
+          <Text style={styles.sectionTitle}>Recent</Text>
           <FlatList
-            data={categories}
+            data={recentCategories}
+            horizontal
             keyExtractor={(item) => item.id}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingVertical: 8, paddingLeft: 8 }}
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={[
-                  styles.categoryItem,
-                  transactionData.category.toLowerCase() ===
-                    item.id.toLowerCase() && styles.categoryItemSelected,
+                  styles.chip,
+                  transactionData.category === item.id && styles.chipSelected,
                 ]}
                 onPress={() => {
                   setTransactionData((prev) => ({
@@ -323,25 +337,85 @@ export default function AddTransactions() {
                   setShowCategoryModal(false);
                 }}
               >
-                <View
-                  style={[
-                    styles.categoryIcon,
-                    { backgroundColor: `${item.color}20` },
-                  ]}
-                >
-                  <Ionicons
-                    name={item.icon as any}
-                    size={24}
-                    color={item.color}
-                  />
-                </View>
-                <Text style={styles.categoryName}>{item.name}</Text>
-                {transactionData.category === item.id && (
-                  <Ionicons name="checkmark" size={24} color="#10B981" />
-                )}
+                <Ionicons
+                  name={item.icon as any}
+                  size={16}
+                  color={item.color}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={styles.chipText}>{item.name}</Text>
               </TouchableOpacity>
             )}
           />
+          {/* All Categories section */}
+          <Text style={styles.sectionTitle}>All Categories</Text>
+          <View style={styles.categoryGridContainer}>
+            <FlatList
+              data={[
+                ...allCategories,
+                {
+                  id: "add",
+                  name: "Add Category",
+                  icon: "add-circle-outline",
+                  color: "#888",
+                },
+              ]}
+              keyExtractor={(item) => item.id}
+              numColumns={3}
+              key={"categories-3"}
+              scrollEnabled={false}
+              columnWrapperStyle={styles.categoryRow}
+              contentContainerStyle={{ paddingBottom: 16 }}
+              renderItem={({ item }) => {
+                const isSelected = transactionData.category === item.id;
+                if (item.id === "add") {
+                  return (
+                    <TouchableOpacity
+                      style={styles.addCategoryGridCell}
+                      onPress={() => {
+                        // Open add category modal (to be implemented)
+                      }}
+                    >
+                      <Ionicons
+                        name={item.icon as any}
+                        size={22}
+                        color={item.color}
+                        style={{ marginBottom: 4 }}
+                      />
+                      <Text style={styles.addCategoryGridLabel}>
+                        {item.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                }
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.categoryGridCell,
+                      isSelected && styles.categoryGridCellSelected,
+                    ]}
+                    onPress={() => {
+                      setTransactionData((prev) => ({
+                        ...prev,
+                        category: item.id,
+                      }));
+                      setShowCategoryModal(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryGridLabel,
+                        isSelected && styles.categoryGridLabelSelected,
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {item.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
         </Animated.View>
       </View>
     </Modal>
@@ -392,7 +466,6 @@ export default function AddTransactions() {
       keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
     >
       <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
-
       {/* Header */}
       <Animated.View
         style={[
@@ -933,5 +1006,100 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#111827",
     flex: 1,
+  },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E0E7FF",
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  chipSelected: {
+    backgroundColor: "#D1FAE5",
+  },
+  chipText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#10B981",
+    marginLeft: 8,
+  },
+  improvedModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(30, 41, 59, 0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  improvedModalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 16,
+    marginHorizontal: 16,
+    width: "90%",
+    maxWidth: 400,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#374151",
+    marginTop: 12,
+    marginBottom: 4,
+    marginLeft: 4,
+  },
+  categoryGridContainer: {
+    paddingHorizontal: 8,
+  },
+  categoryRow: {
+    justifyContent: "space-between",
+    paddingHorizontal: 4,
+  },
+  categoryGridCell: {
+    width: (screenWidth * 0.9 - 64) / 3, // Dynamic width calculation
+    height: 60,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+    backgroundColor: "transparent",
+    borderRadius: 8,
+    paddingHorizontal: 4,
+  },
+  categoryGridCellSelected: {
+    backgroundColor: "#F0FDF4",
+  },
+  categoryGridLabel: {
+    fontSize: 13,
+    color: "#374151",
+    textAlign: "center",
+    fontWeight: "500",
+  },
+  categoryGridLabelSelected: {
+    color: "#10B981",
+    fontWeight: "700",
+    textDecorationLine: "underline",
+  },
+  addCategoryGridCell: {
+    width: (screenWidth * 0.9 - 64) / 3, // Same dynamic width
+    height: 60,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: "#A7F3D0",
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+    borderStyle: "dashed",
+  },
+  addCategoryGridLabel: {
+    fontSize: 12,
+    color: "#10B981",
+    fontWeight: "600",
+    textAlign: "center",
   },
 });

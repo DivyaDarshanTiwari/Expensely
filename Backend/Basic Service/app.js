@@ -28,6 +28,7 @@ const incomeRoutes = require("./routes/incomeRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const rollBackMonthyRoutes = require("./routes/accountSnapshotRoute");
+const personalCategoriesRoutes = require("./routes/personalCategoriesRoutes");
 
 // Import monthly rollover function
 const {
@@ -43,6 +44,7 @@ const {
   expenseTable,
   incomeTable,
   account_snapshotsTable,
+  personalCategoriesTable,
 } = require("./services/TableCreation");
 
 // Middleware to parse incoming JSON requests
@@ -62,12 +64,14 @@ accountTable();
 expenseTable();
 incomeTable();
 account_snapshotsTable();
+personalCategoriesTable();
 
 // Register routes: routes starting with these prefixes will enter respective route handlers
 app.use("/api/v1/expense", expenseRoutes);
 app.use("/api/v1/income", incomeRoutes);
 app.use("/api/v1/account", dashboardRoutes);
 app.use("/api/v1", rollBackMonthyRoutes);
+app.use("/api/v1/personal-categories", personalCategoriesRoutes);
 
 // Schedule cron job to run at 00:00 on the 1st of every month
 try {
