@@ -76,7 +76,7 @@ exports.account_snapshotsTable = () => {
         CREATE TABLE IF NOT EXISTS account_snapshots (
           snapshotId SERIAL PRIMARY KEY,
           userId INTEGER NOT NULL REFERENCES users(user_id),
-          snapshot_date DATE NOT NULL,          
+          snapshot_date DATE NOT NULL,
           snapshot_timestamp TIMESTAMP DEFAULT NOW(),
           totalIncome NUMERIC(10, 2),
           totalExpense NUMERIC(10, 2),
@@ -89,6 +89,27 @@ exports.account_snapshotsTable = () => {
         console.error("Error creating ACCOUNT SNAPSHOT Table! ", err);
       } else {
         console.log("✅ ACCOUNT SNAPSHOT Table created or already existed!");
+      }
+    }
+  );
+};
+
+exports.personalCategoriesTable = () => {
+  pool.query(
+    `CREATE TABLE IF NOT EXISTS PERSONAL_CATEGORIES (
+      categoryId SERIAL PRIMARY KEY,
+      userId INTEGER NOT NULL REFERENCES users(user_id),
+      name VARCHAR(100) NOT NULL,
+      type VARCHAR(20) NOT NULL CHECK (type IN ('expense', 'income')),
+      createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (userId, name, type)
+    );
+    `,
+    (err, res) => {
+      if (err) {
+        console.error("Error creating PERSONAL CATEGORIES Table! ", err);
+      } else {
+        console.log("✅ PERSONAL CATEGORIES Table created or already existed!");
       }
     }
   );
