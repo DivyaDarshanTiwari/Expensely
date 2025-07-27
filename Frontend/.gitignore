@@ -43,7 +43,8 @@ app-example
 .env
 
 android/
-ios/
+
+/ios
 
 app.config.js
 eas.json
