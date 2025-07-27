@@ -3,6 +3,7 @@
 const express = require("express");
 const {
   addExpense,
+  addExpense2,
   getAllExpense,
   deleteExpense,
 } = require("../controllers/expenseControllers");
@@ -11,6 +12,8 @@ const router = express.Router();
 
 // add the expense to the database
 router.post("/add", addExpense);
+
+router.post("/add2", addExpense2);
 
 //get all the expense that are there
 router.get("/getAll", getAllExpense);

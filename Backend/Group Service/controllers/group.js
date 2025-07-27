@@ -1,13 +1,16 @@
-const { pool } = require("../config/db");
+const { pool, withTransaction } = require("../config/db");
+const axios = require("axios");
 
 exports.createGroup = async (req, res) => {
   const { name, groupBudget, description, groupMembers } = req.body; //groupMembers = [userIds] Array of userIds
   const createdBy = req.body.userId;
   groupMembers.push(createdBy);
+
   try {
     if (!name || !createdBy || !groupBudget || !groupMembers) {
       return res.status(404).json({ message: "Incomplete Fields" });
     }
+
     console.log(
       name,
       createdBy,
@@ -16,23 +19,33 @@ exports.createGroup = async (req, res) => {
       groupMembers,
       req.body.userId
     );
-    const result = await pool.query(
-      `INSERT INTO GROUPS (name, createdBy, groupBudget, description) VALUES ($1, $2, $3, $4) RETURNING *`,
-      [name, createdBy, groupBudget, description]
-    );
-    console.log(result.rows[0].groupid);
-    const groupId = result.rows[0].groupid;
-    for (let member of groupMembers) {
-      // Set the creator as admin, others as regular members
-      const isAdmin = member === createdBy;
-      await pool.query(
-        `INSERT INTO GROUP_MEMBERS (groupId, userId, isAdmin) VALUES ($1, $2, $3) RETURNING *`,
-        [groupId, member, isAdmin]
+
+    const result = await withTransaction(async (client) => {
+      // Create the group
+      const groupResult = await client.query(
+        `INSERT INTO GROUPS (name, createdBy, groupBudget, description) VALUES ($1, $2, $3, $4) RETURNING *`,
+        [name, createdBy, groupBudget, description]
       );
-    }
+
+      const groupId = groupResult.rows[0].groupid;
+      console.log(groupId);
+
+      // Add all members to the group
+      for (let member of groupMembers) {
+        // Set the creator as admin, others as regular members
+        const isAdmin = member === createdBy;
+        await client.query(
+          `INSERT INTO GROUP_MEMBERS (groupId, userId, isAdmin) VALUES ($1, $2, $3) RETURNING *`,
+          [groupId, member, isAdmin]
+        );
+      }
+
+      return { groupId, groupName: groupResult.rows[0].name };
+    });
+
     res.status(201).json({
       message: "Group Created Successfully!",
-      data: { groupId: groupId, groupName: result.rows[0].name },
+      data: { groupId: result.groupId, groupName: result.groupName },
     });
   } catch (err) {
     console.error("Error creating group : ", err);
@@ -289,28 +302,37 @@ exports.deleteGroup = async (req, res) => {
       });
     } else if (finalAction === "delete_group") {
       // User is the creator or admin, proceed with full group deletion
-      // Step 0: Delete from SETTLEMENTS
-      await pool.query(`DELETE FROM SETTLEMENTS WHERE groupid = $1`, [groupId]);
-      // Step 1: Delete from EXPENSES_SHARE (if foreign key not set to cascade)
-      await pool.query(
-        `
-        DELETE FROM EXPENSES_SHARE
-        WHERE expenseId IN (
-          SELECT id FROM GROUP_EXPENSES WHERE groupId = $1
-        )
-        `,
-        [groupId]
-      );
-      // Step 2: Delete from GROUP_EXPENSES
-      await pool.query(`DELETE FROM GROUP_EXPENSES WHERE groupId = $1`, [
-        groupId,
-      ]);
-      // Step 3: Delete from GROUP_MEMBERS
-      await pool.query(`DELETE FROM GROUP_MEMBERS WHERE groupId = $1`, [
-        groupId,
-      ]);
-      // Step 4: Finally delete the group
-      await pool.query(`DELETE FROM GROUPS WHERE groupid = $1`, [groupId]);
+      await withTransaction(async (client) => {
+        // Step 0: Delete from SETTLEMENTS
+        await client.query(`DELETE FROM SETTLEMENTS WHERE groupid = $1`, [
+          groupId,
+        ]);
+
+        // Step 1: Delete from EXPENSES_SHARE (if foreign key not set to cascade)
+        await client.query(
+          `
+          DELETE FROM EXPENSES_SHARE
+          WHERE expenseId IN (
+            SELECT id FROM GROUP_EXPENSES WHERE groupId = $1
+          )
+          `,
+          [groupId]
+        );
+
+        // Step 2: Delete from GROUP_EXPENSES
+        await client.query(`DELETE FROM GROUP_EXPENSES WHERE groupId = $1`, [
+          groupId,
+        ]);
+
+        // Step 3: Delete from GROUP_MEMBERS
+        await client.query(`DELETE FROM GROUP_MEMBERS WHERE groupId = $1`, [
+          groupId,
+        ]);
+
+        // Step 4: Finally delete the group
+        await client.query(`DELETE FROM GROUPS WHERE groupid = $1`, [groupId]);
+      });
+
       return res.status(200).json({ message: "Group deleted successfully" });
     } else {
       return res.status(400).json({ message: "Invalid action." });
@@ -433,17 +455,108 @@ exports.leaveGroup = async (req, res) => {
 exports.settleUpWithUser = async (req, res) => {
   const { groupId } = req.params;
   const { fromUserId, toUserId, amount } = req.body;
+  console.log(fromUserId, toUserId, amount);
 
   if (!groupId || !fromUserId || !toUserId || !amount) {
     return res.status(400).json({ message: "Missing required fields" });
   }
 
   try {
-    // Insert a settlement record
-    await pool.query(
-      `INSERT INTO SETTLEMENTS (groupid, fromuserid, touserid, amount) VALUES ($1, $2, $3, $4)`,
-      [groupId, fromUserId, toUserId, amount]
-    );
+    // Insert a settlement record within transaction
+    await withTransaction(async (client) => {
+      await client.query(
+        `INSERT INTO SETTLEMENTS (groupid, fromuserid, touserid, amount) VALUES ($1, $2, $3, $4)`,
+        [groupId, fromUserId, toUserId, amount]
+      );
+    });
+
+    // Fetch group name
+    let groupName = "Group";
+    try {
+      const groupResult = await pool.query(
+        "SELECT name FROM GROUPS WHERE groupid = $1",
+        [groupId]
+      );
+      if (groupResult.rows.length > 0) {
+        groupName = groupResult.rows[0].name;
+      }
+    } catch (err) {
+      console.error("Failed to fetch group name:", err.message);
+    }
+
+    // Fetch usernames
+    let fromUsername = "Payer";
+    let toUsername = "Receiver";
+    try {
+      const fromUserResult = await pool.query(
+        "SELECT username FROM USERS WHERE user_id = $1",
+        [fromUserId]
+      );
+      if (fromUserResult.rows.length > 0) {
+        fromUsername = fromUserResult.rows[0].username;
+      }
+      const toUserResult = await pool.query(
+        "SELECT username FROM USERS WHERE user_id = $1",
+        [toUserId]
+      );
+      if (toUserResult.rows.length > 0) {
+        toUsername = toUserResult.rows[0].username;
+      }
+    } catch (err) {
+      console.error("Failed to fetch usernames:", err.message);
+    }
+
+    // Add to payer's personal expense and receiver's personal income via Basic Service API
+    try {
+      const basicServiceUrl = process.env.BASIC_SERVICE_URL;
+      if (!basicServiceUrl) {
+        console.error("BASIC_SERVICE_URL not set in environment variables");
+      } else {
+        // Get bearer token from request headers
+        const authHeader = req.headers.authorization;
+        if (!authHeader) {
+          console.error("No authorization header found");
+        } else {
+          // Expense for payer
+          await axios.post(
+            `${basicServiceUrl}/expense/add2`,
+            {
+              user_id: fromUserId,
+              amount,
+              category: "Group Settlement",
+              description: `${groupName} - Settlement with ${toUsername}`,
+            },
+            {
+              headers: {
+                Authorization: authHeader,
+              },
+            }
+          );
+          // Income for receiver
+          await axios.post(
+            `${basicServiceUrl}/income/add2`,
+            {
+              user_id: toUserId,
+              amount,
+              category: "Group Settlement",
+              description: `${groupName} - Settlement from ${fromUsername}`,
+            },
+            {
+              headers: {
+                Authorization: authHeader,
+              },
+            }
+          );
+        }
+      }
+    } catch (err) {
+      console.error(
+        "Failed to add personal expense/income for settlement:",
+        err.response?.data || err.message
+      );
+      // Do not fail the settlement if this fails
+    }
+
     res.status(201).json({ message: "Settlement recorded successfully" });
   } catch (err) {
     console.error("Error recording settlement:", err);
