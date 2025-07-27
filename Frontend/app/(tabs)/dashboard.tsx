@@ -49,22 +49,41 @@ const ExpenselyDashboard = () => {
 
   const categoryIconMap: Record<
     string,
-    { icon: keyof typeof Ionicons.glyphMap; color: string }
+    { icon: keyof typeof Ionicons.glyphMap; color: string; label: string }
   > = {
-    Food: { icon: "restaurant", color: "#F59E0B" },
-    Transport: { icon: "car", color: "#3B82F6" },
-    Entertainment: { icon: "game-controller", color: "#8B5CF6" },
-    Shopping: { icon: "bag", color: "#EC4899" },
-    Utilities: { icon: "flash", color: "#10B981" },
-    Health: { icon: "medical", color: "#EF4444" },
-    General: { icon: "card", color: "#6B7280" },
-    Salary: { icon: "briefcase", color: "#10B981" },
-    Freelance: { icon: "laptop", color: "#3B82F6" },
-    Investment: { icon: "trending-up", color: "#8B5CF6" },
-    Gift: { icon: "gift", color: "#EC4899" },
-    Refund: { icon: "refresh", color: "#F59E0B" },
-    Bonus: { icon: "star", color: "#EF4444" },
-    Other: { icon: "cash", color: "#6B7280" },
+    Food: { icon: "restaurant", color: "#F59E0B", label: "Food" },
+    Transport: { icon: "car", color: "#3B82F6", label: "Transport" },
+    Entertainment: {
+      icon: "game-controller",
+      color: "#8B5CF6",
+      label: "Entertainment",
+    },
+    Shopping: { icon: "bag", color: "#EC4899", label: "Shopping" },
+    Utilities: { icon: "flash", color: "#10B981", label: "Utilities" },
+    Health: { icon: "medical", color: "#EF4444", label: "Health" },
+    General: { icon: "card", color: "#6B7280", label: "General" },
+    Salary: { icon: "briefcase", color: "#10B981", label: "Salary" },
+    Freelance: { icon: "laptop", color: "#3B82F6", label: "Freelance" },
+    Investment: { icon: "trending-up", color: "#8B5CF6", label: "Investment" },
+    Gift: { icon: "gift", color: "#EC4899", label: "Gift" },
+    Refund: { icon: "refresh", color: "#F59E0B", label: "Refund" },
+    Bonus: { icon: "star", color: "#EF4444", label: "Bonus" },
+    Other: { icon: "cash", color: "#6B7280", label: "Other" },
+    GroupExpense: { icon: "people", color: "#7C3AED", label: "Group Expense" },
+    GroupSettlement: {
+      icon: "swap-horizontal",
+      color: "#F59E0B",
+      label: "Group Settlement",
+    },
+  };
+
+  // Helper to normalize category keys
+  const normalizeCategoryKey = (category: string) => {
+    if (!category) return "Other";
+    // Remove spaces and make first letter of each word uppercase
+    return category
+      .replace(/\s+/g, "")
+      .replace(/^(.)|\s+(.)/g, (c) => c.toUpperCase());
   };
 
   useFocusEffect(
@@ -260,42 +279,48 @@ const ExpenselyDashboard = () => {
     );
   };
 
-  const renderTransaction = ({ item }: { item: any }) => (
-    <Animated.View style={styles.transactionItem}>
-      <View
-        style={[
-          styles.transactionIcon,
-          {
-            backgroundColor:
-              item.type === "expense"
-                ? "rgba(239, 68, 68, 0.15)"
-                : "rgba(34, 197, 94, 0.15)",
-          },
-        ]}
-      >
-        <Ionicons
-          name={categoryIconMap[item.category]?.icon ?? "help-circle"}
-          size={20}
-          color={categoryIconMap[item.category]?.color ?? "#6B7280"}
-        />
-      </View>
-      <View style={styles.transactionDetails}>
-        <Text style={styles.transactionTitle}>{item.category}</Text>
-        <Text style={styles.transactionCategory}>{item.description}</Text>
-      </View>
-      <View style={styles.transactionRight}>
-        <Text
+  const renderTransaction = ({ item }: { item: any }) => {
+    const normalizedKey = normalizeCategoryKey(item.category);
+    const iconData = categoryIconMap[normalizedKey];
+    return (
+      <Animated.View style={styles.transactionItem}>
+        <View
           style={[
-            styles.transactionAmount,
-            { color: item.type === "expense" ? "red" : "green" },
+            styles.transactionIcon,
+            {
+              backgroundColor:
+                item.type === "expense"
+                  ? "rgba(239, 68, 68, 0.15)"
+                  : "rgba(34, 197, 94, 0.15)",
+            },
           ]}
         >
-          {item.amount}
-        </Text>
-        <Text style={styles.transactionDate}>{item.dayAgo}</Text>
-      </View>
-    </Animated.View>
-  );
+          <Ionicons
+            name={iconData?.icon ?? "help-circle"}
+            size={20}
+            color={iconData?.color ?? "#6B7280"}
+          />
+        </View>
+        <View style={styles.transactionDetails}>
+          <Text style={styles.transactionTitle}>
+            {iconData?.label ?? item.category}
+          </Text>
+          <Text style={styles.transactionCategory}>{item.description}</Text>
+        </View>
+        <View style={styles.transactionRight}>
+          <Text
+            style={[
+              styles.transactionAmount,
+              { color: item.type === "expense" ? "red" : "green" },
+            ]}
+          >
+            {item.amount}
+          </Text>
+          <Text style={styles.transactionDate}>{item.dayAgo}</Text>
+        </View>
+      </Animated.View>
+    );
+  };
 
   const renderChartCard = ({ item }: { item: any }) => {
     const getChartComponent = (title: string) => {
