@@ -4,12 +4,7 @@ import axios from "axios";
 import Constants from "expo-constants";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import {
-  onAuthStateChanged,
-  signOut,
-  updateProfile,
-  type User,
-} from "firebase/auth";
+import { signOut, updateProfile, type User } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -25,7 +20,7 @@ import {
   View,
 } from "react-native";
 import { auth } from "../auth/firebase";
-import { getStoredUser } from "../utils/storage"; // adjust path as needed
+import { getStoredUser, clearUserData } from "../utils/storage"; // adjust path as needed
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -304,6 +299,7 @@ export default function ProfileScreen() {
           onPress: async () => {
             try {
               setLoggingOut(true);
+              await clearUserData();
               await signOut(auth);
               setUser(null);
               router.replace("/auth");
