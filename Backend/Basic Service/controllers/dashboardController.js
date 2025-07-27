@@ -11,6 +11,11 @@ exports.getDashboardAmounts = async (req, res) => {
       `SELECT totalIncome, totalExpense FROM ACCOUNT WHERE userId = $1`,
       [userId]
     );
+    if (!result.rows.length) {
+      return res
+        .status(404)
+        .json({ error: "Account not found for given userId" });
+    }
 
     res.status(201).json({
       message: "Total Income and Total Expense Sent",
@@ -36,6 +41,12 @@ exports.getFinancialOverview = async (req, res) => {
       `SELECT totalIncome, totalExpense FROM ACCOUNT WHERE userId = $1`,
       [userId]
     );
+
+    if (!result.rows.length) {
+      return res
+        .status(404)
+        .json({ error: "Account not found for given userId" });
+    }
 
     res.status(201).json({
       message: "Total Income and Total Expense Sent",
