@@ -1,14 +1,16 @@
-const { pool } = require("../config/db");
+const { pool, withTransaction } = require("../config/db");
 const axios = require("axios");
 
 exports.createGroup = async (req, res) => {
   const { name, groupBudget, description, groupMembers } = req.body; //groupMembers = [userIds] Array of userIds
   const createdBy = req.body.userId;
   groupMembers.push(createdBy);
+
   try {
     if (!name || !createdBy || !groupBudget || !groupMembers) {
       return res.status(404).json({ message: "Incomplete Fields" });
     }
+
     console.log(
       name,
       createdBy,
@@ -17,23 +19,33 @@ exports.createGroup = async (req, res) => {
       groupMembers,
       req.body.userId
     );
-    const result = await pool.query(
-      `INSERT INTO GROUPS (name, createdBy, groupBudget, description) VALUES ($1, $2, $3, $4) RETURNING *`,
-      [name, createdBy, groupBudget, description]
-    );
-    console.log(result.rows[0].groupid);
-    const groupId = result.rows[0].groupid;
-    for (let member of groupMembers) {
-      // Set the creator as admin, others as regular members
-      const isAdmin = member === createdBy;
-      await pool.query(
-        `INSERT INTO GROUP_MEMBERS (groupId, userId, isAdmin) VALUES ($1, $2, $3) RETURNING *`,
-        [groupId, member, isAdmin]
+
+    const result = await withTransaction(async (client) => {
+      // Create the group
+      const groupResult = await client.query(
+        `INSERT INTO GROUPS (name, createdBy, groupBudget, description) VALUES ($1, $2, $3, $4) RETURNING *`,
+        [name, createdBy, groupBudget, description]
       );
-    }
+
+      const groupId = groupResult.rows[0].groupid;
+      console.log(groupId);
+
+      // Add all members to the group
+      for (let member of groupMembers) {
+        // Set the creator as admin, others as regular members
+        const isAdmin = member === createdBy;
+        await client.query(
+          `INSERT INTO GROUP_MEMBERS (groupId, userId, isAdmin) VALUES ($1, $2, $3) RETURNING *`,
+          [groupId, member, isAdmin]
+        );
+      }
+
+      return { groupId, groupName: groupResult.rows[0].name };
+    });
+
     res.status(201).json({
       message: "Group Created Successfully!",
-      data: { groupId: groupId, groupName: result.rows[0].name },
+      data: { groupId: result.groupId, groupName: result.groupName },
     });
   } catch (err) {
     console.error("Error creating group : ", err);
@@ -290,28 +302,37 @@ exports.deleteGroup = async (req, res) => {
       });
     } else if (finalAction === "delete_group") {
       // User is the creator or admin, proceed with full group deletion
-      // Step 0: Delete from SETTLEMENTS
-      await pool.query(`DELETE FROM SETTLEMENTS WHERE groupid = $1`, [groupId]);
-      // Step 1: Delete from EXPENSES_SHARE (if foreign key not set to cascade)
-      await pool.query(
-        `
-        DELETE FROM EXPENSES_SHARE
-        WHERE expenseId IN (
-          SELECT id FROM GROUP_EXPENSES WHERE groupId = $1
-        )
-        `,
-        [groupId]
-      );
-      // Step 2: Delete from GROUP_EXPENSES
-      await pool.query(`DELETE FROM GROUP_EXPENSES WHERE groupId = $1`, [
-        groupId,
-      ]);
-      // Step 3: Delete from GROUP_MEMBERS
-      await pool.query(`DELETE FROM GROUP_MEMBERS WHERE groupId = $1`, [
-        groupId,
-      ]);
-      // Step 4: Finally delete the group
-      await pool.query(`DELETE FROM GROUPS WHERE groupid = $1`, [groupId]);
+      await withTransaction(async (client) => {
+        // Step 0: Delete from SETTLEMENTS
+        await client.query(`DELETE FROM SETTLEMENTS WHERE groupid = $1`, [
+          groupId,
+        ]);
+
+        // Step 1: Delete from EXPENSES_SHARE (if foreign key not set to cascade)
+        await client.query(
+          `
+          DELETE FROM EXPENSES_SHARE
+          WHERE expenseId IN (
+            SELECT id FROM GROUP_EXPENSES WHERE groupId = $1
+          )
+          `,
+          [groupId]
+        );
+
+        // Step 2: Delete from GROUP_EXPENSES
+        await client.query(`DELETE FROM GROUP_EXPENSES WHERE groupId = $1`, [
+          groupId,
+        ]);
+
+        // Step 3: Delete from GROUP_MEMBERS
+        await client.query(`DELETE FROM GROUP_MEMBERS WHERE groupId = $1`, [
+          groupId,
+        ]);
+
+        // Step 4: Finally delete the group
+        await client.query(`DELETE FROM GROUPS WHERE groupid = $1`, [groupId]);
+      });
+
       return res.status(200).json({ message: "Group deleted successfully" });
     } else {
       return res.status(400).json({ message: "Invalid action." });
@@ -441,11 +462,13 @@ exports.settleUpWithUser = async (req, res) => {
   }
 
   try {
-    // Insert a settlement record
-    await pool.query(
-      `INSERT INTO SETTLEMENTS (groupid, fromuserid, touserid, amount) VALUES ($1, $2, $3, $4)`,
-      [groupId, fromUserId, toUserId, amount]
-    );
+    // Insert a settlement record within transaction
+    await withTransaction(async (client) => {
+      await client.query(
+        `INSERT INTO SETTLEMENTS (groupid, fromuserid, touserid, amount) VALUES ($1, $2, $3, $4)`,
+        [groupId, fromUserId, toUserId, amount]
+      );
+    });
 
     // Fetch group name
     let groupName = "Group";

@@ -1,4 +1,4 @@
-const { pool } = require("../config/db");
+const { pool, withTransaction } = require("../config/db");
 const axios = require("axios");
 
 exports.addGroupExpense = async (req, res) => {
@@ -30,30 +30,38 @@ exports.addGroupExpense = async (req, res) => {
     }
 
     // userId is the creator (adder)
-    const expenseResult = await pool.query(
-      "INSERT INTO GROUP_EXPENSES (groupId, paidBy, createdBy, amount, description, category) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-      [groupId, paidById, userId, amount, description, category]
-    );
-    const expenseId = expenseResult.rows[0].id;
-    for (let share of shares) {
-      // Get userId from username
-      const userResult = await pool.query(
-        "SELECT user_id FROM USERS WHERE username = $1",
-        [share.username]
+    const expenseResult = await withTransaction(async (client) => {
+      // Create the expense
+      const expenseInsertResult = await client.query(
+        "INSERT INTO GROUP_EXPENSES (groupId, paidBy, createdBy, amount, description, category) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+        [groupId, paidById, userId, amount, description, category]
       );
 
-      if (userResult.rows.length === 0) {
-        return res
-          .status(400)
-          .json({ message: `User ${share.username} not found` });
+      const expenseId = expenseInsertResult.rows[0].id;
+
+      // Add all shares
+      for (let share of shares) {
+        // Get userId from username
+        const userResult = await client.query(
+          "SELECT user_id FROM USERS WHERE username = $1",
+          [share.username]
+        );
+
+        if (userResult.rows.length === 0) {
+          throw new Error(`User ${share.username} not found`);
+        }
+
+        const shareUserId = userResult.rows[0].user_id;
+        await client.query(
+          "INSERT INTO EXPENSES_SHARE (expenseId, userId, amountOwned) VALUES ($1, $2, $3)",
+          [expenseId, shareUserId, share.amountOwned]
+        );
       }
 
-      const shareUserId = userResult.rows[0].user_id;
-      await pool.query(
-        "INSERT INTO EXPENSES_SHARE (expenseId, userId, amountOwned) VALUES ($1, $2, $3)",
-        [expenseId, shareUserId, share.amountOwned]
-      );
-    }
+      return { expenseId };
+    });
+
+    const expenseId = expenseResult.expenseId;
 
     // Add to payer's personal expense via Basic Service API
     try {
@@ -231,33 +239,36 @@ exports.editGroupExpense = async (req, res) => {
         message: "Only the creator or a group admin can edit this expense",
       });
     }
-    // Update the expense
-    await pool.query(
-      "UPDATE GROUP_EXPENSES SET amount = $1, description = $2, category = $3 WHERE id = $4",
-      [amount, description, category, expenseId]
-    );
-    // Remove old shares
-    await pool.query("DELETE FROM EXPENSES_SHARE WHERE expenseId = $1", [
-      expenseId,
-    ]);
-    // Insert new shares
-    for (let share of shares) {
-      // Get userId from username
-      const userResult = await pool.query(
-        "SELECT user_id FROM USERS WHERE username = $1",
-        [share.username]
+    // Update the expense and shares within transaction
+    await withTransaction(async (client) => {
+      // Update the expense
+      await client.query(
+        "UPDATE GROUP_EXPENSES SET amount = $1, description = $2, category = $3 WHERE id = $4",
+        [amount, description, category, expenseId]
       );
-      if (userResult.rows.length === 0) {
-        return res
-          .status(400)
-          .json({ message: `User ${share.username} not found` });
+
+      // Remove old shares
+      await client.query("DELETE FROM EXPENSES_SHARE WHERE expenseId = $1", [
+        expenseId,
+      ]);
+
+      // Insert new shares
+      for (let share of shares) {
+        // Get userId from username
+        const userResult = await client.query(
+          "SELECT user_id FROM USERS WHERE username = $1",
+          [share.username]
+        );
+        if (userResult.rows.length === 0) {
+          throw new Error(`User ${share.username} not found`);
+        }
+        const shareUserId = userResult.rows[0].user_id;
+        await client.query(
+          "INSERT INTO EXPENSES_SHARE (expenseId, userId, amountOwned) VALUES ($1, $2, $3)",
+          [expenseId, shareUserId, share.amountOwned]
+        );
       }
-      const shareUserId = userResult.rows[0].user_id;
-      await pool.query(
-        "INSERT INTO EXPENSES_SHARE (expenseId, userId, amountOwned) VALUES ($1, $2, $3)",
-        [expenseId, shareUserId, share.amountOwned]
-      );
-    }
+    });
     res.status(200).json({ message: "Expense updated successfully" });
   } catch (err) {
     console.error("Error editing group expense:", err);
@@ -285,15 +296,21 @@ exports.deleteGroupExpense = async (req, res) => {
         message: "Only the creator or a group admin can delete this expense",
       });
     }
-    // Delete from EXPENSES_SHARE first (if exists)
-    await pool.query("DELETE FROM EXPENSES_SHARE WHERE expenseId = $1", [
-      expenseId,
-    ]);
-    // Delete the expense itself
-    const result = await pool.query(
-      "DELETE FROM GROUP_EXPENSES WHERE id = $1 RETURNING *",
-      [expenseId]
-    );
+    // Delete expense and shares within transaction
+    const result = await withTransaction(async (client) => {
+      // Delete from EXPENSES_SHARE first (if exists)
+      await client.query("DELETE FROM EXPENSES_SHARE WHERE expenseId = $1", [
+        expenseId,
+      ]);
+
+      // Delete the expense itself
+      const deleteResult = await client.query(
+        "DELETE FROM GROUP_EXPENSES WHERE id = $1 RETURNING *",
+        [expenseId]
+      );
+
+      return deleteResult;
+    });
     if (result.rowCount === 0) {
       return res.status(404).json({ message: "Expense not found" });
     }

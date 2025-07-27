@@ -59,14 +59,6 @@ const addExpense2 = async (req, res) => {
   const { user_id, amount, category, description } = req.body;
   const validatedData = expenseSchema.safeParse(req.body);
 
-  if (!validatedData.success) {
-    console.error(validatedData.error.issues);
-    return res.status(400).json({
-      error: "Validation failed",
-      details: validatedData.error.issues,
-    });
-  }
-
   try {
     if (!user_id || !amount || !category) {
       return res.status(400).json({ error: "Missing required fields" });

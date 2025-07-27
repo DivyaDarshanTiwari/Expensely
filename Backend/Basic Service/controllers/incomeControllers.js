@@ -55,15 +55,6 @@ exports.addIncome2 = async (req, res) => {
   const { user_id, amount, category, description } = req.body;
   console.log(user_id, amount, category, description);
 
-  const validatedData = inputValidation.safeParse(req.body);
-
-  if (!validatedData.success) {
-    return res.status(400).json({
-      error: "Validation failed",
-      details: validatedData.error.issues,
-    });
-  }
-
   try {
     if (!user_id || !amount || !category) {
       return res.status(400).json({ error: "Missing require fields!" });
