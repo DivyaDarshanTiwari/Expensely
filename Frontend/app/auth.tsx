@@ -12,7 +12,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from "firebase/auth";
-import React, { useEffect, useRef, useState } from "react";
+import React, { use, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated,
@@ -27,7 +27,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth } from "../auth/firebase";
+import auth from "@react-native-firebase/auth";
 import { storeUserId, storeUser } from "../utils/storage";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -101,22 +101,22 @@ const ExpenselyAuth = () => {
 
   const login = async (email: string, password: string) => {
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
+      const userCredential = await auth().signInWithEmailAndPassword(
         email,
         password
       );
+      const user = userCredential.user;
 
-      if (!userCredential.user.emailVerified) {
+      if (!user.emailVerified) {
         Alert.alert(
           "Email Not Verified",
           "Please verify your email before logging in. Check your spam."
         );
-        await auth.signOut();
+        await auth().signOut();
         return null;
       }
 
-      const idToken = await getIdToken(userCredential.user);
+      const idToken = await user.getIdToken();
 
       try {
         // Attempt signUp on first login
@@ -181,18 +181,17 @@ const ExpenselyAuth = () => {
   const signUp = async () => {
     setIsLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
+      const userCredential = await auth().createUserWithEmailAndPassword(
         formData.email,
         formData.password
       );
 
-      await updateProfile(userCredential.user, {
+      await userCredential.user.updateProfile({
         displayName: formData.fullName,
       });
 
       // Send verification email
-      await sendEmailVerification(userCredential.user);
+      await userCredential.user.sendEmailVerification();
 
       Alert.alert(
         "Verify Your Email",
@@ -200,7 +199,7 @@ const ExpenselyAuth = () => {
       );
 
       // Sign out immediately to prevent accidental use before verification
-      await auth.signOut();
+      await auth().signOut();
 
       return userCredential;
     } catch (firebaseError: any) {
@@ -218,7 +217,7 @@ const ExpenselyAuth = () => {
     }
 
     try {
-      await sendPasswordResetEmail(auth, formData.email);
+      await auth().sendPasswordResetEmail(formData.email);
       Alert.alert("Password Reset", "Check your email for reset instructions.");
     } catch (error: any) {
       Alert.alert("Error", error.message);
