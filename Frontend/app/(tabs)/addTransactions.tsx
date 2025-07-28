@@ -22,6 +22,7 @@ import {
   View,
 } from "react-native";
 import { getStoredToken, getStoredUserId } from "../../utils/storage";
+import { refreshInvalidToken } from "@/utils/refreshIfInvalid";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -416,7 +417,8 @@ export default function AddTransactions() {
           ? `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/expense/add`
           : `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/income/add`;
 
-      const res = await axios.post(endpoint, payload, {
+      await refreshInvalidToken();
+      await axios.post(endpoint, payload, {
         headers: {
           Authorization: `Bearer ${idToken}`,
         },

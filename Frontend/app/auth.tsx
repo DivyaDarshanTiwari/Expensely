@@ -4,15 +4,7 @@ import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import {
-  createUserWithEmailAndPassword,
-  getIdToken,
-  sendEmailVerification,
-  sendPasswordResetEmail,
-  signInWithEmailAndPassword,
-  updateProfile,
-} from "firebase/auth";
-import React, { use, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated,
@@ -27,10 +19,18 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import auth from "@react-native-firebase/auth";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+} from "firebase/auth";
 import { storeUserId, storeUser } from "../utils/storage";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+const auth = getAuth();
 
 // Store backend userId
 
@@ -88,7 +88,7 @@ const ExpenselyAuth = () => {
         useNativeDriver: true,
       }),
     ]).start();
-  });
+  }, []);
 
   useEffect(() => {
     // Animation when switching between login/signup
@@ -101,7 +101,8 @@ const ExpenselyAuth = () => {
 
   const login = async (email: string, password: string) => {
     try {
-      const userCredential = await auth().signInWithEmailAndPassword(
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
         email,
         password
       );
@@ -112,11 +113,11 @@ const ExpenselyAuth = () => {
           "Email Not Verified",
           "Please verify your email before logging in. Check your spam."
         );
-        await auth().signOut();
+        await auth.signOut();
         return null;
       }
 
-      const idToken = await user.getIdToken();
+      const idToken = await auth.currentUser?.getIdToken();
 
       try {
         // Attempt signUp on first login
@@ -181,31 +182,31 @@ const ExpenselyAuth = () => {
   const signUp = async () => {
     setIsLoading(true);
     try {
-      const userCredential = await auth().createUserWithEmailAndPassword(
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
         formData.email,
         formData.password
       );
 
-      await userCredential.user.updateProfile({
+      await updateProfile(userCredential.user, {
         displayName: formData.fullName,
       });
 
-      // Send verification email
-      await userCredential.user.sendEmailVerification();
+      // ✅ Send email verification
+      await sendEmailVerification(userCredential.user);
 
       Alert.alert(
         "Verify Your Email",
-        "A verification email has been sent. Please verify your email before logging in.Check your spam"
+        "A verification email has been sent. Please verify your email before logging in. Check your spam."
       );
 
-      // Sign out immediately to prevent accidental use before verification
-      await auth().signOut();
+      await auth.signOut(); // Prevent login before email verified
 
       return userCredential;
     } catch (firebaseError: any) {
       throw firebaseError;
     } finally {
-      setIsLoading(false); // Always clear loading state
+      setIsLoading(false);
     }
   };
 
@@ -217,7 +218,8 @@ const ExpenselyAuth = () => {
     }
 
     try {
-      await auth().sendPasswordResetEmail(formData.email);
+      await sendPasswordResetEmail(auth, formData.email);
+
       Alert.alert("Password Reset", "Check your email for reset instructions.");
     } catch (error: any) {
       Alert.alert("Error", error.message);
@@ -279,7 +281,6 @@ const ExpenselyAuth = () => {
           router.replace("/(tabs)/dashboard");
         }
       } catch (err: any) {
-        console.log(err.message);
         Alert.alert("Login Failed", err.message || "Invalid email or password");
       }
     } else {
@@ -287,7 +288,6 @@ const ExpenselyAuth = () => {
         await signUp();
         setIsLogin(true);
       } catch (err: any) {
-        console.log(err.message);
         Alert.alert("Signup Failed", err.message || "Error from backend");
       }
     }

@@ -16,7 +16,7 @@ export default ({ config }) => {
       },
       android: {
         googleServicesFile: "./google-services.json",
-        package: "com.divya1611.expenselyexpo",
+        package: "com.application.expensely",
       },
       ios: {
         googleServicesFile: "./GoogleService-Info.plist",
