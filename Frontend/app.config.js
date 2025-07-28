@@ -4,10 +4,10 @@ export default ({ config }) => {
   return {
     ...config,
     expo: {
-      owner: "vilsium",
+      owner: "divya1611",
       extra: {
         eas: {
-          projectId: "6d9d48a7-9f2b-4ec8-a289-0cf50de66997",
+          projectId: "13c177f1-ec36-403e-b61f-7b843915ac6a",
         },
         Basic_URL: process.env.Basic_URL,
         Group_URL: process.env.Group_URL,
@@ -15,9 +15,28 @@ export default ({ config }) => {
         OCR_URL: process.env.OCR_URL,
       },
       android: {
+        googleServicesFile: "./google-services.json",
         package: "com.divya1611.expenselyexpo",
       },
-      plugins: ["expo-secure-store", "expo-router"],
+      ios: {
+        googleServicesFile: "./GoogleService-Info.plist",
+        bundleIdentifier: "com.mycorp.myapp",
+      },
+      plugins: [
+        "@react-native-firebase/app",
+        "@react-native-firebase/auth",
+        "@react-native-firebase/crashlytics",
+        "expo-secure-store",
+        "expo-router",
+        [
+          "expo-build-properties",
+          {
+            ios: {
+              useFrameworks: "static",
+            },
+          },
+        ],
+      ],
     },
   };
 };
