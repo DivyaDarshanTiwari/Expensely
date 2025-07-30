@@ -4,14 +4,6 @@ import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import {
-  createUserWithEmailAndPassword,
-  getIdToken,
-  sendEmailVerification,
-  sendPasswordResetEmail,
-  signInWithEmailAndPassword,
-  updateProfile,
-} from "firebase/auth";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -27,10 +19,18 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth } from "../auth/firebase";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+} from "firebase/auth";
 import { storeUserId, storeUser } from "../utils/storage";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+const auth = getAuth();
 
 // Store backend userId
 
@@ -88,7 +88,7 @@ const ExpenselyAuth = () => {
         useNativeDriver: true,
       }),
     ]).start();
-  });
+  }, []);
 
   useEffect(() => {
     // Animation when switching between login/signup
@@ -106,8 +106,9 @@ const ExpenselyAuth = () => {
         email,
         password
       );
+      const user = userCredential.user;
 
-      if (!userCredential.user.emailVerified) {
+      if (!user.emailVerified) {
         Alert.alert(
           "Email Not Verified",
           "Please verify your email before logging in. Check your spam."
@@ -116,7 +117,7 @@ const ExpenselyAuth = () => {
         return null;
       }
 
-      const idToken = await getIdToken(userCredential.user);
+      const idToken = await auth.currentUser?.getIdToken();
 
       try {
         // Attempt signUp on first login
@@ -191,22 +192,21 @@ const ExpenselyAuth = () => {
         displayName: formData.fullName,
       });
 
-      // Send verification email
+      // ✅ Send email verification
       await sendEmailVerification(userCredential.user);
 
       Alert.alert(
         "Verify Your Email",
-        "A verification email has been sent. Please verify your email before logging in.Check your spam"
+        "A verification email has been sent. Please verify your email before logging in. Check your spam."
       );
 
-      // Sign out immediately to prevent accidental use before verification
-      await auth.signOut();
+      await auth.signOut(); // Prevent login before email verified
 
       return userCredential;
     } catch (firebaseError: any) {
       throw firebaseError;
     } finally {
-      setIsLoading(false); // Always clear loading state
+      setIsLoading(false);
     }
   };
 
@@ -219,6 +219,7 @@ const ExpenselyAuth = () => {
 
     try {
       await sendPasswordResetEmail(auth, formData.email);
+
       Alert.alert("Password Reset", "Check your email for reset instructions.");
     } catch (error: any) {
       Alert.alert("Error", error.message);
@@ -280,7 +281,6 @@ const ExpenselyAuth = () => {
           router.replace("/(tabs)/dashboard");
         }
       } catch (err: any) {
-        console.log(err.message);
         Alert.alert("Login Failed", err.message || "Invalid email or password");
       }
     } else {
@@ -288,7 +288,6 @@ const ExpenselyAuth = () => {
         await signUp();
         setIsLogin(true);
       } catch (err: any) {
-        console.log(err.message);
         Alert.alert("Signup Failed", err.message || "Error from backend");
       }
     }

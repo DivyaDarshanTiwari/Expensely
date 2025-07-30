@@ -16,14 +16,12 @@ import {
   ActivityIndicator,
   ScrollView,
   Animated,
-  Dimensions,
   StatusBar,
   Image,
   SafeAreaView,
 } from "react-native";
 import { getStoredToken } from "../../utils/storage";
-
-const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+import { refreshInvalidToken } from "@/utils/refreshIfInvalid";
 
 const sassyMessages = {
   processing: [
@@ -66,7 +64,6 @@ export default function CameraUploadScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
   const bounceAnim = useRef(new Animated.Value(0)).current;
 
   const getRandomMessage = (type: keyof typeof sassyMessages) => {
@@ -100,7 +97,9 @@ export default function CameraUploadScreen() {
       setCurrentSassyMessage(getRandomMessage("tips"));
 
       // Try to get the stored token on focus
+
       (async () => {
+        await refreshInvalidToken();
         try {
           const token = await getStoredToken();
           if (token) {
@@ -132,24 +131,6 @@ export default function CameraUploadScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  };
-
-  // Pulse animation for camera button
-  const startPulseAnimation = () => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.05,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
   };
 
   const requestCameraPermissions = async () => {
@@ -408,7 +389,7 @@ export default function CameraUploadScreen() {
               <View style={styles.instructionItem}>
                 <Text style={styles.instructionEmoji}>🚫</Text>
                 <Text style={styles.instructionText}>
-                  No blurry pics - we're not Instagram!
+                  No blurry pics - we are not Instagram!
                 </Text>
               </View>
             </View>
@@ -477,7 +458,7 @@ export default function CameraUploadScreen() {
               <ActivityIndicator size="large" color="#8B5CF6" />
               <Text style={styles.processingText}>Working my magic... ✨</Text>
               <Text style={styles.processingSubtext}>
-                Hang tight, this won't take long!
+                Hang tight, this would not take long!
               </Text>
               <View style={styles.processingDots}>
                 <Text style={styles.processingDot}>🔮</Text>
@@ -555,7 +536,9 @@ export default function CameraUploadScreen() {
                   {/*
                   <Ionicons name="add-circle" size={24} color="white" />
                   */}
-                  <Text style={styles.addExpenseText}>Added to Expenses 🚀</Text>
+                  <Text style={styles.addExpenseText}>
+                    Added to Expenses 🚀
+                  </Text>
                 </LinearGradient>
               </TouchableOpacity>
 

@@ -4,7 +4,6 @@ import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import Constants from "expo-constants";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
 import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -18,10 +17,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth } from "../../auth/firebase";
 import ExpenseItem from "../../components/Expense/ExpenseList";
 import IncomeItem from "../../components/Income/IncomeList";
 import { getStoredToken } from "../../utils/storage";
+import { refreshInvalidToken } from "@/utils/refreshIfInvalid";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -70,6 +69,7 @@ const FinancialOverview = () => {
       let isActive = true;
 
       const checkAndFetchData = async () => {
+        await refreshInvalidToken();
         const token = await getStoredToken();
         if (token && isActive) {
           setIdToken(token);
@@ -106,7 +106,7 @@ const FinancialOverview = () => {
       return () => {
         isActive = false;
       };
-    }, [groupId])
+    }, [])
   );
 
   const fetchExpenses = async (

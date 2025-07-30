@@ -4,12 +4,10 @@ import axios from "axios";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated,
-  Dimensions,
   FlatList,
   Modal,
   ScrollView,
@@ -20,10 +18,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth } from "../../auth/firebase";
 import { getStoredToken } from "../../utils/storage";
-
-const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+import { refreshInvalidToken } from "@/utils/refreshIfInvalid";
 
 // Add user type for members
 interface UserType {
@@ -100,18 +96,22 @@ const ExpenselyGroups = () => {
       };
 
       // Fetch idToken directly from storage and then fetch groups
-      const fetchTokenAndGroups = async () => {
+      const refreshAndFetch = async () => {
         try {
+          await refreshInvalidToken(); // will return valid token or null
           const token = await getStoredToken();
           if (token) {
             setIdToken(token);
             await fetchGroups(token);
+          } else {
+            console.warn("No valid token after refresh attempt");
           }
-        } catch (error) {
-          console.error("Error getting stored ID token:", error);
+        } catch (err) {
+          console.error("Error refreshing and fetching groups:", err);
         }
       };
-      fetchTokenAndGroups();
+
+      refreshAndFetch();
 
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -182,7 +182,7 @@ const ExpenselyGroups = () => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  });
 
   const filteredGroups = groups.filter(
     (group) =>
@@ -234,7 +234,7 @@ const ExpenselyGroups = () => {
   const confirmDeleteGroup = async (groupId: number) => {
     setDeletingGroupId(groupId);
     try {
-      const response = await axios.delete(
+      await axios.delete(
         `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/deleteGroup/${groupId}`,
         {
           data: {},
@@ -311,7 +311,7 @@ const ExpenselyGroups = () => {
   ) => {
     setDeletingGroupId(groupId);
     try {
-      const response = await axios.delete(
+      await axios.delete(
         `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/deleteGroup/${groupId}`,
         {
           data: { action },
@@ -499,7 +499,7 @@ const ExpenselyGroups = () => {
         description: newGroupData.description || "No description",
         groupMembers: membersArray,
       };
-      const res = await axios.post(
+      await axios.post(
         `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/createGroup`,
         groupData,
         {
