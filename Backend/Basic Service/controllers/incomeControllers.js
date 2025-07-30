@@ -4,7 +4,6 @@ const inputValidation = require("../services/InputValidation");
 
 exports.addIncome = async (req, res) => {
   const { userId, amount, category, description } = req.body;
-  console.log(userId, amount, category, description);
 
   const validatedData = inputValidation.safeParse(req.body);
 
@@ -53,7 +52,6 @@ exports.addIncome = async (req, res) => {
 
 exports.addIncome2 = async (req, res) => {
   const { user_id, amount, category, description } = req.body;
-  console.log(user_id, amount, category, description);
 
   try {
     if (!user_id || !amount || !category) {

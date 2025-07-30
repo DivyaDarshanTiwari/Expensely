@@ -49,14 +49,12 @@ const upload_image = async (req, res) => {
     // Upload new image
     const imageBuffer = req.file.buffer;
     uploadedImageData = await cloudinary_uploader(imageBuffer);
-    console.log(uploadedImageData);
 
     // Update user table with image URL
     await client.query(`UPDATE users SET user_photo = $2 WHERE user_id = $1`, [
       userid,
       uploadedImageData.url,
     ]);
-    console.log(userid);
     // Insert into profileimage table
     await client.query(
       `INSERT INTO profileimage(userid, public_id) VALUES ($1, $2)`,
