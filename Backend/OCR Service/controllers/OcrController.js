@@ -54,15 +54,13 @@ const ocrFunction = async (req, res) => {
       }
     );
 
-    console.log(response);
-
     res.status(200).json({
       message: "Data processed and expense entry created successfully.",
       expense: response.data.expense,
     });
   } catch (error) {
     if (error.response) {
-      console.log(
+      console.error(
         "Server Expense responed with error ",
         error.response.status,
         error.response.data

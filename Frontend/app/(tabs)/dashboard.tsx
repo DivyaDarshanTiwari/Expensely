@@ -1,13 +1,16 @@
+"use client";
+
 import ExpenseChart from "@/components/Charts/ExpenseChart";
 import FinancialOverviewChart from "@/components/Charts/FinancialOverviewChart";
 import IncomeChart from "@/components/Charts/IncomeChart";
+import LoadingScreen from "@/components/loading/LoadingScreen";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
-import { onAuthStateChanged, User } from "firebase/auth";
-import React, { useCallback, useRef, useState } from "react";
+import { onAuthStateChanged, type User } from "firebase/auth";
+import { useCallback, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -24,6 +27,7 @@ import { getStoredToken, getStoredUser } from "../../utils/storage";
 import { refreshInvalidToken } from "../../utils/refreshIfInvalid";
 
 const { width: screenWidth } = Dimensions.get("window");
+
 interface Transaction {
   id: number;
   amount: string;
@@ -37,13 +41,13 @@ const ExpenselyDashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [totalExpense, setTotalExpense] = useState(0.0);
   const [totalIncome, setTotalIncome] = useState(0.0);
+  const [isLoading, setIsLoading] = useState(true);
   const scrollX = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>(
     []
   );
-
   const router = useRouter();
 
   const categoryIconMap: Record<
@@ -91,14 +95,18 @@ const ExpenselyDashboard = () => {
       let unsubscribeAuth: (() => void) | null = null;
 
       const fetchDataOnFocus = async () => {
+        setIsLoading(true);
         await refreshInvalidToken();
+
         try {
           // Get idToken from storage instead of Firebase
           const storedToken = await getStoredToken();
           const storedUser = await getStoredUser();
+
           if (storedToken && isActive && storedUser) {
             try {
               setUser(storedUser);
+
               // Fetch dashboard data
               const dashboardRes = await axios.get(
                 `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getDashboard`,
@@ -144,6 +152,9 @@ const ExpenselyDashboard = () => {
             }
           });
 
+          // Add a minimum loading time to prevent flashing
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+
           // Animations on focus
           Animated.parallel([
             Animated.timing(fadeAnim, {
@@ -156,11 +167,18 @@ const ExpenselyDashboard = () => {
               duration: 800,
               useNativeDriver: true,
             }),
-          ]).start();
+          ]).start(() => {
+            // Set loading to false after animations are ready
+            if (isActive) {
+              setIsLoading(false);
+            }
+          });
         } catch (err) {
           console.error("Error in fetchDataOnFocus:", err);
+          setIsLoading(false);
         }
       };
+
       fetchDataOnFocus();
 
       return () => {
@@ -169,6 +187,11 @@ const ExpenselyDashboard = () => {
       };
     }, [])
   );
+
+  // Show loading screen while data is being fetched
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
 
   const summaryCards = [
     {
@@ -227,13 +250,11 @@ const ExpenselyDashboard = () => {
       index * screenWidth * 0.85,
       (index + 1) * screenWidth * 0.85,
     ];
-
     const scale = scrollX.interpolate({
       inputRange,
       outputRange: [0.9, 1, 0.9],
       extrapolate: "clamp",
     });
-
     const opacity = scrollX.interpolate({
       inputRange,
       outputRange: [0.6, 1, 0.6],
@@ -294,7 +315,7 @@ const ExpenselyDashboard = () => {
           ]}
         >
           <Ionicons
-            name={iconData?.icon ?? "help-circle"}
+            name={iconData?.icon ?? "star"}
             size={20}
             color={iconData?.color ?? "#6B7280"}
           />
@@ -358,7 +379,6 @@ const ExpenselyDashboard = () => {
               <Text style={styles.chartCardSubtitle}>{item.subtitle}</Text>
             </View>
           </View>
-
           {/* ✅ Show the actual chart component */}
           <View style={{ alignItems: "center" }}>
             {chartComponent ? (
@@ -398,7 +418,6 @@ const ExpenselyDashboard = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
-
       {/* Header */}
       <Animated.View
         style={[
@@ -425,7 +444,6 @@ const ExpenselyDashboard = () => {
             </Text>
           </View>
         </View>
-
         <TouchableOpacity
           style={styles.settingsButton}
           activeOpacity={0.7}

@@ -276,8 +276,6 @@ const AddExpense = () => {
         })),
       };
 
-      console.log(payload);
-
       await axios.post(
         `${Constants.expoConfig?.extra?.Group_URL}/api/v1/groupExpense/add`,
         payload,

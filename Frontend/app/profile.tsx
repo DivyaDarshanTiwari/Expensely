@@ -20,14 +20,18 @@ import {
   View,
 } from "react-native";
 import { auth } from "../auth/firebase";
-import { getStoredUser, clearUserData } from "../utils/storage"; // adjust path as needed
+import {
+  getStoredUser,
+  clearUserData,
+  getStoredToken,
+  storeUser,
+} from "../utils/storage";
 
 const { width: screenWidth } = Dimensions.get("window");
 
 interface UserProfile {
   displayName: string;
   email: string;
-  photoURL: string;
   phoneNumber: string;
   bio: string;
 }
@@ -44,7 +48,6 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<UserProfile>({
     displayName: "",
     email: "",
-    photoURL: "",
     phoneNumber: "",
     bio: "",
   });
@@ -52,10 +55,11 @@ export default function ProfileScreen() {
   const [editedProfile, setEditedProfile] = useState<UserProfile>({
     displayName: "",
     email: "",
-    photoURL: "",
     phoneNumber: "",
     bio: "",
   });
+
+  const [photoURL, setPhotoURL] = useState<string | null>(null);
 
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -77,6 +81,7 @@ export default function ProfileScreen() {
         };
         setProfile(userProfile);
         setEditedProfile(userProfile);
+        setPhotoURL(storedUser.photoURL || null);
         setLoading(false);
 
         // Start animations
@@ -147,7 +152,7 @@ export default function ProfileScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      const idToken = await user?.getIdToken();
+      const idToken = await getStoredToken();
       const asset = result.assets[0];
 
       const formData = new FormData();
@@ -157,7 +162,7 @@ export default function ProfileScreen() {
         uri: asset.uri,
         name: fileName,
         type: mimeType,
-      });
+      } as any);
       setIsUploading(true);
       try {
         const imageCloudURL = await axios.post(
@@ -170,15 +175,16 @@ export default function ProfileScreen() {
             },
           }
         );
-        setEditedProfile((prev) => ({
-          ...prev,
-          photoURL: imageCloudURL.data.data,
-        }));
         const user = auth.currentUser;
 
         if (user) {
           await updateProfile(user, {
             photoURL: imageCloudURL.data.data, // URL returned from your backend
+          });
+          setPhotoURL(imageCloudURL.data.data);
+          await storeUser({
+            ...user,
+            photoURL: imageCloudURL.data.data,
           });
           Alert.alert("Success", "Profile photo updated!");
         } else {
@@ -205,7 +211,7 @@ export default function ProfileScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      const idToken = await user?.getIdToken();
+      const idToken = await getStoredToken();
       const asset = result.assets[0];
 
       const formData = new FormData();
@@ -215,7 +221,8 @@ export default function ProfileScreen() {
         uri: asset.uri,
         name: fileName,
         type: mimeType,
-      });
+      } as any);
+
       setIsUploading(true);
       try {
         const imageCloudURL = await axios.post(
@@ -228,15 +235,16 @@ export default function ProfileScreen() {
             },
           }
         );
-        setEditedProfile((prev) => ({
-          ...prev,
-          photoURL: imageCloudURL.data.data,
-        }));
         const user = auth.currentUser;
 
         if (user) {
           await updateProfile(user, {
             photoURL: imageCloudURL.data.data, // URL returned from your backend
+          });
+          setPhotoURL(imageCloudURL.data.data);
+          await storeUser({
+            ...user,
+            photoURL: imageCloudURL.data.data,
           });
           Alert.alert("Success", "Profile photo updated!");
         } else {
@@ -255,20 +263,27 @@ export default function ProfileScreen() {
   };
 
   const handleSave = async () => {
+    const user = auth.currentUser;
     if (!user) return;
 
     setSaving(true);
     try {
       // Update Firebase Auth profile
+      console.log("Updating profile with");
       await updateProfile(user, {
         displayName: editedProfile.displayName,
-        photoURL: editedProfile.photoURL,
       });
 
       // Here you would also update your backend database with additional fields
       // like phoneNumber and bio
 
       setProfile(editedProfile);
+      await storeUser({
+        ...user,
+        displayName: editedProfile.displayName,
+        phoneNumber: editedProfile.phoneNumber,
+        bio: editedProfile.bio,
+      });
       setEditing(false);
       Alert.alert("Success", "Profile updated successfully!");
     } catch (error) {
@@ -376,10 +391,8 @@ export default function ProfileScreen() {
               source={{
                 uri: isUploading
                   ? "https://media.tenor.com/UnFx-k_lSckAAAAM/amalie-steiness.gif" // or your loading spinner gif
-                  : editing
-                    ? editedProfile.photoURL
-                    : profile.photoURL ||
-                      "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y",
+                  : photoURL ||
+                    "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y",
               }}
               style={styles.avatar}
             />
