@@ -1,17 +1,16 @@
 "use client";
-
 import { Ionicons } from "@expo/vector-icons";
+import type React from "react";
+
 import axios from "axios";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { onAuthStateChanged, type User } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated,
   Dimensions,
-  FlatList,
   Modal,
   ScrollView,
   StatusBar,
@@ -35,36 +34,39 @@ interface ExpenseData {
   description: string;
   category: string;
   date: string;
-  paidBy: Member | string;
-  splitAmong: Member[]; // Changed from splitType and shares
+  paidBy: Member | null; // Changed to Member | null
+  splitType: "equal" | "unequal"; // New field
+  splitAmong: Member[];
+  unequalSplits: { [key: string]: string }; // New field for custom amounts
 }
 
 const AddExpense = () => {
   const router = useRouter();
   const { groupId, groupName, groupData } = useLocalSearchParams();
-
   const [expenseData, setExpenseData] = useState<ExpenseData>({
     amount: "",
     description: "",
     category: "general",
     date: new Date().toISOString().split("T")[0],
-    paidBy: "",
-    splitAmong: [], // Initialize as empty array
+    paidBy: null, // Initialize as null
+    splitType: "equal", // Default to equal split
+    splitAmong: [],
+    unequalSplits: {},
   });
-
   const [members, setMembers] = useState<Member[]>([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showMemberModal, setShowMemberModal] = useState(false);
+  const [showSplitTypeModal, setShowSplitTypeModal] = useState(false); // New modal state
   const [showSplitMemberModal, setShowSplitMemberModal] = useState(false);
+  const [showUnequalSplitModal, setShowUnequalSplitModal] = useState(false); // New modal state
   const [loading, setLoading] = useState(false);
   const [idToken, setIdToken] = useState("");
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const headerSlide = useRef(new Animated.Value(-50)).current;
-  const formScale = useRef(new Animated.Value(0.95)).current;
+  const formScale = useRef(new Animated.Value(0.95)).current; // Used for main form and modal content scale
 
   const categories = [
     { id: "Food", name: "Food & Dining", icon: "restaurant", color: "#F59E0B" },
@@ -155,10 +157,8 @@ const AddExpense = () => {
             },
           }
         );
-
         const membersData = res.data || [];
         setMembers(membersData);
-
         // Set current user as default payer if available
         if (membersData.length > 0) {
           setExpenseData((prev) => ({
@@ -172,7 +172,6 @@ const AddExpense = () => {
       }
     };
 
-    // Remove onAuthStateChanged, use getStoredToken from utils/storage
     const fetchTokenAndMembers = async () => {
       try {
         const token = await getStoredToken();
@@ -189,10 +188,9 @@ const AddExpense = () => {
         router.back();
       }
     };
-
     fetchTokenAndMembers();
 
-    // Start animations
+    // Start animations for main form
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -223,6 +221,15 @@ const AddExpense = () => {
     categories.find((cat) => cat.id === expenseData.category) ||
     categories[categories.length - 1];
 
+  const validateUnequalSplits = (): boolean => {
+    const totalAmount = Number.parseFloat(expenseData.amount) || 0;
+    const splitSum = Object.values(expenseData.unequalSplits).reduce(
+      (sum, amount) => sum + (Number.parseFloat(amount) || 0),
+      0
+    );
+    return Math.abs(totalAmount - splitSum) < 0.01; // Allow for small floating point differences
+  };
+
   const validateForm = (): boolean => {
     if (
       !expenseData.amount.trim() ||
@@ -231,49 +238,64 @@ const AddExpense = () => {
       Alert.alert("Error", "Please enter a valid amount");
       return false;
     }
-
     if (!expenseData.description.trim()) {
       Alert.alert("Error", "Please enter a description");
       return false;
     }
-
     if (!expenseData.paidBy) {
       Alert.alert("Error", "Please select who paid");
       return false;
     }
-
     if (expenseData.splitAmong.length === 0) {
       Alert.alert("Error", "Please select members to split the expense among");
       return false;
     }
-
+    if (expenseData.splitType === "unequal" && !validateUnequalSplits()) {
+      Alert.alert(
+        "Error",
+        "Unequal split amounts must sum to the total amount"
+      );
+      return false;
+    }
     return true;
   };
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
-
     setLoading(true);
-
     try {
-      const paidById =
+      const paidByUsername =
         typeof expenseData.paidBy === "object"
-          ? expenseData.paidBy.username
+          ? expenseData.paidBy?.username
           : expenseData.paidBy;
+
+      let sharesPayload: { username: string; amountOwned: number }[] = [];
+
+      if (expenseData.splitType === "equal") {
+        const perPersonAmount =
+          Number.parseFloat(expenseData.amount) / expenseData.splitAmong.length;
+        sharesPayload = expenseData.splitAmong.map((member) => ({
+          username: member.username,
+          amountOwned: perPersonAmount,
+        }));
+      } else {
+        // Unequal split
+        sharesPayload = expenseData.splitAmong.map((member) => ({
+          username: member.username,
+          amountOwned: Number.parseFloat(
+            expenseData.unequalSplits[member.username] || "0"
+          ),
+        }));
+      }
 
       const payload = {
         groupId: Number.parseInt(groupId as string),
-        paidBy: paidById,
+        paidBy: paidByUsername,
         amount: Number.parseFloat(expenseData.amount),
         category: expenseData.category,
         description: expenseData.description,
         date: expenseData.date,
-        shares: expenseData.splitAmong.map((member) => ({
-          username: member.username,
-          amountOwned:
-            Number.parseFloat(expenseData.amount) /
-            expenseData.splitAmong.length,
-        })),
+        shares: sharesPayload,
       };
 
       await axios.post(
@@ -285,7 +307,6 @@ const AddExpense = () => {
           },
         }
       );
-
       Alert.alert("Success", "Expense added successfully!", [
         {
           text: "OK",
@@ -310,7 +331,7 @@ const AddExpense = () => {
   };
 
   const getPaidByDisplayName = () => {
-    if (typeof expenseData.paidBy === "object") {
+    if (typeof expenseData.paidBy === "object" && expenseData.paidBy !== null) {
       return expenseData.paidBy.username;
     }
     return expenseData.paidBy || "Select who paid";
@@ -321,12 +342,51 @@ const AddExpense = () => {
     return name.charAt(0).toUpperCase();
   };
 
+  const getSplitSummary = () => {
+    if (expenseData.splitAmong.length === 0)
+      return "Select members to split among";
+
+    if (expenseData.splitType === "equal") {
+      const perPerson =
+        Number.parseFloat(expenseData.amount) / expenseData.splitAmong.length;
+      return `${expenseData.splitAmong.length} member${expenseData.splitAmong.length !== 1 ? "s" : ""} • ₹${perPerson.toFixed(2)} each`;
+    } else {
+      const totalSplit = Object.values(expenseData.unequalSplits).reduce(
+        (sum, amount) => sum + (Number.parseFloat(amount) || 0),
+        0
+      );
+      return `${expenseData.splitAmong.length} member${expenseData.splitAmong.length !== 1 ? "s" : ""} • ₹${totalSplit.toFixed(2)} total`;
+    }
+  };
+
+  // Helper to animate out and then close modal
+  const closeModal = (
+    setter: React.Dispatch<React.SetStateAction<boolean>>
+  ) => {
+    Animated.timing(formScale, {
+      toValue: 0.95, // Scale down slightly
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setter(false);
+      formScale.setValue(1); // Reset scale for next open
+    });
+  };
+
   const renderSplitMemberModal = () => (
     <Modal
       visible={showSplitMemberModal}
       transparent
       animationType="fade"
-      onRequestClose={() => setShowSplitMemberModal(false)}
+      onRequestClose={() => closeModal(setShowSplitMemberModal)}
+      onShow={() =>
+        Animated.spring(formScale, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }).start()
+      }
     >
       <View style={styles.modalOverlay}>
         <Animated.View
@@ -335,43 +395,41 @@ const AddExpense = () => {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Split Among</Text>
             <TouchableOpacity
-              onPress={() => setShowSplitMemberModal(false)}
+              onPress={() => closeModal(setShowSplitMemberModal)}
               style={styles.modalCloseButton}
             >
               <Ionicons name="close" size={24} color="#6B7280" />
             </TouchableOpacity>
           </View>
-
-          {/* All Members Option */}
-          <TouchableOpacity
-            style={[
-              styles.memberItem,
-              expenseData.splitAmong.length === members.length &&
-                styles.memberItemSelected,
-            ]}
-            onPress={() => {
-              setExpenseData((prev) => ({ ...prev, splitAmong: members }));
-            }}
-          >
-            <View style={[styles.memberAvatar, { backgroundColor: "#10B981" }]}>
-              <Ionicons name="people" size={16} color="white" />
-            </View>
-            <Text style={styles.memberName}>All Members</Text>
-            {expenseData.splitAmong.length === members.length && (
-              <Ionicons name="checkmark" size={24} color="#10B981" />
-            )}
-          </TouchableOpacity>
-
-          <FlatList
-            data={members}
-            keyExtractor={(item) => item.username}
-            renderItem={({ item }) => {
+          <ScrollView style={styles.modalScrollContent}>
+            {/* All Members Option */}
+            <TouchableOpacity
+              style={[
+                styles.memberItem,
+                expenseData.splitAmong.length === members.length &&
+                  styles.memberItemSelected,
+              ]}
+              onPress={() => {
+                setExpenseData((prev) => ({ ...prev, splitAmong: members }));
+              }}
+            >
+              <View
+                style={[styles.memberAvatar, { backgroundColor: "#10B981" }]}
+              >
+                <Ionicons name="people" size={16} color="white" />
+              </View>
+              <Text style={styles.memberName}>All Members</Text>
+              {expenseData.splitAmong.length === members.length && (
+                <Ionicons name="checkmark" size={24} color="#10B981" />
+              )}
+            </TouchableOpacity>
+            {members.map((item) => {
               const isSelected = expenseData.splitAmong.some(
                 (member) => member.username === item.username
               );
-
               return (
                 <TouchableOpacity
+                  key={`split-member-modal-${item.id}`}
                   style={[
                     styles.memberItem,
                     isSelected && styles.memberItemSelected,
@@ -398,13 +456,12 @@ const AddExpense = () => {
                   )}
                 </TouchableOpacity>
               );
-            }}
-          />
-
+            })}
+          </ScrollView>
           <View style={styles.modalFooter}>
             <TouchableOpacity
               style={styles.modalDoneButton}
-              onPress={() => setShowSplitMemberModal(false)}
+              onPress={() => closeModal(setShowSplitMemberModal)}
             >
               <Text style={styles.modalDoneText}>Done</Text>
             </TouchableOpacity>
@@ -419,7 +476,15 @@ const AddExpense = () => {
       visible={showCategoryModal}
       transparent
       animationType="fade"
-      onRequestClose={() => setShowCategoryModal(false)}
+      onRequestClose={() => closeModal(setShowCategoryModal)}
+      onShow={() =>
+        Animated.spring(formScale, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }).start()
+      }
     >
       <View style={styles.modalOverlay}>
         <Animated.View
@@ -428,17 +493,16 @@ const AddExpense = () => {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select Category</Text>
             <TouchableOpacity
-              onPress={() => setShowCategoryModal(false)}
+              onPress={() => closeModal(setShowCategoryModal)}
               style={styles.modalCloseButton}
             >
               <Ionicons name="close" size={24} color="#6B7280" />
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={categories}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
+          <ScrollView style={styles.modalScrollContent}>
+            {categories.map((item) => (
               <TouchableOpacity
+                key={`category-${item.id}`}
                 style={[
                   styles.categoryItem,
                   expenseData.category === item.id &&
@@ -446,7 +510,7 @@ const AddExpense = () => {
                 ]}
                 onPress={() => {
                   setExpenseData((prev) => ({ ...prev, category: item.id }));
-                  setShowCategoryModal(false);
+                  closeModal(setShowCategoryModal);
                 }}
               >
                 <View
@@ -466,8 +530,8 @@ const AddExpense = () => {
                   <Ionicons name="checkmark" size={24} color="#10B981" />
                 )}
               </TouchableOpacity>
-            )}
-          />
+            ))}
+          </ScrollView>
         </Animated.View>
       </View>
     </Modal>
@@ -478,7 +542,15 @@ const AddExpense = () => {
       visible={showMemberModal}
       transparent
       animationType="fade"
-      onRequestClose={() => setShowMemberModal(false)}
+      onRequestClose={() => closeModal(setShowMemberModal)}
+      onShow={() =>
+        Animated.spring(formScale, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }).start()
+      }
     >
       <View style={styles.modalOverlay}>
         <Animated.View
@@ -487,28 +559,27 @@ const AddExpense = () => {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Who Paid?</Text>
             <TouchableOpacity
-              onPress={() => setShowMemberModal(false)}
+              onPress={() => closeModal(setShowMemberModal)}
               style={styles.modalCloseButton}
             >
               <Ionicons name="close" size={24} color="#6B7280" />
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={members}
-            keyExtractor={(item) => item.username}
-            renderItem={({ item }) => (
+          <ScrollView style={styles.modalScrollContent}>
+            {members.map((item) => (
               <TouchableOpacity
+                key={`member-modal-${item.id}`}
                 style={[
                   styles.memberItem,
-                  expenseData.paidBy === item.username &&
+                  expenseData.paidBy?.username === item.username &&
                     styles.memberItemSelected,
                 ]}
                 onPress={() => {
                   setExpenseData((prev) => ({
                     ...prev,
-                    paidBy: item.username,
+                    paidBy: item,
                   }));
-                  setShowMemberModal(false);
+                  closeModal(setShowMemberModal);
                 }}
               >
                 <View style={styles.memberAvatar}>
@@ -517,12 +588,260 @@ const AddExpense = () => {
                   </Text>
                 </View>
                 <Text style={styles.memberName}>{item.username}</Text>
-                {expenseData.paidBy === item.username && (
+                {expenseData.paidBy?.username === item.username && (
                   <Ionicons name="checkmark" size={24} color="#10B981" />
                 )}
               </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+
+  const renderSplitTypeModal = () => (
+    <Modal
+      visible={showSplitTypeModal}
+      transparent
+      animationType="fade"
+      onRequestClose={() => closeModal(setShowSplitTypeModal)}
+      onShow={() =>
+        Animated.spring(formScale, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }).start()
+      }
+    >
+      <View style={styles.modalOverlay}>
+        <Animated.View
+          style={[styles.modalContent, { transform: [{ scale: formScale }] }]}
+        >
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Split Type</Text>
+            <TouchableOpacity
+              onPress={() => closeModal(setShowSplitTypeModal)}
+              style={styles.modalCloseButton}
+            >
+              <Ionicons name="close" size={24} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.modalBody}>
+            <TouchableOpacity
+              style={[
+                styles.splitTypeItem,
+                expenseData.splitType === "equal" &&
+                  styles.splitTypeItemSelected,
+              ]}
+              onPress={() => {
+                setExpenseData((prev) => ({
+                  ...prev,
+                  splitType: "equal",
+                  splitAmong: [], // Reset members when changing type
+                  unequalSplits: {}, // Reset unequal splits
+                }));
+                closeModal(setShowSplitTypeModal);
+              }}
+            >
+              <View
+                style={[styles.splitTypeIcon, { backgroundColor: "#D1FAE5" }]}
+              >
+                <Ionicons name="people" size={28} color="#10B981" />
+              </View>
+              <View style={styles.splitTypeTextContainer}>
+                <Text style={styles.splitTypeName}>Equal Split</Text>
+                <Text style={styles.splitTypeDescription}>
+                  Split amount equally among selected members
+                </Text>
+              </View>
+              {expenseData.splitType === "equal" && (
+                <Ionicons name="checkmark" size={24} color="#10B981" />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.splitTypeItem,
+                expenseData.splitType === "unequal" &&
+                  styles.splitTypeItemSelected,
+              ]}
+              onPress={() => {
+                setExpenseData((prev) => ({
+                  ...prev,
+                  splitType: "unequal",
+                  splitAmong: [], // Reset members when changing type
+                  unequalSplits: {}, // Reset unequal splits
+                }));
+                closeModal(setShowSplitTypeModal);
+              }}
+            >
+              <View
+                style={[styles.splitTypeIcon, { backgroundColor: "#DBEAFE" }]}
+              >
+                <Ionicons name="calculator" size={28} color="#3B82F6" />
+              </View>
+              <View style={styles.splitTypeTextContainer}>
+                <Text style={styles.splitTypeName}>Unequal Split</Text>
+                <Text style={styles.splitTypeDescription}>
+                  Enter custom amounts for each member
+                </Text>
+              </View>
+              {expenseData.splitType === "unequal" && (
+                <Ionicons name="checkmark" size={24} color="#3B82F6" />
+              )}
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+
+  const renderUnequalSplitModal = () => (
+    <Modal
+      visible={showUnequalSplitModal}
+      transparent
+      animationType="fade"
+      onRequestClose={() => closeModal(setShowUnequalSplitModal)}
+      onShow={() =>
+        Animated.spring(formScale, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }).start()
+      }
+    >
+      <View style={styles.modalOverlay}>
+        <Animated.View
+          style={[styles.modalContent, { transform: [{ scale: formScale }] }]}
+        >
+          <View style={styles.modalHeader}>
+            <View>
+              <Text style={styles.modalTitle}>Unequal Split</Text>
+              <Text style={styles.modalSubtitle}>
+                Total: ₹
+                {Number.parseFloat(expenseData.amount || "0").toFixed(2)}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => closeModal(setShowUnequalSplitModal)}
+              style={styles.modalCloseButton}
+            >
+              <Ionicons name="close" size={24} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.modalScrollContent}>
+            {members.map((member) => {
+              const memberAmount =
+                expenseData.unequalSplits[member.username] || "";
+              return (
+                <View
+                  key={`unequal-split-${member.id}`}
+                  style={styles.unequalSplitItem}
+                >
+                  <View style={styles.memberAvatar}>
+                    <Text style={styles.memberInitial}>
+                      {(member.username.charAt(0) || "?").toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={styles.memberName}>{member.username}</Text>
+                  <View style={styles.unequalInputContainer}>
+                    <Text style={styles.currencySymbolSmall}>₹</Text>
+                    <TextInput
+                      style={styles.unequalInput}
+                      placeholder="0.00"
+                      placeholderTextColor="#9CA3AF"
+                      value={memberAmount}
+                      onChangeText={(text) => {
+                        const amount = text.replace(/[^0-9.]/g, ""); // Only allow numbers and one decimal
+                        setExpenseData((prev) => {
+                          const newUnequalSplits = { ...prev.unequalSplits };
+                          let updatedSplitAmong: Member[] = [];
+
+                          if (amount && Number.parseFloat(amount) > 0) {
+                            newUnequalSplits[member.username] = amount;
+                          } else {
+                            delete newUnequalSplits[member.username];
+                          }
+
+                          // Reconstruct splitAmong based on who has an amount in unequalSplits
+                          updatedSplitAmong = members.filter((m) => {
+                            const splitAmount = Number.parseFloat(
+                              newUnequalSplits[m.username] || "0"
+                            );
+                            return splitAmount > 0;
+                          });
+
+                          return {
+                            ...prev,
+                            unequalSplits: newUnequalSplits,
+                            splitAmong: updatedSplitAmong,
+                          };
+                        });
+                      }}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                </View>
+              );
+            })}
+            {/* Summary */}
+            {Object.keys(expenseData.unequalSplits).length > 0 && (
+              <View style={styles.unequalSummaryCard}>
+                <View style={styles.unequalSummaryRow}>
+                  <Text style={styles.unequalSummaryLabel}>Total Amount:</Text>
+                  <Text style={styles.unequalSummaryValue}>
+                    ₹{Number.parseFloat(expenseData.amount || "0").toFixed(2)}
+                  </Text>
+                </View>
+                <View style={styles.unequalSummaryRow}>
+                  <Text style={styles.unequalSummaryLabel}>Split Total:</Text>
+                  <Text style={styles.unequalSummaryValue}>
+                    ₹
+                    {Object.values(expenseData.unequalSplits)
+                      .reduce(
+                        (sum, amount) => sum + (Number.parseFloat(amount) || 0),
+                        0
+                      )
+                      .toFixed(2)}
+                  </Text>
+                </View>
+                <View style={styles.unequalSummaryRow}>
+                  <Text style={styles.unequalSummaryLabel}>Remaining:</Text>
+                  <Text
+                    style={[
+                      styles.unequalSummaryValue,
+                      validateUnequalSplits()
+                        ? styles.textGreen
+                        : styles.textRed,
+                    ]}
+                  >
+                    ₹
+                    {(
+                      Number.parseFloat(expenseData.amount) -
+                      Object.values(expenseData.unequalSplits).reduce(
+                        (sum, amount) => sum + (Number.parseFloat(amount) || 0),
+                        0
+                      )
+                    ).toFixed(2)}
+                  </Text>
+                </View>
+              </View>
             )}
-          />
+          </ScrollView>
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={[
+                styles.modalDoneButton,
+                !validateUnequalSplits() && styles.modalDoneButtonDisabled,
+              ]}
+              onPress={() => closeModal(setShowUnequalSplitModal)}
+              disabled={!validateUnequalSplits()}
+            >
+              <Text style={styles.modalDoneText}>Done</Text>
+            </TouchableOpacity>
+          </View>
         </Animated.View>
       </View>
     </Modal>
@@ -531,7 +850,6 @@ const AddExpense = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
-
       {/* Header */}
       <Animated.View
         style={[
@@ -554,7 +872,6 @@ const AddExpense = () => {
         </View>
         <View style={styles.headerRight} />
       </Animated.View>
-
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Amount Input */}
         <Animated.View
@@ -587,7 +904,6 @@ const AddExpense = () => {
             </View>
           </LinearGradient>
         </Animated.View>
-
         {/* Form Fields */}
         <Animated.View
           style={[
@@ -618,7 +934,6 @@ const AddExpense = () => {
               }}
             />
           </View>
-
           {/* Category */}
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Category</Text>
@@ -644,7 +959,6 @@ const AddExpense = () => {
               <Ionicons name="chevron-down" size={20} color="#6B7280" />
             </TouchableOpacity>
           </View>
-
           {/* Date */}
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Date</Text>
@@ -658,7 +972,6 @@ const AddExpense = () => {
               }
             />
           </View>
-
           {/* Who Paid */}
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Who Paid?</Text>
@@ -687,38 +1000,62 @@ const AddExpense = () => {
               <Ionicons name="chevron-down" size={20} color="#6B7280" />
             </TouchableOpacity>
           </View>
-
+          {/* Split Type */}
+          {expenseData.paidBy && (
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Split Type</Text>
+              <TouchableOpacity
+                style={styles.selectButton}
+                onPress={() => setShowSplitTypeModal(true)}
+              >
+                <View style={styles.selectContent}>
+                  {expenseData.splitType === "equal" ? (
+                    <>
+                      <Ionicons name="people" size={20} color="#10B981" />
+                      <Text style={styles.selectText}>Equal Split</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Ionicons name="calculator" size={20} color="#3B82F6" />
+                      <Text style={styles.selectText}>Unequal Split</Text>
+                    </>
+                  )}
+                </View>
+                <Ionicons name="chevron-down" size={20} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+          )}
           {/* Split Among */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Split Among</Text>
-            <TouchableOpacity
-              style={styles.selectButton}
-              onPress={() => setShowSplitMemberModal(true)}
-            >
-              <View style={styles.selectContent}>
-                {expenseData.splitAmong.length > 0 ? (
-                  <Text style={styles.selectText}>
-                    {expenseData.splitAmong.length} member
-                    {expenseData.splitAmong.length !== 1 ? "s" : ""} • ₹
-                    {expenseData.amount
-                      ? (
-                          Number.parseFloat(expenseData.amount) /
-                          expenseData.splitAmong.length
-                        ).toFixed(2)
-                      : "0.00"}{" "}
-                    each
+          {expenseData.paidBy && (
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Split Among</Text>
+              <TouchableOpacity
+                style={styles.selectButton}
+                onPress={() => {
+                  if (expenseData.splitType === "equal") {
+                    setShowSplitMemberModal(true);
+                  } else {
+                    setShowUnequalSplitModal(true);
+                  }
+                }}
+              >
+                <View style={styles.selectContent}>
+                  <Text
+                    style={[
+                      styles.selectText,
+                      expenseData.splitAmong.length === 0 && {
+                        color: "#9CA3AF",
+                      },
+                    ]}
+                  >
+                    {getSplitSummary()}
                   </Text>
-                ) : (
-                  <Text style={[styles.selectText, { color: "#9CA3AF" }]}>
-                    Select members to split among
-                  </Text>
-                )}
-              </View>
-              <Ionicons name="chevron-down" size={20} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
+                </View>
+                <Ionicons name="chevron-down" size={20} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+          )}
         </Animated.View>
-
         {/* Submit Button */}
         <Animated.View
           style={[
@@ -753,10 +1090,11 @@ const AddExpense = () => {
           </TouchableOpacity>
         </Animated.View>
       </ScrollView>
-
       {renderCategoryModal()}
       {renderMemberModal()}
       {renderSplitMemberModal()}
+      {renderSplitTypeModal()}
+      {renderUnequalSplitModal()}
     </View>
   );
 };
@@ -955,6 +1293,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#111827",
   },
+  modalSubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 2,
+  },
   modalCloseButton: {
     width: 32,
     height: 32,
@@ -1020,10 +1363,117 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
   },
+  modalDoneButtonDisabled: {
+    opacity: 0.5,
+  },
   modalDoneText: {
     fontSize: 16,
     fontWeight: "600",
     color: "white",
+  },
+  // New styles for Split Type Modal
+  modalBody: {
+    padding: 20,
+    paddingBottom: 30, // Added padding to prevent cut-off
+  },
+  splitTypeItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    marginBottom: 12,
+    backgroundColor: "#F9FAFB",
+  },
+  splitTypeItemSelected: {
+    borderColor: "#10B981",
+    backgroundColor: "#F0FDF4",
+  },
+  splitTypeIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+  },
+  splitTypeTextContainer: {
+    flex: 1,
+  },
+  splitTypeName: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  splitTypeDescription: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginTop: 2,
+  },
+  // New styles for Unequal Split Modal
+  unequalSplitItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  unequalInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginLeft: 10,
+  },
+  currencySymbolSmall: {
+    fontSize: 16,
+    color: "#6B7280",
+    marginRight: 4,
+  },
+  unequalInput: {
+    fontSize: 16,
+    color: "#111827",
+    width: 70,
+    textAlign: "right",
+    padding: 0, // Remove default padding
+  },
+  unequalSummaryCard: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  unequalSummaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  unequalSummaryLabel: {
+    fontSize: 15,
+    color: "#374151",
+    fontWeight: "500",
+  },
+  unequalSummaryValue: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  textGreen: {
+    color: "#10B981",
+  },
+  textRed: {
+    color: "#EF4444",
+  },
+  modalScrollContent: {
+    maxHeight: screenHeight * 0.5, // Adjust max height to be 50% of screen height
+    paddingBottom: 20, // Add padding to the bottom of scrollable content
   },
 });
 
