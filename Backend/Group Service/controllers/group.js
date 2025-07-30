@@ -11,15 +11,6 @@ exports.createGroup = async (req, res) => {
       return res.status(404).json({ message: "Incomplete Fields" });
     }
 
-    console.log(
-      name,
-      createdBy,
-      groupBudget,
-      description,
-      groupMembers,
-      req.body.userId
-    );
-
     const result = await withTransaction(async (client) => {
       // Create the group
       const groupResult = await client.query(
@@ -28,7 +19,6 @@ exports.createGroup = async (req, res) => {
       );
 
       const groupId = groupResult.rows[0].groupid;
-      console.log(groupId);
 
       // Add all members to the group
       for (let member of groupMembers) {
@@ -128,7 +118,6 @@ exports.addMemberToGroup = async (req, res) => {
   const { add_userId } = req.body;
   const groupId = req.groupId;
 
-  console.log(groupId, " ", add_userId);
   try {
     const checkUser = await pool.query(
       `SELECT * FROM GROUP_MEMBERS WHERE groupId = $1 AND userId = $2`,
@@ -166,7 +155,6 @@ exports.removeMemberFromGroup = async (req, res) => {
       return res.status(404).json({ message: "Member not found" });
     }
 
-    console.log(result);
     res.status(201).json({
       message: "Member removed successfully",
       data: {
@@ -455,7 +443,6 @@ exports.leaveGroup = async (req, res) => {
 exports.settleUpWithUser = async (req, res) => {
   const { groupId } = req.params;
   const { fromUserId, toUserId, amount } = req.body;
-  console.log(fromUserId, toUserId, amount);
 
   if (!groupId || !fromUserId || !toUserId || !amount) {
     return res.status(400).json({ message: "Missing required fields" });
