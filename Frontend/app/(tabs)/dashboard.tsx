@@ -21,8 +21,9 @@ import {
 } from "react-native";
 import { auth } from "../../auth/firebase";
 import { getStoredToken, getStoredUser } from "../../utils/storage";
+import { refreshInvalidToken } from "../../utils/refreshIfInvalid";
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+const { width: screenWidth } = Dimensions.get("window");
 interface Transaction {
   id: number;
   amount: string;
@@ -36,11 +37,9 @@ const ExpenselyDashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [totalExpense, setTotalExpense] = useState(0.0);
   const [totalIncome, setTotalIncome] = useState(0.0);
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
-  const [idToken, setIdToken] = useState("");
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>(
     []
   );
@@ -92,13 +91,13 @@ const ExpenselyDashboard = () => {
       let unsubscribeAuth: (() => void) | null = null;
 
       const fetchDataOnFocus = async () => {
+        await refreshInvalidToken();
         try {
           // Get idToken from storage instead of Firebase
           const storedToken = await getStoredToken();
           const storedUser = await getStoredUser();
           if (storedToken && isActive && storedUser) {
             try {
-              setIdToken(storedToken);
               setUser(storedUser);
               // Fetch dashboard data
               const dashboardRes = await axios.get(
@@ -162,7 +161,6 @@ const ExpenselyDashboard = () => {
           console.error("Error in fetchDataOnFocus:", err);
         }
       };
-
       fetchDataOnFocus();
 
       return () => {
@@ -466,12 +464,7 @@ const ExpenselyDashboard = () => {
               [{ nativeEvent: { contentOffset: { x: scrollX } } }],
               { useNativeDriver: false }
             )}
-            onMomentumScrollEnd={(event) => {
-              const index = Math.round(
-                event.nativeEvent.contentOffset.x / (screenWidth * 0.85)
-              );
-              setCurrentCardIndex(index);
-            }}
+            onMomentumScrollEnd={(event) => {}}
           />
         </Animated.View>
 
