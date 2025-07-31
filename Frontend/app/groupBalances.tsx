@@ -28,7 +28,6 @@ const GroupBalances = () => {
   useEffect(() => {
     const fetchUserIdAndToken = async () => {
       const storedUserId = await getStoredUserId();
-      console.log("Stored userId:", storedUserId);
       if (storedUserId) setBackendUserId(Number(storedUserId));
       const token = await getStoredToken();
       if (token) {
