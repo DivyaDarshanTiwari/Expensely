@@ -551,101 +551,89 @@ exports.settleUpWithUser = async (req, res) => {
   }
 };
 
-// Get per-user group balances (who owes you, whom you owe)
 exports.getUserGroupBalances = async (req, res) => {
   const { groupId } = req.params;
-  const { userId } = req.body;
+  const userId = Number(req.body.userId);
 
   try {
-    // 1. Get all users in the group
-    const membersRes = await pool.query(
-      "SELECT userId FROM GROUP_MEMBERS WHERE groupId = $1",
+    // 1. Get all expenses with shares in one query
+    const expenseSharesRes = await pool.query(
+      `SELECT e.id AS "expenseId", e.paidBy, es.userId, es.amountOwned
+       FROM GROUP_EXPENSES e
+       JOIN EXPENSES_SHARE es ON es.expenseId = e.id
+       WHERE e.groupId = $1`,
       [groupId]
     );
-    const members = membersRes.rows.map((row) => row.userid);
 
-    // 2. Get all expenses in this group
-    const expensesRes = await pool.query(
-      "SELECT id, paidBy, amount FROM GROUP_EXPENSES WHERE groupId = $1",
-      [groupId]
-    );
-    const expenses = expensesRes.rows;
-
-    // 3. Track balances per user
     const userBalances = {};
 
-    for (const expense of expenses) {
-      const { id: expenseId, paidby } = expense;
-      const sharesRes = await pool.query(
-        "SELECT userId, amountOwned FROM EXPENSES_SHARE WHERE expenseId = $1",
-        [expenseId]
-      );
-      for (const share of sharesRes.rows) {
-        const { userid, amountowned } = share;
-        const amount = parseFloat(amountowned);
-        if (paidby === Number(userId) && userid !== Number(userId)) {
-          // Requesting user paid for others → others owe them
-          if (!userBalances[userid]) userBalances[userid] = 0;
-          userBalances[userid] += amount;
-        } else if (userid === Number(userId) && paidby !== Number(userId)) {
-          // Someone else paid for requesting user → user owes them
-          if (!userBalances[paidby]) userBalances[paidby] = 0;
-          userBalances[paidby] -= amount;
-        }
+    for (const row of expenseSharesRes.rows) {
+      const { paidby, userid: shareUserId, amountowned } = row;
+      const amount = parseFloat(amountowned);
+
+      if (paidby === userId && shareUserId !== userId) {
+        userBalances[shareUserId] = (userBalances[shareUserId] || 0) + amount;
+      } else if (shareUserId === userId && paidby !== userId) {
+        userBalances[paidby] = (userBalances[paidby] || 0) - amount;
       }
     }
 
-    // 4. Subtract settlements
-    // Get all settlements for this group involving the user
+    // 2. Apply settlements
     const settlementsRes = await pool.query(
-      `SELECT fromuserid, touserid, amount FROM SETTLEMENTS WHERE groupid = $1 AND (fromuserid = $2 OR touserid = $2)`,
+      `SELECT fromUserId, toUserId, amount 
+       FROM SETTLEMENTS 
+       WHERE groupId = $1 AND (fromUserId = $2 OR toUserId = $2)`,
       [groupId, userId]
     );
-    for (const settlement of settlementsRes.rows) {
-      const fromId = Number(settlement.fromuserid);
-      const toId = Number(settlement.touserid);
-      const amount = parseFloat(settlement.amount);
-      if (fromId === Number(userId)) {
-        // User paid to someone else (reduce what they owe)
-        if (!userBalances[toId]) userBalances[toId] = 0;
-        userBalances[toId] += amount;
-      } else if (toId === Number(userId)) {
-        // Someone else paid to user (reduce what they owe user)
-        if (!userBalances[fromId]) userBalances[fromId] = 0;
-        userBalances[fromId] -= amount;
+
+    for (const { fromuserid, touserid, amount } of settlementsRes.rows) {
+      const fromId = Number(fromuserid);
+      const toId = Number(touserid);
+      const amt = parseFloat(amount);
+
+      if (fromId === userId) {
+        userBalances[toId] = (userBalances[toId] || 0) + amt;
+      } else {
+        userBalances[fromId] = (userBalances[fromId] || 0) - amt;
       }
     }
 
-    // 5. Get usernames and split balances
+    // 3. Get usernames in one query
+    const allUserIds = Object.keys(userBalances)
+      .filter((id) => Math.abs(userBalances[id]) > 0.009)
+      .map(Number);
+    const usersRes = await pool.query(
+      "SELECT user_id AS id, username FROM USERS WHERE user_id = ANY($1)",
+      [allUserIds]
+    );
+
+    const usernames = Object.fromEntries(
+      usersRes.rows.map((u) => [u.id, u.username])
+    );
+
+    // 4. Prepare response
     const owesMe = [];
     const iOwe = [];
     for (const [otherUserId, balance] of Object.entries(userBalances)) {
-      const id = parseInt(otherUserId);
-      const userRes = await pool.query(
-        "SELECT username FROM USERS WHERE user_id = $1",
-        [id]
-      );
-      const username = userRes.rows[0]?.username || `User ${id}`;
+      const id = Number(otherUserId);
       if (balance > 0.009) {
-        // They owe you
         owesMe.push({
-          username,
-          amount: parseFloat(balance.toFixed(2)),
           userId: id,
+          username: usernames[id] || `User ${id}`,
+          amount: +balance.toFixed(2),
         });
       } else if (balance < -0.009) {
-        // You owe them
         iOwe.push({
-          username,
-          amount: parseFloat(Math.abs(balance).toFixed(2)),
           userId: id,
+          username: usernames[id] || `User ${id}`,
+          amount: +Math.abs(balance).toFixed(2),
         });
       }
     }
 
     res.status(200).json({ owesMe, iOwe });
   } catch (err) {
-    console.error("Error getting user group balances: ", err);
+    console.error("Error getting user group balances:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
