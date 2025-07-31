@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from "react";
 import {
-  View,
   ActivityIndicator,
   Text,
   StyleSheet,
@@ -9,8 +8,6 @@ import {
 } from "react-native";
 import axios from "axios";
 import { BarChart } from "react-native-gifted-charts";
-import { auth } from "../../auth/firebase";
-import { onAuthStateChanged } from "firebase/auth";
 import { useFocusEffect } from "expo-router";
 import Constants from "expo-constants";
 import { getStoredToken } from "@/utils/storage";
