@@ -4,10 +4,7 @@ export default ({ config }) => {
   return {
     ...config,
     expo: {
-      owner: "vilsium",
-      android: {
-        package: "com.vilsium.expenselyexpo"
-      },
+      owner: "divya1611",
       extra: {
         eas: {
           projectId: "13c177f1-ec36-403e-b61f-7b843915ac6a",

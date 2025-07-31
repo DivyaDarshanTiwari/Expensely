@@ -1,9 +1,7 @@
 import axios from "axios";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { View, StyleSheet, ActivityIndicator, Text } from "react-native";
 import { PieChart } from "react-native-gifted-charts";
-import { auth } from "../../auth/firebase";
-import { onAuthStateChanged } from "firebase/auth";
 import { useFocusEffect } from "expo-router";
 import Constants from "expo-constants";
 import { getStoredToken } from "@/utils/storage";
