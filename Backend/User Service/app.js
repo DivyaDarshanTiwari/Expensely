@@ -1,15 +1,6 @@
 "use strict";
 
 require("dotenv").config();
-const { pool } = require("./config/db");
-// check everytime if there is a connetion establised with the database
-pool.query("SELECT NOW()", (err, res) => {
-  if (err) {
-    console.error("❌ Database connection failed:", err.stack);
-  } else {
-    console.log("✅ Connected to the database at:", res.rows[0].now);
-  }
-});
 
 const Express = require("express");
 const morgan = require("morgan");
