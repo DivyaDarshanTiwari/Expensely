@@ -76,11 +76,10 @@ export default function FinancialOverviewChart() {
         return () => {};
       };
 
-      const unsubscribePromise = checkAndFetch();
+      checkAndFetch();
 
       return () => {
         isActive = false;
-        unsubscribePromise.then((unsubscribe) => unsubscribe());
       };
     }, [])
   );
@@ -108,7 +107,7 @@ export default function FinancialOverviewChart() {
                     { backgroundColor: item.color },
                   ]}
                 />
-                <Text style={styles.legendLabel}>{item.text}</Text>
+                <Text style={styles.legendLabel}>{String(item.text)}</Text>
               </View>
             ))}
           </View>
