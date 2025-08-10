@@ -17,8 +17,6 @@ const userTable = async () => {
     (err, res) => {
       if (err) {
         console.error("❌ Error creating user table:", err);
-      } else {
-        console.log("✅ user table created or already exists");
       }
     }
   );
@@ -36,8 +34,6 @@ const profileImagaeTable = async () => {
     (err, res) => {
       if (err) {
         console.error("❌ Error creating profileimage table:", err);
-      } else {
-        console.log("✅ profileimage table created or already exists");
       }
     }
   );
