@@ -1,7 +1,7 @@
 services:
   user-service:
     build: "./User Service"
-    image: user_service:1.0
+    image: user_service:1.1
     env_file:
       - "./User Service/.env"
     ports:
