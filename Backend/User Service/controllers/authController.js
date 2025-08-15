@@ -2,6 +2,7 @@
 
 const admin = require("../services/firebaseAdmin");
 const { pool } = require("../config/db");
+const redis = require("../config/Redis");
 
 const authController = async (req, res) => {
   const authHeader = req.headers.authorization;
@@ -17,6 +18,19 @@ const authController = async (req, res) => {
       return res.status(403).json({ message: "Email not verified" });
     }
     const firebase_uid = decodeToken.uid;
+
+    const userId = await redis.hget(`userId:${firebase_uid}`, "user_id");
+
+    if (userId) {
+      res.status(200).json({
+        message: "Token is valid, user found",
+        user: {
+          user_id: parseInt(userId),
+        },
+      });
+      return;
+    }
+
     const { rows } = await pool.query(
       "SELECT * FROM users WHERE firebase_uid = $1",
       [firebase_uid]
@@ -28,6 +42,12 @@ const authController = async (req, res) => {
         message: "Unauthorized: User not registered in the system",
       });
     }
+
+    await redis
+      .multi()
+      .hset(`userId:${firebase_uid}`, { user_id: rows[0].user_id })
+      .expire(`userId:${firebase_uid}`, 7200)
+      .exec();
 
     // If found, respond with success and user info
     res.status(200).json({
