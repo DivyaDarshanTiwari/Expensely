@@ -1,0 +1,32 @@
+services:
+  user-service:
+    build: "./User Service"
+    image: user_service:1.1
+    env_file:
+      - "./User Service/.env"
+    ports:
+      - "8083:8083"
+
+  basic-service:
+    build: "./Basic Service"
+    image: basic_service:1.0
+    env_file:
+      - "./Basic Service/.env"
+    ports:
+      - 8080:8080
+
+  group-service:
+    build: "./Group Service"
+    image: group_service:1.0
+    env_file:
+      - "./Group Service/.env"
+    ports:
+      - 8084:8084
+
+  ocr-service:
+    build: "./OCR Service"
+    image: ocr_service
+    env_file:
+      - "./OCR Service/.env"
+    ports:
+      - 8082:8082
