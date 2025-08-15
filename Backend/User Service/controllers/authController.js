@@ -6,7 +6,7 @@ const redis = require("../config/Redis");
 
 const authController = async (req, res) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (!authHeader?.startsWith("Bearer ")) {
     return res.status(401).json({ message: "Unauthorized: No token provided" });
   }
 
@@ -17,48 +17,48 @@ const authController = async (req, res) => {
     if (!decodeToken.email_verified) {
       return res.status(403).json({ message: "Email not verified" });
     }
+
     const firebase_uid = decodeToken.uid;
+    const redisKey = `userId:${firebase_uid}`;
 
-    const userId = await redis.hget(`userId:${firebase_uid}`, "user_id");
-
-    if (userId) {
-      res.status(200).json({
+    // Check Redis cache
+    const cachedUserId = await redis.hget(redisKey, "user_id");
+    if (cachedUserId) {
+      return res.status(200).json({
         message: "Token is valid, user found",
-        user: {
-          user_id: parseInt(userId),
-        },
+        user: { user_id: Number(cachedUserId) },
       });
-      return;
     }
 
+    // Query database
     const { rows } = await pool.query(
-      "SELECT * FROM users WHERE firebase_uid = $1",
+      "SELECT user_id FROM users WHERE firebase_uid = $1",
       [firebase_uid]
     );
-
     if (rows.length === 0) {
-      // UID not found in your DB, unauthorized
       return res.status(401).json({
         message: "Unauthorized: User not registered in the system",
       });
     }
 
-    await redis
+    const dbUserId = rows[0].user_id;
+
+    // Cache in Redis
+    const result = await redis
       .multi()
-      .hset(`userId:${firebase_uid}`, { user_id: rows[0].user_id })
-      .expire(`userId:${firebase_uid}`, 7200)
+      .hset(redisKey, { user_id: dbUserId })
+      .expire(redisKey, 7200)
       .exec();
 
-    // If found, respond with success and user info
     res.status(200).json({
       message: "Token is valid, user found",
-      user: {
-        user_id: rows[0].user_id,
-      },
+      user: { user_id: dbUserId },
     });
   } catch (error) {
     console.error(error);
-    res.status(401).json({ message: "Unauthorized", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
   }
 };
 
