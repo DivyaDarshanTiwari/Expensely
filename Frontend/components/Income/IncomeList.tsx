@@ -13,6 +13,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { triggerRefresh } from "@/hooks/redux/dashboardSlice";
+import { useDispatch } from "react-redux";
 
 interface Income {
   id: number;
@@ -30,6 +32,7 @@ interface IncomeItemProps {
 const IncomeItem = ({ item, onDelete }: IncomeItemProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [scaleAnim] = useState(new Animated.Value(1));
+  const dispatch = useDispatch();
 
   const getSourceIcon = (source: string) => {
     const normalized = source.toLowerCase();
@@ -92,20 +95,6 @@ const IncomeItem = ({ item, onDelete }: IncomeItemProps) => {
     );
   };
 
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.97,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-    }).start();
-  };
-
   const handleDelete = async (id: any) => {
     Alert.alert(
       "Delete Income",
@@ -143,6 +132,7 @@ const IncomeItem = ({ item, onDelete }: IncomeItemProps) => {
               }).start(() => {
                 if (onDelete) onDelete(item.id);
               });
+              dispatch(triggerRefresh());
               Alert.alert("Success", "Income deleted successfully");
             } catch (error) {
               console.error("Delete error:", error);

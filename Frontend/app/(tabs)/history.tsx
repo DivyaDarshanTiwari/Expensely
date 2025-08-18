@@ -3,8 +3,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import Constants from "expo-constants";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSelector } from "react-redux";
 import ExpenseItem from "../../components/Expense/ExpenseList";
 import IncomeItem from "../../components/Income/IncomeList";
 import { getStoredToken } from "../../utils/storage";
@@ -46,6 +47,9 @@ interface PaginationState {
 const FinancialOverview = () => {
   const router = useRouter();
   const { groupId, groupName } = useLocalSearchParams();
+  const refreshCount = useSelector(
+    (state: any) => state.dashboard.refreshCount
+  );
 
   const [currentView, setCurrentView] = useState<ViewType>("expenses");
   const [expenseData, setExpenseData] = useState<any[]>([]);
@@ -64,50 +68,50 @@ const FinancialOverview = () => {
   const headerSlide = useRef(new Animated.Value(-50)).current;
   const toggleSlide = useRef(new Animated.Value(0)).current;
 
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
+  useEffect(() => {
+    let isActive = true;
 
-      const checkAndFetchData = async () => {
-        await refreshInvalidToken();
-        const token = await getStoredToken();
-        if (token && isActive) {
-          setIdToken(token);
-          // Load initial data (last 5 entries)
-          fetchExpenses(token, 1, 5, true);
-          fetchIncome(token, 1, 5, true);
-        } else if (isActive) {
-          Alert.alert("Error", "Please log in to continue");
-          router.back();
-        }
-      };
+    const checkAndFetchData = async () => {
+      await refreshInvalidToken();
+      const token = await getStoredToken();
 
-      checkAndFetchData();
+      if (token && isActive) {
+        setIdToken(token);
 
-      // Start animations
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(headerSlide, {
-          toValue: 0,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-      ]).start();
+        // Load initial data (last 5 entries)
+        fetchExpenses(token, 1, 5, true);
+        fetchIncome(token, 1, 5, true);
+      } else if (isActive) {
+        Alert.alert("Error", "Please log in to continue");
+        router.back();
+      }
+    };
 
-      return () => {
-        isActive = false;
-      };
-    }, [])
-  );
+    checkAndFetchData();
+
+    // Start animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(headerSlide, {
+        toValue: 0,
+        duration: 700,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    return () => {
+      isActive = false;
+    };
+  }, [refreshCount]); // 👈 will only run once, when component mounts
 
   const fetchExpenses = async (
     token: string,

@@ -5,6 +5,8 @@ import { auth } from "../auth/firebase"; // ✅ using your new Firebase setup
 import { getStoredToken, getStoredUser, storeToken } from "../utils/storage";
 import axios from "axios";
 import Constants from "expo-constants";
+import { useDispatch } from "react-redux";
+import { triggerRefresh } from "@/hooks/redux/dashboardSlice";
 
 const validateToken = async (token: string): Promise<boolean> => {
   try {
@@ -27,6 +29,7 @@ const validateToken = async (token: string): Promise<boolean> => {
 export default function Index() {
   const router = useRouter();
   const [checked, setChecked] = useState(false);
+  const dispatch = useDispatch();
 
   useEffect(() => {
     let isMounted = true;
@@ -44,6 +47,7 @@ export default function Index() {
           if (valid) {
             if (isMounted) {
               setChecked(true);
+              dispatch(triggerRefresh());
               router.replace("/(tabs)/dashboard");
             }
             return;
@@ -56,6 +60,7 @@ export default function Index() {
           await storeToken(refreshedToken);
           const validAfter = await validateToken(refreshedToken);
           if (validAfter) {
+            dispatch(triggerRefresh());
             router.replace("/(tabs)/dashboard");
             return;
           }
@@ -67,6 +72,7 @@ export default function Index() {
       // Redirect to login if not authenticated or all validation failed
       if (isMounted) {
         setChecked(true);
+        dispatch(triggerRefresh());
         router.replace("/auth");
       }
     });
