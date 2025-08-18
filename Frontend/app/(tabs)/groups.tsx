@@ -6,8 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
-import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated,
@@ -20,11 +20,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Dimensions,
 } from "react-native";
 import { getStoredToken } from "../../utils/storage";
-
-const { width: screenWidth } = Dimensions.get("window");
 
 // Add user type for members
 interface UserType {
@@ -54,129 +51,126 @@ const ExpenselyGroups = () => {
   const [deletingGroupId, setDeletingGroupId] = useState<number | null>(null);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
+  useEffect(() => {
+    let isActive = true;
 
-      const fetchGroups = async (idToken: string) => {
-        try {
-          const res = await axios.get(
-            `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/getGroups`,
-            {
-              headers: {
-                Authorization: `Bearer ${idToken}`,
-              },
-            }
-          );
-          // Get current user ID from auth service
-          const authRes = await axios.post(
-            `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/validToken`,
-            {},
-            {
-              headers: {
-                Authorization: `Bearer ${idToken}`,
-              },
-            }
-          );
-          const currentUserId = authRes.data.user.user_id;
-
-          // Enhanced color palettes for different groups
-          const colorPalettes = [
-            ["#6366F1", "#4F46E5"], // Indigo
-            ["#EC4899", "#DB2777"], // Pink
-            ["#10B981", "#059669"], // Emerald
-            ["#F59E0B", "#D97706"], // Amber
-            ["#8B5CF6", "#7C3AED"], // Violet
-            ["#EF4444", "#DC2626"], // Red
-            ["#06B6D4", "#0891B2"], // Cyan
-            ["#84CC16", "#65A30D"], // Lime
-          ];
-
-          const mappedGroups = res.data.map((group: any, index: number) => {
-            return {
-              id: group.groupid,
-              name: group.name,
-              description: group.description,
-              members: Number.parseInt(group.member_count),
-              totalBudget: Number.parseFloat(group.groupbudget),
-              spent: Number.parseFloat(group.spent),
-              color: colorPalettes[index % colorPalettes.length],
-              icon: "people",
-              isOwner: group.createdby === currentUserId, // Check if current user is the creator
-              isAdmin: Boolean(group.isadmin), // Convert to boolean explicitly
-            };
-          });
-          if (isActive) {
-            setGroups(mappedGroups);
+    const fetchGroups = async (idToken: string) => {
+      try {
+        const res = await axios.get(
+          `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/getGroups`,
+          {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
           }
-        } catch (err) {
-          console.error("Failed to fetch groups", err);
-          if (isActive) {
-            Alert.alert("Error", "Could not fetch groups from server");
+        );
+
+        // Get current user ID from auth service
+        const authRes = await axios.post(
+          `${Constants.expoConfig?.extra?.User_URL}/api/v1/auth/validToken`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
           }
+        );
+        const currentUserId = authRes.data.user.user_id;
+
+        // Enhanced color palettes
+        const colorPalettes = [
+          ["#6366F1", "#4F46E5"], // Indigo
+          ["#EC4899", "#DB2777"], // Pink
+          ["#10B981", "#059669"], // Emerald
+          ["#F59E0B", "#D97706"], // Amber
+          ["#8B5CF6", "#7C3AED"], // Violet
+          ["#EF4444", "#DC2626"], // Red
+          ["#06B6D4", "#0891B2"], // Cyan
+          ["#84CC16", "#65A30D"], // Lime
+        ];
+
+        const mappedGroups = res.data.map((group: any, index: number) => ({
+          id: group.groupid,
+          name: group.name,
+          description: group.description,
+          members: Number.parseInt(group.member_count),
+          totalBudget: Number.parseFloat(group.groupbudget),
+          spent: Number.parseFloat(group.spent),
+          color: colorPalettes[index % colorPalettes.length],
+          icon: "people",
+          isOwner: group.createdby === currentUserId,
+          isAdmin: Boolean(group.isadmin),
+        }));
+
+        if (isActive) {
+          setGroups(mappedGroups);
         }
-      };
+      } catch (err) {
+        console.error("Failed to fetch groups", err);
+        if (isActive) {
+          Alert.alert("Error", "Could not fetch groups from server");
+        }
+      }
+    };
 
-      // Fetch idToken directly from storage and then fetch groups
-      const refreshAndFetch = async () => {
-        setIsLoading(true);
-        try {
-          await refreshInvalidToken(); // will return valid token or null
-          const token = await getStoredToken();
-          if (token && isActive) {
-            setIdToken(token);
-            await fetchGroups(token);
-          } else {
-            console.warn("No valid token after refresh attempt");
-          }
+    const refreshAndFetch = async () => {
+      setIsLoading(true);
+      try {
+        await refreshInvalidToken(); // refresh token if needed
+        const token = await getStoredToken();
+        if (token && isActive) {
+          setIdToken(token);
+          await fetchGroups(token);
+        } else {
+          console.warn("No valid token after refresh attempt");
+        }
 
-          // Add minimum loading time to prevent flashing
-          await new Promise((resolve) => setTimeout(resolve, 1500));
+        // prevent flashing
+        await new Promise((resolve) => setTimeout(resolve, 1500));
 
-          // Start animations
-          Animated.parallel([
-            Animated.timing(fadeAnim, {
-              toValue: 1,
-              duration: 1000,
-              useNativeDriver: true,
-            }),
-            Animated.timing(slideAnim, {
-              toValue: 0,
-              duration: 800,
-              useNativeDriver: true,
-            }),
-            Animated.timing(headerSlide, {
-              toValue: 0,
-              duration: 900,
-              useNativeDriver: true,
-            }),
-            Animated.spring(fabScale, {
-              toValue: 1,
-              tension: 40,
-              friction: 8,
-              delay: 600,
-              useNativeDriver: true,
-            }),
-          ]).start(() => {
-            if (isActive) {
-              setIsLoading(false);
-            }
-          });
-        } catch (err) {
-          console.error("Error refreshing and fetching groups:", err);
+        // Start animations
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(slideAnim, {
+            toValue: 0,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(headerSlide, {
+            toValue: 0,
+            duration: 900,
+            useNativeDriver: true,
+          }),
+          Animated.spring(fabScale, {
+            toValue: 1,
+            tension: 40,
+            friction: 8,
+            delay: 600,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
           if (isActive) {
             setIsLoading(false);
           }
+        });
+      } catch (err) {
+        console.error("Error refreshing and fetching groups:", err);
+        if (isActive) {
+          setIsLoading(false);
         }
-      };
+      }
+    };
 
-      refreshAndFetch();
+    refreshAndFetch();
 
-      return () => {
-        isActive = false;
-      };
-    }, [refreshFlag])
-  );
+    return () => {
+      isActive = false;
+    };
+  }, [refreshFlag]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -265,6 +259,7 @@ const ExpenselyGroups = () => {
         prevGroups.filter((group) => group.id !== groupId)
       );
       Alert.alert("Success", "Group deleted successfully!");
+      setRefreshFlag((prev) => !prev);
     } catch (error: any) {
       console.error("Error deleting group:", error);
       // Handle new backend logic
@@ -348,6 +343,7 @@ const ExpenselyGroups = () => {
       } else {
         Alert.alert("Success", "Group deleted successfully!");
       }
+      setRefreshFlag((prev) => !prev);
     } catch (error: any) {
       console.error("Error with group owner action:", error);
       if (error.response?.data?.message) {
@@ -379,6 +375,7 @@ const ExpenselyGroups = () => {
         prevGroups.filter((group) => group.id !== groupId)
       );
       Alert.alert("Success", "You have left the group successfully!");
+      setRefreshFlag((prev) => !prev);
     } catch (error: any) {
       console.error("Error leaving group:", error);
       if (
