@@ -1,10 +1,10 @@
 import axios from "axios";
-import React, { useCallback, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, StyleSheet, ActivityIndicator, Text } from "react-native";
 import { PieChart } from "react-native-gifted-charts";
-import { useFocusEffect } from "expo-router";
 import Constants from "expo-constants";
 import { getStoredToken } from "@/utils/storage";
+import { useSelector } from "react-redux";
 
 // Default color map based on known labels
 const colorMap: Record<string, string> = {
@@ -25,64 +25,66 @@ export default function FinancialOverviewChart() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [idToken, setIdToken] = useState("");
+  const refreshCount = useSelector(
+    (state: any) => state.dashboard.refreshCount
+  );
 
   // ...
 
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
+  useEffect(() => {
+    let isActive = true;
 
-      const fetchData = async (token: string) => {
-        setLoading(true);
-        setError(null);
-        try {
-          const response = await axios.get(
-            `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getFinancialOverview`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
-
-          const rawData = response.data.data;
-
-          const coloredData = rawData.map((item: any) => ({
-            ...item,
-            color: item.color || colorMap[item.text] || "#ccc",
-          }));
-
-          if (isActive) {
-            setChartData(coloredData);
+    const fetchData = async (token: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await axios.get(
+          `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getFinancialOverview`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
           }
-        } catch (err: any) {
-          if (isActive) {
-            setError(err.message || "Error fetching chart data");
-          }
-        } finally {
-          if (isActive) {
-            setLoading(false);
-          }
+        );
+
+        const rawData = response.data.data;
+
+        const coloredData = rawData.map((item: any) => ({
+          ...item,
+          color: item.color || colorMap[item.text] || "#ccc",
+        }));
+
+        if (isActive) {
+          setChartData(coloredData);
         }
-      };
+      } catch (err: any) {
+        if (isActive) {
+          setError(err.message || "Error fetching chart data");
+        }
+      } finally {
+        if (isActive) {
+          setLoading(false);
+        }
+      }
+    };
 
-      const checkAndFetch = async () => {
-        const token = await getStoredToken();
-        if (token) {
-          setIdToken(token);
-          fetchData(token);
-        } else {
+    const checkAndFetch = async () => {
+      const token = await getStoredToken();
+      if (token) {
+        setIdToken(token);
+        fetchData(token);
+      } else {
+        if (isActive) {
           setError("No token found. Please log in.");
           setLoading(false);
         }
-        return () => {};
-      };
+      }
+    };
 
-      checkAndFetch();
+    checkAndFetch();
 
-      return () => {
-        isActive = false;
-      };
-    }, [])
-  );
+    return () => {
+      isActive = false;
+    };
+  }, [refreshCount]);
 
   return (
     <View style={styles.chartRow}>

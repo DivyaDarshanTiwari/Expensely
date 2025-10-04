@@ -3,13 +3,12 @@ import LoadingScreen from "@/components/loading/LoadingScreen";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import Constants from "expo-constants";
-import { useFocusEffect, useRouter } from "expo-router";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { useCallback, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Animated, ScrollView, StatusBar, Text, View } from "react-native";
+import { useSelector } from "react-redux";
 import { auth } from "../../auth/firebase";
 import { getStoredToken, getStoredUser } from "../../utils/storage";
-import { refreshInvalidToken } from "../../utils/refreshIfInvalid";
 import { useHasMountedOnce } from "../../components/Dashboard/utils/useHasMountedOnce";
 import { ChartCards } from "@/components/Dashboard/ChartCard";
 import { DashboardHeader } from "@/components/Dashboard/DashboardHeader";
@@ -38,7 +37,9 @@ const ExpenselyDashboard = () => {
     []
   );
   const hasMountedOnce = useHasMountedOnce();
-  const router = useRouter();
+  const refreshCount = useSelector(
+    (state: any) => state.dashboard.refreshCount
+  );
 
   const categoryIconMap: Record<
     string,
@@ -70,105 +71,91 @@ const ExpenselyDashboard = () => {
     },
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-      let unsubscribeAuth: (() => void) | null = null;
+  useEffect(() => {
+    let isActive = true;
+    let unsubscribeAuth: (() => void) | null = null;
 
-      const fetchDataOnFocus = async () => {
-        setIsLoading(true);
-        await refreshInvalidToken();
+    const fetchData = async () => {
+      setIsLoading(true);
 
-        try {
-          // Get idToken from storage instead of Firebase
-          const storedToken = await getStoredToken();
-          const storedUser = await getStoredUser();
+      try {
+        const storedToken = await getStoredToken();
+        const storedUser = await getStoredUser();
 
-          if (storedToken && isActive && storedUser) {
-            try {
-              setUser(storedUser);
+        if (storedToken && isActive && storedUser) {
+          try {
+            setUser(storedUser);
 
-              // Fetch dashboard data
-              const dashboardRes = await axios.get(
-                `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getDashboard`,
-                {
-                  headers: {
-                    Authorization: `Bearer ${storedToken}`,
-                  },
-                }
-              );
+            // Fetch dashboard data
+            const dashboardRes = await axios.get(
+              `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getDashboard`,
+              { headers: { Authorization: `Bearer ${storedToken}` } }
+            );
 
-              if (dashboardRes?.data?.data) {
-                setTotalExpense(dashboardRes.data.data.totalExpense || 0);
-                setTotalIncome(dashboardRes.data.data.totalIncome || 0);
-              }
-
-              // Fetch merged transactions
-              const transactionsRes = await axios.get(
-                `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getMergedTransactions?page=1&limit=5`,
-                {
-                  headers: {
-                    Authorization: `Bearer ${storedToken}`,
-                  },
-                }
-              );
-
-              if (transactionsRes?.data?.data) {
-                setRecentTransactions(
-                  transactionsRes.data.data as Transaction[]
-                );
-              } else {
-                console.error("No data returned from merged transactions API.");
-                setRecentTransactions([]);
-              }
-            } catch (err) {
-              console.error("Error during data fetch:", err);
+            if (dashboardRes?.data?.data) {
+              setTotalExpense(dashboardRes.data.data.totalExpense || 0);
+              setTotalIncome(dashboardRes.data.data.totalIncome || 0);
             }
+
+            // Fetch merged transactions
+            const transactionsRes = await axios.get(
+              `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/account/getMergedTransactions?page=1&limit=5`,
+              { headers: { Authorization: `Bearer ${storedToken}` } }
+            );
+
+            if (transactionsRes?.data?.data) {
+              setRecentTransactions(transactionsRes.data.data as Transaction[]);
+            } else {
+              console.error("No data returned from merged transactions API.");
+              setRecentTransactions([]);
+            }
+          } catch (err) {
+            console.error("Error during data fetch:", err);
           }
+        }
 
-          // Set up auth listener for user info (but not for token)
-          unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-            if (firebaseUser && isActive && !storedUser) {
-              setUser(firebaseUser);
-            }
-          });
+        // Set up auth listener
+        unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+          if (firebaseUser && isActive && !storedUser) {
+            setUser(firebaseUser);
+          }
+        });
 
-          // Add a minimum loading time to prevent flashing
+        // Add a minimum loading time
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        if (!hasMountedOnce) {
           await new Promise((resolve) => setTimeout(resolve, 1500));
-          // Animations on focus
-          if (!hasMountedOnce) {
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-            Animated.parallel([
-              Animated.timing(fadeAnim, {
-                toValue: 1,
-                duration: 1000,
-                useNativeDriver: true,
-              }),
-              Animated.timing(slideAnim, {
-                toValue: 0,
-                duration: 800,
-                useNativeDriver: true,
-              }),
-            ]).start(() => {
-              if (isActive) setIsLoading(false);
-            });
-          } else {
-            setIsLoading(false); // skip animation
-          }
-        } catch (err) {
-          console.error("Error in fetchDataOnFocus:", err);
+          Animated.parallel([
+            Animated.timing(fadeAnim, {
+              toValue: 1,
+              duration: 1000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(slideAnim, {
+              toValue: 0,
+              duration: 800,
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
+            if (isActive) setIsLoading(false);
+          });
+        } else {
           setIsLoading(false);
         }
-      };
+      } catch (err) {
+        console.error("Error in fetchData:", err);
+        setIsLoading(false);
+      }
+    };
 
-      fetchDataOnFocus();
+    fetchData();
 
-      return () => {
-        isActive = false;
-        if (unsubscribeAuth) unsubscribeAuth();
-      };
-    }, [])
-  );
+    return () => {
+      isActive = false;
+      if (unsubscribeAuth) unsubscribeAuth();
+    };
+  }, [refreshCount]); // include dispatch in deps
 
   // Show loading screen while data is being fetched
   if (isLoading) {

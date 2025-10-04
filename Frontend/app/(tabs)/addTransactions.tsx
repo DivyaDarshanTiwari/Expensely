@@ -19,8 +19,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useDispatch } from "react-redux";
+import { triggerRefresh } from "@/hooks/redux/dashboardSlice";
 import { getStoredToken, getStoredUserId } from "../../utils/storage";
-import { refreshInvalidToken } from "@/utils/refreshIfInvalid";
 import { styles } from "@/components/AddTransactions/styles/styles";
 import TypeToggle from "@/components/AddTransactions/typeToggle";
 import CategoryModal from "@/components/AddTransactions/CategoryModal";
@@ -40,6 +41,7 @@ export default function AddTransactions() {
   const [loading, setLoading] = useState(false);
   const [idToken, setIdToken] = useState("");
   const [userId, setUserId] = useState("");
+  const dispatch = useDispatch();
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -237,7 +239,7 @@ export default function AddTransactions() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, [transactionType]);
+  }, [transactionType, dispatch]);
 
   // Fetch Personal Categories
   const fetchPersonalCategories = async () => {
@@ -417,13 +419,12 @@ export default function AddTransactions() {
           ? `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/expense/add`
           : `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/income/add`;
 
-      await refreshInvalidToken();
       await axios.post(endpoint, payload, {
         headers: {
           Authorization: `Bearer ${idToken}`,
         },
       });
-
+      dispatch(triggerRefresh());
       Alert.alert(
         "Success",
         `${transactionType === "expense" ? "Expense" : "Income"} added successfully!`,

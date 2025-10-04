@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Text,
   Dimensions,
@@ -8,9 +8,9 @@ import {
 } from "react-native";
 import { BarChart } from "react-native-chart-kit";
 import axios from "axios";
-import { useFocusEffect } from "expo-router";
 import Constants from "expo-constants";
 import { getStoredToken } from "@/utils/storage";
+import { useSelector } from "react-redux";
 
 const screenWidth = Dimensions.get("window").width - 32;
 
@@ -19,58 +19,61 @@ export default function ExpenseChart() {
   const [chartData, setChartData] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const refreshCount = useSelector(
+    (state: any) => state.dashboard.refreshCount
+  );
 
-  useFocusEffect(
-    useCallback(() => {
-      let isMounted = true; // guard flag
+  useEffect(() => {
+    let isMounted = true; // guard flag
 
-      const fetchData = async (idToken: string) => {
-        setLoading(true);
-        try {
-          const res = await axios.get(
-            `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/expense/getAll/?limit=10&page=1`,
-            { headers: { Authorization: `Bearer ${idToken}` } }
-          );
+    const fetchData = async (idToken: string) => {
+      setLoading(true);
+      try {
+        const res = await axios.get(
+          `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/expense/getAll/?limit=10&page=1`,
+          { headers: { Authorization: `Bearer ${idToken}` } }
+        );
 
-          const categoryTotals: Record<string, number> = {};
-          res.data.data.forEach((item: any) => {
-            const category = item.category;
-            const amount = parseFloat(item.amount);
-            categoryTotals[category] = (categoryTotals[category] || 0) + amount;
-          });
+        const categoryTotals: Record<string, number> = {};
+        res.data.data.forEach((item: any) => {
+          const category = item.category;
+          const amount = parseFloat(item.amount);
+          categoryTotals[category] = (categoryTotals[category] || 0) + amount;
+        });
 
-          const sortedCategories = Object.entries(categoryTotals).sort(
-            (a, b) => b[1] - a[1]
-          );
+        const sortedCategories = Object.entries(categoryTotals).sort(
+          (a, b) => b[1] - a[1]
+        );
 
-          if (isMounted) {
-            setChartLabels(sortedCategories.map(([category]) => category));
-            setChartData(sortedCategories.map(([_, total]) => total));
-          }
-        } catch (err: any) {
-          if (isMounted) setError(err.message || "Error fetching data");
-        } finally {
-          if (isMounted) setLoading(false);
+        if (isMounted) {
+          setChartLabels(sortedCategories.map(([category]) => category));
+          setChartData(sortedCategories.map(([_, total]) => total));
         }
-      };
+      } catch (err: any) {
+        if (isMounted) setError(err.message || "Error fetching data");
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
 
-      const fetchTokenAndData = async () => {
-        const idToken = await getStoredToken();
-        if (idToken) {
-          fetchData(idToken);
-        } else {
+    const fetchTokenAndData = async () => {
+      const idToken = await getStoredToken();
+      if (idToken) {
+        fetchData(idToken);
+      } else {
+        if (isMounted) {
           setError("No token found");
           setLoading(false);
         }
-      };
+      }
+    };
 
-      fetchTokenAndData();
+    fetchTokenAndData();
 
-      return () => {
-        isMounted = false;
-      };
-    }, [])
-  );
+    return () => {
+      isMounted = false;
+    };
+  }, [refreshCount]);
 
   if (loading) {
     return <ActivityIndicator size="large" color="#EF4444" />;

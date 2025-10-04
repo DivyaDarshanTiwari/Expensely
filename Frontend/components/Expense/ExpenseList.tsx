@@ -13,6 +13,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { triggerRefresh } from "@/hooks/redux/dashboardSlice";
+import { useDispatch } from "react-redux";
 
 interface Expense {
   expenseid?: number;
@@ -30,6 +32,7 @@ interface ExpenseItemProps {
 const ExpenseItem = ({ item, onDelete }: ExpenseItemProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [scaleAnim] = useState(new Animated.Value(1));
+  const dispatch = useDispatch();
 
   const getCategoryIcon = (category: string) => {
     const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -97,20 +100,6 @@ const ExpenseItem = ({ item, onDelete }: ExpenseItemProps) => {
     );
   };
 
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.97,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-    }).start();
-  };
-
   const handleDelete = async () => {
     if (!item.expenseid) return;
     Alert.alert(
@@ -147,6 +136,7 @@ const ExpenseItem = ({ item, onDelete }: ExpenseItemProps) => {
               }).start(() => {
                 if (onDelete) onDelete(item.expenseid!);
               });
+              dispatch(triggerRefresh());
               Alert.alert("Success", "Expense deleted successfully.");
             } catch (error) {
               console.error("Delete error:", error);
