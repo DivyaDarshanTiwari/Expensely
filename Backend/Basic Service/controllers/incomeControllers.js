@@ -95,6 +95,8 @@ exports.getAllIncome = async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const offset = (page - 1) * limit;
 
+  console.log("User ID:", userId);
+
   if (!userId) {
     return res.status(404).json({ error: "User ID missing!" });
   }
@@ -107,7 +109,6 @@ exports.getAllIncome = async (req, res) => {
       `,
       [userId, limit, offset]
     );
-
     let total_records = await pool.query(
       `SELECT COUNT(*) FROM INCOME where userid = $1
       `,
