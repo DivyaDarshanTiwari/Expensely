@@ -13,6 +13,9 @@ export default ({ config }) => {
         Group_URL: process.env.Group_URL,
         User_URL: process.env.User_URL,
         OCR_URL: process.env.OCR_URL,
+        N8N_URL:
+          process.env.N8N_URL ||
+          "http://localhost:5678/webhook/f92996aa-672d-4f03-99e4-b2b9564b105e/chat",
       },
       android: {
         googleServicesFile: "./google-services.json",

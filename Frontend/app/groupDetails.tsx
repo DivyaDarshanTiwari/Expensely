@@ -26,6 +26,7 @@ import {
   getStoredUser,
   getStoredToken,
 } from "../utils/storage";
+import GroupChatInterface from "../components/ItineraryChat/GroupChatInterface";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -58,6 +59,9 @@ const GroupDetails = () => {
   const [expenseDetailsModalVisible, setExpenseDetailsModalVisible] =
     useState(false);
   const [expenseDetails, setExpenseDetails] = useState<any>(null);
+  const [showItineraryChat, setShowItineraryChat] = useState(false);
+  const [itinerary, setItinerary] = useState<any>(null);
+  const [showItineraryModal, setShowItineraryModal] = useState(false);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -629,7 +633,7 @@ const GroupDetails = () => {
           )}
         </Animated.View>
 
-        {/* View Balances Button */}
+        {/* Itinerary Chat & View Balances Buttons */}
         <Animated.View
           style={[
             styles.balancesButtonContainer,
@@ -639,6 +643,18 @@ const GroupDetails = () => {
             },
           ]}
         >
+          <TouchableOpacity
+            style={[styles.balancesButton, { marginBottom: 12 }]}
+            onPress={() => setShowItineraryChat(true)}
+          >
+            <LinearGradient
+              colors={["#8B5CF6", "#7C3AED"]}
+              style={styles.balancesGradient}
+            >
+              <Ionicons name="airplane" size={24} color="white" />
+              <Text style={styles.balancesButtonText}>Plan Itinerary</Text>
+            </LinearGradient>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.balancesButton}
             onPress={handleViewBalances}
@@ -1099,6 +1115,126 @@ const GroupDetails = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Itinerary Chat Modal */}
+      <Modal
+        visible={showItineraryChat}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowItineraryChat(false)}
+      >
+        <GroupChatInterface
+          groupId={groupId as string}
+          groupName={group.name}
+          groupBudget={group.totalBudget}
+          members={members}
+          onItineraryGenerated={(generatedItinerary) => {
+            setItinerary(generatedItinerary);
+            setShowItineraryModal(true);
+            Alert.alert(
+              "Itinerary Generated! ✈️",
+              "Your itinerary has been created. Tap to view details.",
+              [{ text: "OK" }]
+            );
+          }}
+          onClose={() => setShowItineraryChat(false)}
+        />
+      </Modal>
+
+      {/* Itinerary Display Modal */}
+      <Modal
+        visible={showItineraryModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowItineraryModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Your Itinerary</Text>
+            <TouchableOpacity
+              onPress={() => setShowItineraryModal(false)}
+              style={styles.closeButton}
+            >
+              <Ionicons name="close" size={24} color="#1F2937" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            {typeof itinerary === "string" ? (
+              <Text style={styles.itineraryText}>{itinerary}</Text>
+            ) : (
+              <View>
+                {itinerary?.destination && (
+                  <View style={styles.itinerarySection}>
+                    <Text style={styles.sectionTitle}>Destination</Text>
+                    <Text style={styles.sectionContent}>
+                      {itinerary.destination}
+                    </Text>
+                  </View>
+                )}
+
+                {itinerary?.duration && (
+                  <View style={styles.itinerarySection}>
+                    <Text style={styles.sectionTitle}>Duration</Text>
+                    <Text style={styles.sectionContent}>
+                      {itinerary.duration}
+                    </Text>
+                  </View>
+                )}
+
+                {itinerary?.activities &&
+                  Array.isArray(itinerary.activities) && (
+                    <View style={styles.itinerarySection}>
+                      <Text style={styles.sectionTitle}>Activities</Text>
+                      {itinerary.activities.map(
+                        (activity: string, index: number) => (
+                          <View key={index} style={styles.activityItem}>
+                            <Ionicons
+                              name="checkmark-circle"
+                              size={20}
+                              color="#7C3AED"
+                            />
+                            <Text style={styles.activityText}>{activity}</Text>
+                          </View>
+                        )
+                      )}
+                    </View>
+                  )}
+
+                {itinerary?.schedule && Array.isArray(itinerary.schedule) && (
+                  <View style={styles.itinerarySection}>
+                    <Text style={styles.sectionTitle}>Schedule</Text>
+                    {itinerary.schedule.map((day: any, index: number) => (
+                      <View key={index} style={styles.dayItem}>
+                        <Text style={styles.dayTitle}>Day {index + 1}</Text>
+                        {typeof day === "string" ? (
+                          <Text style={styles.dayContent}>{day}</Text>
+                        ) : (
+                          <Text style={styles.dayContent}>
+                            {JSON.stringify(day, null, 2)}
+                          </Text>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Fallback: show raw JSON if structure is unknown */}
+                {!itinerary?.destination &&
+                  !itinerary?.activities &&
+                  !itinerary?.schedule && (
+                    <View style={styles.itinerarySection}>
+                      <Text style={styles.sectionTitle}>Itinerary Details</Text>
+                      <Text style={styles.itineraryText}>
+                        {JSON.stringify(itinerary, null, 2)}
+                      </Text>
+                    </View>
+                  )}
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1459,6 +1595,60 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     backgroundColor: "#F3F4F6",
     borderRadius: 8,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#FFF",
+  },
+  itinerarySection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#7C3AED",
+    marginBottom: 12,
+  },
+  sectionContent: {
+    fontSize: 16,
+    color: "#1F2937",
+    lineHeight: 24,
+  },
+  activityItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    gap: 8,
+  },
+  activityText: {
+    flex: 1,
+    fontSize: 15,
+    color: "#374151",
+    lineHeight: 22,
+  },
+  dayItem: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#7C3AED",
+  },
+  dayTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1F2937",
+    marginBottom: 8,
+  },
+  dayContent: {
+    fontSize: 14,
+    color: "#4B5563",
+    lineHeight: 20,
+  },
+  itineraryText: {
+    fontSize: 15,
+    color: "#1F2937",
+    lineHeight: 24,
   },
 });
 
