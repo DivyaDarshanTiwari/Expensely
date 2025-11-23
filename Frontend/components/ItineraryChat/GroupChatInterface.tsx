@@ -13,6 +13,13 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { n8nService, ChatMessage, N8NResponse } from "../../utils/n8nService";
+import {
+  loadChatHistory,
+  saveChatHistory,
+  clearChatHistory,
+  saveItinerary,
+} from "../../utils/chatStorage";
+import MarkdownText from "./MarkdownText";
 
 interface GroupChatInterfaceProps {
   groupId: number | string;
@@ -34,12 +41,38 @@ export default function GroupChatInterface({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Initialize session with group context
+  // Load chat history on mount
   useEffect(() => {
-    n8nService.resetSession(groupId);
+    const loadHistory = async () => {
+      setIsLoadingHistory(true);
+      try {
+        const history = await loadChatHistory(groupId);
+        if (history.length > 0) {
+          setMessages(history);
+          // Restore session ID from first message if available
+          n8nService.resetSession(groupId);
+        } else {
+          n8nService.resetSession(groupId);
+        }
+      } catch (error) {
+        console.error("Error loading chat history:", error);
+        n8nService.resetSession(groupId);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+    loadHistory();
   }, [groupId]);
+
+  // Save chat history whenever messages change
+  useEffect(() => {
+    if (messages.length > 0 && !isLoadingHistory) {
+      saveChatHistory(groupId, messages);
+    }
+  }, [messages, groupId, isLoadingHistory]);
 
   useEffect(() => {
     // Scroll to bottom when new messages arrive
@@ -68,7 +101,8 @@ export default function GroupChatInterface({
       );
 
       // Extract output from response
-      const outputText = response.output || "I understand. Let me help you with that.";
+      const outputText =
+        response.output || "I understand. Let me help you with that.";
 
       // Create bot response
       const botMessage: ChatMessage = {
@@ -79,9 +113,21 @@ export default function GroupChatInterface({
       };
 
       setMessages((prev) => [...prev, botMessage]);
+
+      // Check if response contains itinerary data and save it
+      if (response.itinerary && onItineraryGenerated) {
+        try {
+          await saveItinerary(groupId, response.itinerary);
+          onItineraryGenerated(response.itinerary);
+        } catch (saveError) {
+          console.error("Error saving itinerary:", saveError);
+          // Still notify parent but don't block
+          onItineraryGenerated(response.itinerary);
+        }
+      }
     } catch (error: any) {
       console.error("Chat error:", error);
-      
+
       // Show error message to user
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -91,7 +137,7 @@ export default function GroupChatInterface({
       };
 
       setMessages((prev) => [...prev, errorMessage]);
-      
+
       Alert.alert(
         "Connection Error",
         error.message || "Failed to connect to itinerary planning service.",
@@ -110,8 +156,9 @@ export default function GroupChatInterface({
         { text: "Cancel", style: "cancel" },
         {
           text: "Reset",
-          onPress: () => {
+          onPress: async () => {
             n8nService.resetSession(groupId);
+            await clearChatHistory(groupId);
             setMessages([]);
           },
         },
@@ -134,14 +181,16 @@ export default function GroupChatInterface({
             message.isUser ? styles.userBubble : styles.botBubble,
           ]}
         >
-          <Text
-            style={[
-              styles.messageText,
-              message.isUser ? styles.userText : styles.botText,
-            ]}
-          >
-            {message.text}
-          </Text>
+          {message.isUser ? (
+            <Text style={[styles.messageText, styles.userText]}>
+              {message.text}
+            </Text>
+          ) : (
+            <MarkdownText
+              text={message.text}
+              style={[styles.messageText, styles.botText]}
+            />
+          )}
           <Text style={styles.timestamp}>
             {message.timestamp.toLocaleTimeString([], {
               hour: "2-digit",
@@ -187,14 +236,25 @@ export default function GroupChatInterface({
         contentContainerStyle={styles.messagesContent}
         showsVerticalScrollIndicator={false}
       >
-        {messages.map(renderMessage)}
-        {isLoading && (
-          <View style={[styles.messageContainer, styles.botMessage]}>
-            <View style={[styles.messageBubble, styles.botBubble]}>
-              <ActivityIndicator size="small" color="#7C3AED" />
-              <Text style={styles.loadingText}>Planning your itinerary...</Text>
-            </View>
+        {isLoadingHistory ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color="#7C3AED" />
+            <Text style={styles.loadingText}>Loading conversation...</Text>
           </View>
+        ) : (
+          <>
+            {messages.map(renderMessage)}
+            {isLoading && (
+              <View style={[styles.messageContainer, styles.botMessage]}>
+                <View style={[styles.messageBubble, styles.botBubble]}>
+                  <ActivityIndicator size="small" color="#7C3AED" />
+                  <Text style={styles.loadingText}>
+                    Planning your itinerary...
+                  </Text>
+                </View>
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
 
@@ -337,6 +397,12 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontStyle: "italic",
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 40,
+  },
   inputContainer: {
     flexDirection: "row",
     paddingHorizontal: 16,
@@ -379,4 +445,3 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
 });
-

@@ -27,6 +27,14 @@ import {
   getStoredToken,
 } from "../utils/storage";
 import GroupChatInterface from "../components/ItineraryChat/GroupChatInterface";
+import {
+  getGroupItineraries,
+  saveItinerary,
+  deleteItinerary,
+  updateItinerary,
+  setActiveItinerary,
+  SavedItinerary,
+} from "../utils/chatStorage";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -62,6 +70,10 @@ const GroupDetails = () => {
   const [showItineraryChat, setShowItineraryChat] = useState(false);
   const [itinerary, setItinerary] = useState<any>(null);
   const [showItineraryModal, setShowItineraryModal] = useState(false);
+  const [savedItineraries, setSavedItineraries] = useState<SavedItinerary[]>([]);
+  const [showItinerariesList, setShowItinerariesList] = useState(false);
+  const [selectedItinerary, setSelectedItinerary] = useState<SavedItinerary | null>(null);
+  const [showItineraryDetails, setShowItineraryDetails] = useState(false);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -655,6 +667,22 @@ const GroupDetails = () => {
               <Text style={styles.balancesButtonText}>Plan Itinerary</Text>
             </LinearGradient>
           </TouchableOpacity>
+          {savedItineraries.length > 0 && (
+            <TouchableOpacity
+              style={[styles.balancesButton, { marginBottom: 12 }]}
+              onPress={() => setShowItinerariesList(true)}
+            >
+              <LinearGradient
+                colors={["#10B981", "#059669"]}
+                style={styles.balancesGradient}
+              >
+                <Ionicons name="bookmark" size={24} color="white" />
+                <Text style={styles.balancesButtonText}>
+                  Saved Itineraries ({savedItineraries.length})
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={styles.balancesButton}
             onPress={handleViewBalances}
@@ -1128,12 +1156,15 @@ const GroupDetails = () => {
           groupName={group.name}
           groupBudget={group.totalBudget}
           members={members}
-          onItineraryGenerated={(generatedItinerary) => {
+          onItineraryGenerated={async (generatedItinerary) => {
             setItinerary(generatedItinerary);
+            // Refresh itineraries list
+            const itineraries = await getGroupItineraries(groupId as string);
+            setSavedItineraries(itineraries);
             setShowItineraryModal(true);
             Alert.alert(
               "Itinerary Generated! ✈️",
-              "Your itinerary has been created. Tap to view details.",
+              "Your itinerary has been created and saved. Tap to view details.",
               [{ text: "OK" }]
             );
           }}
@@ -1231,6 +1262,237 @@ const GroupDetails = () => {
                     </View>
                   )}
               </View>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Saved Itineraries List Modal */}
+      <Modal
+        visible={showItinerariesList}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowItinerariesList(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Saved Itineraries</Text>
+            <TouchableOpacity
+              onPress={() => setShowItinerariesList(false)}
+              style={styles.closeButton}
+            >
+              <Ionicons name="close" size={24} color="#1F2937" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            {savedItineraries.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="bookmark-outline" size={64} color="#D1D5DB" />
+                <Text style={styles.emptyStateText}>No saved itineraries yet</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Plan an itinerary to save it here
+                </Text>
+              </View>
+            ) : (
+              savedItineraries.map((it) => (
+                <TouchableOpacity
+                  key={it.id}
+                  style={[
+                    styles.itineraryCard,
+                    it.isActive && styles.activeItineraryCard,
+                  ]}
+                  onPress={() => {
+                    setSelectedItinerary(it);
+                    setShowItineraryDetails(true);
+                  }}
+                >
+                  <View style={styles.itineraryCardHeader}>
+                    <View style={styles.itineraryCardInfo}>
+                      <Text style={styles.itineraryCardTitle}>{it.title}</Text>
+                      <Text style={styles.itineraryCardDate}>
+                        {new Date(it.createdAt).toLocaleDateString()}
+                      </Text>
+                    </View>
+                    {it.isActive && (
+                      <View style={styles.activeBadge}>
+                        <Text style={styles.activeBadgeText}>Active</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.itineraryCardActions}>
+                    <TouchableOpacity
+                      style={styles.itineraryActionButton}
+                      onPress={async () => {
+                        await setActiveItinerary(groupId as string, it.id);
+                        const updated = await getGroupItineraries(groupId as string);
+                        setSavedItineraries(updated);
+                      }}
+                    >
+                      <Ionicons
+                        name={it.isActive ? "checkmark-circle" : "radio-button-off"}
+                        size={20}
+                        color={it.isActive ? "#10B981" : "#6B7280"}
+                      />
+                      <Text
+                        style={[
+                          styles.itineraryActionText,
+                          it.isActive && { color: "#10B981" },
+                        ]}
+                      >
+                        {it.isActive ? "Active" : "Set Active"}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.itineraryActionButton}
+                      onPress={async () => {
+                        Alert.alert(
+                          "Delete Itinerary",
+                          `Are you sure you want to delete "${it.title}"?`,
+                          [
+                            { text: "Cancel", style: "cancel" },
+                            {
+                              text: "Delete",
+                              style: "destructive",
+                              onPress: async () => {
+                                await deleteItinerary(groupId as string, it.id);
+                                const updated = await getGroupItineraries(groupId as string);
+                                setSavedItineraries(updated);
+                              },
+                            },
+                          ]
+                        );
+                      }}
+                    >
+                      <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                      <Text style={[styles.itineraryActionText, { color: "#EF4444" }]}>
+                        Delete
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Itinerary Details Modal */}
+      <Modal
+        visible={showItineraryDetails}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowItineraryDetails(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>
+              {selectedItinerary?.title || "Itinerary Details"}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowItineraryDetails(false)}
+              style={styles.closeButton}
+            >
+              <Ionicons name="close" size={24} color="#1F2937" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            {selectedItinerary && (
+              <>
+                {typeof selectedItinerary.itinerary === "string" ? (
+                  <Text style={styles.itineraryText}>
+                    {selectedItinerary.itinerary}
+                  </Text>
+                ) : (
+                  <View>
+                    {selectedItinerary.itinerary?.destination && (
+                      <View style={styles.itinerarySection}>
+                        <Text style={styles.sectionTitle}>Destination</Text>
+                        <Text style={styles.sectionContent}>
+                          {selectedItinerary.itinerary.destination}
+                        </Text>
+                      </View>
+                    )}
+
+                    {selectedItinerary.itinerary?.duration && (
+                      <View style={styles.itinerarySection}>
+                        <Text style={styles.sectionTitle}>Duration</Text>
+                        <Text style={styles.sectionContent}>
+                          {selectedItinerary.itinerary.duration}
+                        </Text>
+                      </View>
+                    )}
+
+                    {selectedItinerary.itinerary?.activities &&
+                      Array.isArray(selectedItinerary.itinerary.activities) && (
+                        <View style={styles.itinerarySection}>
+                          <Text style={styles.sectionTitle}>Activities</Text>
+                          {selectedItinerary.itinerary.activities.map(
+                            (activity: string, index: number) => (
+                              <View key={index} style={styles.activityItem}>
+                                <Ionicons
+                                  name="checkmark-circle"
+                                  size={20}
+                                  color="#7C3AED"
+                                />
+                                <Text style={styles.activityText}>{activity}</Text>
+                              </View>
+                            )
+                          )}
+                        </View>
+                      )}
+
+                    {selectedItinerary.itinerary?.schedule &&
+                      Array.isArray(selectedItinerary.itinerary.schedule) && (
+                        <View style={styles.itinerarySection}>
+                          <Text style={styles.sectionTitle}>Schedule</Text>
+                          {selectedItinerary.itinerary.schedule.map(
+                            (day: any, index: number) => (
+                              <View key={index} style={styles.dayItem}>
+                                <Text style={styles.dayTitle}>Day {index + 1}</Text>
+                                {typeof day === "string" ? (
+                                  <Text style={styles.dayContent}>{day}</Text>
+                                ) : (
+                                  <Text style={styles.dayContent}>
+                                    {JSON.stringify(day, null, 2)}
+                                  </Text>
+                                )}
+                              </View>
+                            )
+                          )}
+                        </View>
+                      )}
+
+                    {!selectedItinerary.itinerary?.destination &&
+                      !selectedItinerary.itinerary?.activities &&
+                      !selectedItinerary.itinerary?.schedule && (
+                        <View style={styles.itinerarySection}>
+                          <Text style={styles.sectionTitle}>Itinerary Details</Text>
+                          <Text style={styles.itineraryText}>
+                            {JSON.stringify(selectedItinerary.itinerary, null, 2)}
+                          </Text>
+                        </View>
+                      )}
+                  </View>
+                )}
+
+                {selectedItinerary.notes && (
+                  <View style={styles.itinerarySection}>
+                    <Text style={styles.sectionTitle}>Notes</Text>
+                    <Text style={styles.sectionContent}>
+                      {selectedItinerary.notes}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.itinerarySection}>
+                  <Text style={styles.sectionTitle}>Created</Text>
+                  <Text style={styles.sectionContent}>
+                    {new Date(selectedItinerary.createdAt).toLocaleString()}
+                  </Text>
+                </View>
+              </>
             )}
           </ScrollView>
         </View>
@@ -1649,6 +1911,88 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#1F2937",
     lineHeight: 24,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#6B7280",
+    marginTop: 16,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    marginTop: 8,
+  },
+  itineraryCard: {
+    backgroundColor: "#FFF",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  activeItineraryCard: {
+    borderColor: "#10B981",
+    borderWidth: 2,
+  },
+  itineraryCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  itineraryCardInfo: {
+    flex: 1,
+  },
+  itineraryCardTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginBottom: 4,
+  },
+  itineraryCardDate: {
+    fontSize: 13,
+    color: "#6B7280",
+  },
+  activeBadge: {
+    backgroundColor: "#10B981",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  activeBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#FFF",
+  },
+  itineraryCardActions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 8,
+  },
+  itineraryActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: "#F9FAFB",
+  },
+  itineraryActionText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#6B7280",
   },
 });
 
