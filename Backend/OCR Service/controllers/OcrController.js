@@ -1,7 +1,7 @@
 "use strict";
 
 require("dotenv").config();
-const Tesseract = require("tesseract.js");
+
 const axios = require("axios");
 const { googleAPI } = require("../services/Text_to_Json_Service");
 
@@ -16,22 +16,22 @@ const ocrFunction = async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: "File is required" });
     }
-    // Perform OCR on the uploaded image
-    const ocrResult = await Tesseract.recognize(req.file.buffer, "eng");
-    const extractedText = ocrResult.data.text;
+    // Verify file type (basic check)
+    if (!req.file.mimetype.startsWith("image/")) {
+      return res.status(400).json({ error: "Uploaded file is not an image." });
+    }
 
-    // Convert extracted text to structured JSON using your Google API service
-    const formattedData = await googleAPI(extractedText);
+    // Process image directly with Gemini
+    const formattedData = await googleAPI(req.file.buffer, req.file.mimetype);
 
-    if (
-      formattedData.category == "Unreadable/Indeterminate" ||
-      formattedData.total_amount == null
-    ) {
+    // Check if it is a valid bill
+    if (formattedData.is_bill === false) {
       return res.status(400).json({
-        error:
-          "Uploaded image is unclear or text could not be extracted. Please upload a clearer image.",
+        error: formattedData.error || "Uploaded image is not a valid bill.",
       });
     }
+
+    console.log("Formatted Data: ", formattedData);
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res
