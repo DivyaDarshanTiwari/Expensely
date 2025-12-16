@@ -244,7 +244,7 @@ export default function AddTransactions() {
   // Fetch Personal Categories
   const fetchPersonalCategories = async () => {
     if (!idToken || !userId) {
-      console.log("Missing auth data for fetching categories");
+
       return;
     }
 
@@ -263,7 +263,7 @@ export default function AddTransactions() {
         }
       );
 
-      console.log("Personal categories response:", response.data);
+
       setPersonalCategories(response.data.data || response.data || []);
     } catch (error) {
       let errorMessage = "Unknown error";
@@ -306,7 +306,7 @@ export default function AddTransactions() {
         type: transactionType,
       };
 
-      console.log("Adding category with payload:", payload);
+
 
       const response = await axios.post(
         `${Constants.expoConfig?.extra?.Basic_URL}/api/v1/personal-categories`,
@@ -319,7 +319,7 @@ export default function AddTransactions() {
         }
       );
 
-      console.log("Add category response:", response.data);
+
 
       Alert.alert("Success", "Category added successfully!");
       setShowAddCategoryModal(false);

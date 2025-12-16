@@ -22,6 +22,10 @@ import {
 } from "react-native";
 import { getStoredToken } from "../../utils/storage";
 import { refreshInvalidToken } from "@/utils/refreshIfInvalid";
+import { useDispatch } from "react-redux";
+import { triggerRefresh } from "@/hooks/redux/dashboardSlice";
+
+
 
 const sassyMessages = {
   processing: [
@@ -59,6 +63,7 @@ export default function CameraUploadScreen() {
   const [idToken, setIdToken] = useState<string | null>(null);
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
   const [currentSassyMessage, setCurrentSassyMessage] = useState("");
+  const dispatch = useDispatch();
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -133,24 +138,23 @@ export default function CameraUploadScreen() {
     ]).start();
   };
 
-  const requestCameraPermissions = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    return status === "granted";
-  };
+  const [status, requestPermission] = ImagePicker.useCameraPermissions();
 
   const openCamera = async () => {
     try {
-      const isPermitted = await requestCameraPermissions();
-      if (!isPermitted) {
-        Alert.alert(
-          "Hold up! 📸",
-          "I need camera permission to work my magic!"
-        );
-        return;
+      if (!status?.granted) {
+        const permission = await requestPermission();
+        if (!permission.granted) {
+          Alert.alert(
+            "Hold up! 📸",
+            "I need camera permission to work my magic!"
+          );
+          return;
+        }
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: 'images',
         allowsEditing: true,
         quality: 0.8,
         base64: true,
@@ -195,6 +199,7 @@ export default function CameraUploadScreen() {
         setOcrResult(extractedText);
         setCurrentSassyMessage(getRandomMessage("success"));
         startBounceAnimation();
+        dispatch(triggerRefresh());
         Alert.alert("Yasss! 🎉", "Receipt decoded like a pro!");
       } else {
         throw new Error("No data received from OCR service");

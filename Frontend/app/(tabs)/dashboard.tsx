@@ -216,7 +216,7 @@ const ExpenselyDashboard = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
-      {/* Header */} {/**Importing the dasboard componets */}
+      {/* Header */}{/* Importing the dasboard componets */}
       <DashboardHeader user={user}></DashboardHeader>
       <ScrollView
         style={styles.scrollView}

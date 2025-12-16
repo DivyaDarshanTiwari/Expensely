@@ -269,7 +269,7 @@ export default function ProfileScreen() {
     setSaving(true);
     try {
       // Update Firebase Auth profile
-      console.log("Updating profile with");
+
       await updateProfile(user, {
         displayName: editedProfile.displayName,
       });

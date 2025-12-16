@@ -102,7 +102,7 @@ const ManageMembers = () => {
           },
         }
       );
-      console.log(res.data);
+
       setMembers(res.data || []);
 
       // Get current user ID and check admin status
@@ -160,7 +160,7 @@ const ManageMembers = () => {
   const handleAddMember = async (user: any) => {
     setLoading(true);
     try {
-      console.log(user);
+
       const res = await axios.post(
         `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/addMember/${groupId}`,
         {
@@ -199,7 +199,7 @@ const ManageMembers = () => {
 
     setLoading(true);
     try {
-      console.log(selectedMember);
+
       const res = await axios.delete(
         `${Constants.expoConfig?.extra?.Group_URL}/api/v1/group/removeMember/${groupId}`,
         {

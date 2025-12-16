@@ -35,7 +35,7 @@ export default function Index() {
     let isMounted = true;
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log("Auth state changed:", firebaseUser);
+
       if (!isMounted || checked) return;
 
       if (firebaseUser && firebaseUser.emailVerified) {
